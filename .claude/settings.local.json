@@ -18,7 +18,11 @@
       "Bash(./gradlew.bat:*)",
       "Bash(git init:*)",
       "Bash(git remote:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(curl:*)",
+      "Bash(.gradlew.bat assembleDebug)",
+      "Bash(java:*)",
+      "Bash(where:*)"
     ],
     "deny": [],
     "ask": []

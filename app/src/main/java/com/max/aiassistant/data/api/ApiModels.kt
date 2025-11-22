@@ -221,12 +221,31 @@ data class MessageRequest(
 
 /**
  * Réponse simplifiée de l'API (juste le texte)
+ * Le champ text est nullable pour gérer les réponses vides du webhook
  */
 data class WebhookResponse(
-    val text: String
+    val text: String? = null
 )
 
 // ========== HELPER FUNCTIONS ==========
+
+/**
+ * Parse une réponse brute du webhook en WebhookResponse
+ * Gère les cas de corps vide, texte brut, et JSON
+ */
+fun parseWebhookResponse(responseBody: String?): WebhookResponse {
+    if (responseBody.isNullOrBlank()) {
+        return WebhookResponse(text = null)
+    }
+
+    return try {
+        // Essaie de parser comme JSON
+        com.google.gson.Gson().fromJson(responseBody, WebhookResponse::class.java)
+    } catch (e: Exception) {
+        // Si le parsing JSON échoue, traite comme du texte brut
+        WebhookResponse(text = responseBody)
+    }
+}
 
 /**
  * Génère un ID unique pour les messages

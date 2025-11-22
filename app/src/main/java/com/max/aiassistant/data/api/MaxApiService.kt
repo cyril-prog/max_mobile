@@ -1,7 +1,9 @@
 package com.max.aiassistant.data.api
 
 import okhttp3.OkHttpClient
+import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
@@ -14,7 +16,7 @@ import java.util.concurrent.TimeUnit
 interface MaxApiService {
 
     @GET("webhook/max_mobile")
-    suspend fun sendMessage(@Query("text") text: String): WebhookResponse
+    suspend fun sendMessage(@Query("text") text: String): Response<ResponseBody>
 
     @GET("webhook/get_tasks")
     suspend fun getTasks(): TasksApiResponse

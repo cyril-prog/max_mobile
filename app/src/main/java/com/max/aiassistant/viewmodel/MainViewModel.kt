@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.max.aiassistant.data.api.MaxApiService
+import com.max.aiassistant.data.api.parseWebhookResponse
 import com.max.aiassistant.data.api.toTask
 import com.max.aiassistant.data.api.toEvent
 import com.max.aiassistant.model.*
@@ -101,14 +102,40 @@ class MainViewModel : ViewModel() {
                 Log.d(TAG, "Envoi du message: $content")
 
                 // Appel API avec GET (passage du texte en query parameter)
-                val response = apiService.sendMessage(content)
+                val httpResponse = apiService.sendMessage(content)
 
-                Log.d(TAG, "Réponse reçue: ${response.text}")
+                // Vérifie que la requête a réussi
+                if (!httpResponse.isSuccessful) {
+                    Log.e(TAG, "Erreur HTTP: ${httpResponse.code()}")
+                    throw Exception("Erreur HTTP: ${httpResponse.code()}")
+                }
+
+                // Récupère le corps de la réponse
+                val rawBody = httpResponse.body()?.string()
+                Log.d(TAG, "Corps de la réponse brut: ${rawBody ?: "(vide)"}")
+
+                // Parse la réponse (gère corps vide, JSON et texte brut)
+                val webhookResponse = parseWebhookResponse(rawBody)
+                Log.d(TAG, "Réponse parsée: text=${webhookResponse.text}")
+
+                // Vérifie si la réponse contient du texte
+                val responseText = webhookResponse.text
+                if (responseText.isNullOrBlank()) {
+                    Log.w(TAG, "Réponse vide du webhook - le workflow n8n ne retourne pas de données")
+
+                    val errorMessage = Message(
+                        id = UUID.randomUUID().toString(),
+                        content = "Le serveur a reçu votre message mais n'a pas renvoyé de réponse. Veuillez vérifier la configuration du webhook n8n.",
+                        isFromUser = false
+                    )
+                    _messages.value = _messages.value + errorMessage
+                    return@launch
+                }
 
                 // Ajoute la réponse de Max
                 val aiResponse = Message(
                     id = UUID.randomUUID().toString(),
-                    content = response.text,
+                    content = responseText,
                     isFromUser = false
                 )
                 _messages.value = _messages.value + aiResponse
