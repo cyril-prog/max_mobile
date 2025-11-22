@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icône de fallback pour Android < API 26 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Fond bleu -->
+    <path
+        android:fillColor="#0A84FF"
+        android:pathData="M0,0h48v48h-48z"/>
+
+    <!-- Cercle blanc -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,24m-18,0a18,18 0,1 1,36 0a18,18 0,1 1,-36 0"/>
+
+    <!-- Lettre M en bleu -->
+    <path
+        android:fillColor="#0A84FF"
+        android:pathData="M16,32L16,16L20,16L24,26L28,16L32,16L32,32L28,32L28,21L24,32L24,32L20,21L20,32Z"/>
+</vector>

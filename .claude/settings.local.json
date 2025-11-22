@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew clean build:*)",
+      "Bash(del /F \"C:\\Users\\cyril\\.android\\debug.keystore\")",
+      "Bash(powershell -Command \"Remove-Item -Force ''C:\\Users\\cyril\\.android\\debug.keystore''\")",
+      "Bash(./gradlew:*)",
+      "Bash(adb kill-server:*)",
+      "Bash(adb start-server:*)",
+      "Bash(adb devices:*)",
+      "Bash(adb:*)",
+      "Bash(cat:*)",
+      "Bash(gradlew.bat clean:*)",
+      "Bash(dir:*)",
+      "Bash(./gradlew.bat clean build:*)",
+      "Bash(./gradlew.bat assembleDebug)",
+      "Bash(./gradlew.bat installDebug)",
+      "Bash(./gradlew.bat:*)",
+      "Bash(git init:*)",
+      "Bash(git remote:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+  <!-- Fond transparent pour le foreground -->
+  <group android:scaleX="0.5"
+      android:scaleY="0.5"
+      android:translateX="27"
+      android:translateY="27">
+
+    <!-- Cercle pour le logo "M" -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0"/>
+
+    <!-- Lettre "M" de Max -->
+    <path
+        android:fillColor="#0A84FF"
+        android:pathData="M36,70L36,38L45,38L54,58L63,38L72,38L72,70L64,70L64,48L54,70L54,70L44,48L44,70Z"/>
+  </group>
+</vector>
