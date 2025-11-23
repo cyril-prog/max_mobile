@@ -112,7 +112,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier
                             .fillMaxSize()
                             .alpha(contentAlpha), // Applique l'alpha au contenu pour le fondu
-                        userScrollEnabled = !isTransitioning // Désactive le swipe pendant la transition
+                        userScrollEnabled = false // Désactive le swipe - navigation uniquement par boutons
                     ) { page ->
                     when (page) {
                         // PAGE 0 : Écran Voice (écran principal)
@@ -150,10 +150,9 @@ class MainActivity : ComponentActivity() {
                                     viewModel.sendMessage(message)
                                 },
                                 onVoiceInput = {
-                                    // Navigation fluide vers VoiceScreen (page 0)
-                                    coroutineScope.launch {
-                                        pagerState.animateScrollToPage(0)
-                                    }
+                                    // Déclenche l'animation de transition vers l'écran principal
+                                    targetPage = 0
+                                    isTransitioning = true
                                 }
                             )
                         }
@@ -172,6 +171,11 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onTaskDelete = { taskId ->
                                     viewModel.deleteTask(taskId)
+                                },
+                                onNavigateToHome = {
+                                    // Déclenche l'animation de transition vers l'écran principal
+                                    targetPage = 0
+                                    isTransitioning = true
                                 }
                             )
                         }

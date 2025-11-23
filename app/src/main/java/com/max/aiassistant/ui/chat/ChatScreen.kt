@@ -17,7 +17,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -254,7 +254,7 @@ fun MessageInputBar(
                     )
                 }
             } else {
-                // Bouton micro (visible quand le champ est vide)
+                // Bouton maison (visible quand le champ est vide)
                 IconButton(
                     onClick = onVoiceInput,
                     modifier = Modifier
@@ -263,8 +263,8 @@ fun MessageInputBar(
                         .background(DarkSurfaceVariant)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Mic,
-                        contentDescription = "Voice input",
+                        imageVector = Icons.Default.Home,
+                        contentDescription = "Retour à l'écran principal",
                         tint = TextPrimary
                     )
                 }

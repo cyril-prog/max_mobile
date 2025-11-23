@@ -42,10 +42,20 @@ data class MessageData(
 
 /**
  * Contenu d'un message
- * Les champs non définis (additional_kwargs, response_metadata, etc.) sont ignorés
  */
 data class MessageContent(
-    val type: String,  // "human" ou "ai"
-    val content: String
-    // Autres champs ignorés: additional_kwargs, response_metadata, tool_calls, invalid_tool_calls
+    val type: String,  // "human", "ai", ou "user"
+    val content: String,
+
+    @SerializedName("tool_calls")
+    val toolCalls: List<Any> = emptyList(),
+
+    @SerializedName("additional_kwargs")
+    val additionalKwargs: Map<String, Any> = emptyMap(),
+
+    @SerializedName("response_metadata")
+    val responseMetadata: Map<String, Any> = emptyMap(),
+
+    @SerializedName("invalid_tool_calls")
+    val invalidToolCalls: List<Any> = emptyList()
 )

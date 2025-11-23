@@ -6,7 +6,9 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
@@ -26,6 +28,12 @@ interface MaxApiService {
 
     @GET("webhook/get_recent_messages")
     suspend fun getRecentMessages(): MessagesApiResponse
+
+    @POST("webhook/save_conv")
+    suspend fun saveConversation(@Body payload: List<MessageData>): Response<ResponseBody>
+
+    @POST("webhook/prompt_system")
+    suspend fun getSystemContext(): List<SystemContextApiResponse>
 
     companion object {
         private const val BASE_URL = "https://n8n.srv1086212.hstgr.cloud/"

@@ -9,10 +9,12 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.LinkedBlockingQueue
 
 /**
  * Gestionnaire audio pour l'API Realtime
@@ -40,7 +42,10 @@ class RealtimeAudioManager(
     private var audioRecord: AudioRecord? = null
     private var audioTrack: AudioTrack? = null
     private var recordingJob: Job? = null
+    private var playbackJob: Job? = null
+    private var audioChunkQueue = LinkedBlockingQueue<ShortArray>()
     private var isRecording = false
+    private var isPlaybackActive = false
 
     // Buffer pour l'enregistrement
     private val recordBufferSize = AudioRecord.getMinBufferSize(
@@ -81,7 +86,7 @@ class RealtimeAudioManager(
                 return
             }
 
-            // Initialise AudioTrack pour la lecture
+            // Initialise AudioTrack pour la lecture (mode non-bloquant)
             audioTrack = AudioTrack.Builder()
                 .setAudioFormat(
                     AudioFormat.Builder()
@@ -91,6 +96,7 @@ class RealtimeAudioManager(
                         .build()
                 )
                 .setBufferSizeInBytes(playBufferSize)
+                .setTransferMode(AudioTrack.MODE_STREAM)
                 .build()
 
             audioTrack?.play()
@@ -98,12 +104,18 @@ class RealtimeAudioManager(
             // Démarre l'enregistrement
             audioRecord?.startRecording()
             isRecording = true
+            isPlaybackActive = true
 
             Log.d(TAG, "Enregistrement audio démarré")
 
             // Lance la capture audio dans une coroutine
             recordingJob = CoroutineScope(Dispatchers.IO).launch {
                 captureAudio()
+            }
+
+            // Lance le playback des chunks dans une coroutine dédiée
+            playbackJob = CoroutineScope(Dispatchers.IO).launch {
+                playbackAudioChunks()
             }
 
         } catch (e: SecurityException) {
@@ -123,7 +135,9 @@ class RealtimeAudioManager(
         }
 
         isRecording = false
+        isPlaybackActive = false
         recordingJob?.cancel()
+        playbackJob?.cancel()
 
         try {
             audioRecord?.stop()
@@ -133,6 +147,9 @@ class RealtimeAudioManager(
             audioTrack?.stop()
             audioTrack?.release()
             audioTrack = null
+
+            // Vide la queue
+            audioChunkQueue.clear()
 
             Log.d(TAG, "Enregistrement audio arrêté")
         } catch (e: Exception) {
@@ -177,7 +194,7 @@ class RealtimeAudioManager(
     }
 
     /**
-     * Joue un chunk audio reçu de l'API (Base64 encoded PCM16)
+     * Ajoute un chunk audio à la queue de playback (Base64 encoded PCM16)
      */
     fun playAudioChunk(base64Audio: String) {
         try {
@@ -193,11 +210,38 @@ class RealtimeAudioManager(
                 shortBuffer[i] = byteBuffer.short
             }
 
-            // Joue l'audio
-            audioTrack?.write(shortBuffer, 0, shortBuffer.size)
+            // Ajoute le chunk à la queue (non-bloquant)
+            audioChunkQueue.offer(shortBuffer)
 
         } catch (e: Exception) {
-            Log.e(TAG, "Erreur lors de la lecture audio", e)
+            Log.e(TAG, "Erreur lors du décodage audio", e)
+        }
+    }
+
+    /**
+     * Consomme la queue de chunks audio et les joue de manière séquentielle
+     * S'exécute dans un thread background dédié
+     */
+    private suspend fun playbackAudioChunks() {
+        while (isPlaybackActive) {
+            try {
+                // Attend et récupère le prochain chunk (bloquant jusqu'à disponibilité)
+                val chunk = audioChunkQueue.poll(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+
+                if (chunk != null) {
+                    // Joue le chunk (mode bloquant pour garantir la séquentialité)
+                    val written = audioTrack?.write(chunk, 0, chunk.size) ?: 0
+
+                    if (written < 0) {
+                        Log.e(TAG, "Erreur d'écriture AudioTrack: $written")
+                    }
+                }
+            } catch (e: InterruptedException) {
+                Log.d(TAG, "Playback interrompu")
+                break
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors du playback audio", e)
+            }
         }
     }
 

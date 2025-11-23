@@ -49,7 +49,10 @@ data class SessionConfig(
 
 data class InputAudioTranscription(
     @SerializedName("model")
-    val model: String = "whisper-1"
+    val model: String = "whisper-1",
+
+    @SerializedName("language")
+    val language: String? = null  // Code langue ISO-639-1 (ex: "fr", "en")
 )
 
 data class TurnDetection(
@@ -233,6 +236,15 @@ sealed class RealtimeServerEvent {
         val responseId: String,
         val itemId: String,
         val outputIndex: Int,
+        val contentIndex: Int,
+        val transcript: String
+    ) : RealtimeServerEvent()
+
+    /**
+     * Transcription de l'audio d'entrée utilisateur terminée
+     */
+    data class InputAudioTranscriptionCompleted(
+        val itemId: String,
         val contentIndex: Int,
         val transcript: String
     ) : RealtimeServerEvent()

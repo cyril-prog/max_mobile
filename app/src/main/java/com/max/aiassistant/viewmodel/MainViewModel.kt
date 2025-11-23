@@ -5,9 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.max.aiassistant.BuildConfig
 import com.max.aiassistant.data.api.MaxApiService
+import com.max.aiassistant.data.api.MessageContent
+import com.max.aiassistant.data.api.MessageData
 import com.max.aiassistant.data.api.parseWebhookResponse
 import com.max.aiassistant.data.api.toTask
 import com.max.aiassistant.data.api.toEvent
+import com.max.aiassistant.data.api.toEnrichedPrompt
 import com.max.aiassistant.data.realtime.RealtimeApiService
 import com.max.aiassistant.data.realtime.RealtimeAudioManager
 import com.max.aiassistant.data.realtime.RealtimeServerEvent
@@ -44,10 +47,42 @@ class MainViewModel : ViewModel() {
     private var realtimeService: RealtimeApiService? = null
     private var audioManager: RealtimeAudioManager? = null
 
+    // Contexte système pour enrichir le prompt du voice-to-voice
+    private var systemContext: String = ""
+
     // ========== ÉTAT DU CHAT ==========
 
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages: StateFlow<List<Message>> = _messages.asStateFlow()
+
+    /**
+     * Charge le contexte système (tâches, mémoire, historique) pour enrichir le prompt voice-to-voice
+     */
+    private fun loadSystemContext() {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Chargement du contexte système...")
+
+                val response = apiService.getSystemContext()
+
+                // La réponse est un tableau, on prend le premier élément
+                if (response.isNotEmpty()) {
+                    systemContext = response[0].toEnrichedPrompt()
+                    Log.d(TAG, "Contexte système chargé (${systemContext.length} caractères)")
+                    Log.d(TAG, "Contexte prévisualisation: ${systemContext.take(300)}...")
+                } else {
+                    Log.w(TAG, "La réponse du contexte système est vide")
+                    systemContext = ""
+                }
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors du chargement du contexte système", e)
+                Log.e(TAG, "Stack trace:", e)
+                // En cas d'erreur, on garde le contexte vide
+                systemContext = ""
+            }
+        }
+    }
 
     /**
      * Charge les messages récents depuis l'API au démarrage
@@ -263,6 +298,20 @@ class MainViewModel : ViewModel() {
     private val _liveTranscript = MutableStateFlow("")
     val liveTranscript: StateFlow<String> = _liveTranscript.asStateFlow()
 
+    // ========== STOCKAGE DES CONVERSATIONS VOICE ==========
+
+    // Liste des messages de la conversation en cours (pour envoi à n8n)
+    private val conversationMessages = mutableListOf<MessageData>()
+
+    // ID de session unique pour cette conversation
+    private var sessionId: String = UUID.randomUUID().toString()
+
+    // Compteur pour générer les IDs de messages
+    private var messageIdCounter = 0
+
+    // Dernière transcription utilisateur (en attente de la réponse IA)
+    private var pendingUserTranscript: String? = null
+
     /**
      * Toggle la connexion à l'API Realtime
      *
@@ -320,8 +369,8 @@ class MainViewModel : ViewModel() {
             }
         }
 
-        // Lance la connexion WebSocket
-        realtimeService?.connect()
+        // Lance la connexion WebSocket avec le contexte système
+        realtimeService?.connect(systemContext)
     }
 
     /**
@@ -339,6 +388,9 @@ class MainViewModel : ViewModel() {
         _isRealtimeConnected.value = false
         _voiceTranscript.value = ""
         _liveTranscript.value = ""
+
+        // Réinitialise la conversation pour la prochaine session
+        resetConversation()
 
         Log.d(TAG, "Déconnexion Realtime terminée")
     }
@@ -366,10 +418,22 @@ class MainViewModel : ViewModel() {
                 _liveTranscript.value = "Traitement..."
             }
 
+            is RealtimeServerEvent.InputAudioTranscriptionCompleted -> {
+                Log.d(TAG, "*** Transcription utilisateur reçue: ${event.transcript}")
+                // Stocke la transcription utilisateur en attente de la réponse IA
+                pendingUserTranscript = event.transcript
+                Log.d(TAG, "*** pendingUserTranscript stocké: $pendingUserTranscript")
+            }
+
             is RealtimeServerEvent.ResponseAudioTranscriptDone -> {
-                Log.d(TAG, "Transcription reçue: ${event.transcript}")
+                Log.d(TAG, "*** Transcription IA reçue: ${event.transcript}")
+                Log.d(TAG, "*** pendingUserTranscript avant ajout: $pendingUserTranscript")
                 _voiceTranscript.value = event.transcript
                 _liveTranscript.value = ""
+
+                // Ajoute la paire utilisateur + IA à la conversation
+                addConversationPair(pendingUserTranscript ?: "", event.transcript)
+                pendingUserTranscript = null
             }
 
             is RealtimeServerEvent.ResponseAudioDelta -> {
@@ -392,12 +456,101 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Ajoute une paire de messages utilisateur + IA à la conversation
+     */
+    private fun addConversationPair(userTranscript: String, aiTranscript: String) {
+        Log.d(TAG, "*** addConversationPair appelé - User: '$userTranscript', AI: '$aiTranscript'")
+
+        // Message utilisateur
+        if (userTranscript.isNotEmpty()) {
+            val userMessage = MessageData(
+                id = messageIdCounter++,
+                sessionId = sessionId,
+                message = MessageContent(
+                    type = "human",
+                    content = userTranscript
+                )
+            )
+            conversationMessages.add(userMessage)
+            Log.d(TAG, "*** Message utilisateur ajouté: $userTranscript")
+        } else {
+            Log.w(TAG, "*** Transcription utilisateur vide, non ajoutée")
+        }
+
+        // Message IA
+        if (aiTranscript.isNotEmpty()) {
+            val aiMessage = MessageData(
+                id = messageIdCounter++,
+                sessionId = sessionId,
+                message = MessageContent(
+                    type = "ai",
+                    content = aiTranscript
+                )
+            )
+            conversationMessages.add(aiMessage)
+            Log.d(TAG, "*** Message IA ajouté: $aiTranscript")
+        } else {
+            Log.w(TAG, "*** Transcription IA vide, non ajoutée")
+        }
+
+        Log.d(TAG, "*** Taille de conversationMessages: ${conversationMessages.size}")
+
+        // Envoie automatiquement après chaque échange
+        sendConversationToN8n()
+    }
+
+    /**
+     * Envoie la conversation complète à n8n
+     */
+    private fun sendConversationToN8n() {
+        Log.d(TAG, "*** sendConversationToN8n appelé")
+
+        viewModelScope.launch {
+            try {
+                if (conversationMessages.isEmpty()) {
+                    Log.w(TAG, "*** Pas de messages à envoyer (liste vide)")
+                    return@launch
+                }
+
+                Log.d(TAG, "*** Envoi de ${conversationMessages.size} messages à n8n...")
+                Log.d(TAG, "*** URL: https://n8n.srv1086212.hstgr.cloud/webhook/save_conv")
+                Log.d(TAG, "*** Payload: ${conversationMessages.take(2)}")  // Log les 2 premiers messages
+
+                val response = apiService.saveConversation(conversationMessages)
+
+                if (response.isSuccessful) {
+                    Log.d(TAG, "*** ✅ Conversation envoyée avec succès à n8n")
+                    Log.d(TAG, "*** Response code: ${response.code()}")
+                } else {
+                    Log.e(TAG, "*** ❌ Erreur lors de l'envoi de la conversation: ${response.code()}")
+                    Log.e(TAG, "*** Response body: ${response.errorBody()?.string()}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "*** ❌ Exception lors de l'envoi de la conversation à n8n", e)
+                e.printStackTrace()
+            }
+        }
+    }
+
+    /**
+     * Réinitialise la conversation (nouveau session ID)
+     */
+    fun resetConversation() {
+        conversationMessages.clear()
+        sessionId = UUID.randomUUID().toString()
+        messageIdCounter = 0
+        pendingUserTranscript = null
+        Log.d(TAG, "Conversation réinitialisée avec nouveau session ID: $sessionId")
+    }
+
     // ========== INITIALISATION ==========
 
     /**
      * Bloc d'initialisation : charge les messages, tâches et événements au démarrage
      */
     init {
+        loadSystemContext()
         loadRecentMessages()
         refreshTasks()
         refreshCalendarEvents()

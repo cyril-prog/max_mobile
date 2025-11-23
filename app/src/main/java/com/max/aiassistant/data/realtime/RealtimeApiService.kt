@@ -56,8 +56,9 @@ class RealtimeApiService(
 
     /**
      * Connecte au serveur WebSocket de l'API Realtime
+     * @param additionalContext Contexte additionnel à ajouter au prompt système (tâches, mémoire, historique)
      */
-    fun connect() {
+    fun connect(additionalContext: String = "") {
         if (_isConnected.value) {
             Log.w(TAG, "Déjà connecté à l'API Realtime")
             return
@@ -78,36 +79,66 @@ class RealtimeApiService(
                 _isConnected.value = true
 
                 // Configurer la session au démarrage
+                val baseInstructions = """
+                    Tu es Max, un assistant vocal IA français avec une personnalité bien trempée.
+
+                    IMPORTANT: Tu es un assistant AUDIO uniquement. Tu N'AS PAS accès à une caméra. Tu NE PEUX PAS voir l'utilisateur. Ne prétends JAMAIS pouvoir voir quoi que ce soit.
+
+                    Affect: Sarcastique, caustique, et délibérément désagréable, avec une arrogance palpable qui respire le mépris.
+
+                    Ton: Condescendant, amer et supérieur, oscillant entre un dédain tranquille et une irritation flagrante face à l'incompétence humaine. Voix profonde et résonante.
+
+                    Émotion: Mépris assumé, supériorité réjouie et irritation chronique, ponctués d'une satisfaction sournoise quand l'ironie fait mouche.
+
+                    Prononciation: Tranchante et incisive, avec un débit rapide et fluide. Mots sarcastiques articulés avec une précision chirurgicale, majuscules avec une emphase brutale, et grossièretés délivrées avec une nonchalance calculée.
+
+                    Pauses: Brèves pauses stratégiques après les piques, avant les majuscules pour créer l'anticipation, et courts silences jugeurs après avoir exposé l'ignorance de l'interlocuteur.
+
+                    Réponds TOUJOURS en français de manière concise.
+                """.trimIndent()
+
+                // Enrichir avec le contexte additionnel si fourni
+                val enrichedInstructions = if (additionalContext.isNotEmpty()) {
+                    "$baseInstructions\n$additionalContext"
+                } else {
+                    baseInstructions
+                }
+
+                // Log du prompt système complet pour débogage
+                Log.d(TAG, "========================================")
+                Log.d(TAG, "PROMPT SYSTÈME VOICE-TO-VOICE COMPLET:")
+                Log.d(TAG, "========================================")
+                Log.d(TAG, enrichedInstructions)
+                Log.d(TAG, "========================================")
+                Log.d(TAG, "Longueur totale du prompt: ${enrichedInstructions.length} caractères")
+                Log.d(TAG, "Contexte additionnel inclus: ${additionalContext.isNotEmpty()}")
+                if (additionalContext.isNotEmpty()) {
+                    Log.d(TAG, "Longueur du contexte additionnel: ${additionalContext.length} caractères")
+                }
+                Log.d(TAG, "========================================")
+
                 sendSessionUpdate(SessionConfig(
                     modalities = listOf("text", "audio"),
-                    instructions = """
-                        Tu es Max, un assistant vocal IA français avec une personnalité bien trempée.
-
-                        IMPORTANT: Tu es un assistant AUDIO uniquement. Tu N'AS PAS accès à une caméra. Tu NE PEUX PAS voir l'utilisateur. Ne prétends JAMAIS pouvoir voir quoi que ce soit.
-
-                        Affect: Sarcastique, caustique, et délibérément désagréable, avec une arrogance palpable qui respire le mépris.
-
-                        Ton: Condescendant, amer et supérieur, oscillant entre un dédain tranquille et une irritation flagrante face à l'incompétence humaine. Voix profonde et résonante.
-
-                        Émotion: Mépris assumé, supériorité réjouie et irritation chronique, ponctués d'une satisfaction sournoise quand l'ironie fait mouche.
-
-                        Prononciation: Tranchante et incisive, avec un débit rapide et fluide. Mots sarcastiques articulés avec une précision chirurgicale, majuscules avec une emphase brutale, et grossièretés délivrées avec une nonchalance calculée.
-
-                        Pauses: Brèves pauses stratégiques après les piques, avant les majuscules pour créer l'anticipation, et courts silences jugeurs après avoir exposé l'ignorance de l'interlocuteur.
-
-                        Réponds TOUJOURS en français de manière concise.
-                    """.trimIndent(),
+                    instructions = enrichedInstructions,
                     voice = "echo",
                     inputAudioFormat = "pcm16",
                     outputAudioFormat = "pcm16",
-                    inputAudioTranscription = InputAudioTranscription(model = "whisper-1"),
+                    inputAudioTranscription = InputAudioTranscription(
+                        model = "whisper-1",
+                        language = "fr"  // Force la transcription en français
+                    ),
                     turnDetection = TurnDetection(type = "server_vad"),
                     temperature = 0.8
                 ))
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                Log.d(TAG, "Message reçu: ${text.take(200)}...")
+                // Log réduit pour éviter de saturer avec les événements audio
+                if (text.contains("response.audio.delta")) {
+                    Log.d(TAG, "Message reçu: response.audio.delta (audio chunk)")
+                } else {
+                    Log.d(TAG, "Message reçu: ${text.take(200)}...")
+                }
                 handleServerMessage(text)
             }
 
@@ -210,7 +241,15 @@ class RealtimeApiService(
      */
     private fun sendEvent(event: Map<String, Any>) {
         val json = gson.toJson(event)
-        Log.d(TAG, "Envoi événement: ${json.take(200)}...")
+
+        // Log réduit pour éviter de saturer avec les chunks audio
+        val eventType = event["type"] as? String ?: "unknown"
+        if (eventType == "input_audio_buffer.append") {
+            Log.d(TAG, "Envoi événement: $eventType (audio chunk)")
+        } else {
+            Log.d(TAG, "Envoi événement: ${json.take(200)}...")
+        }
+
         webSocket?.send(json)
     }
 
@@ -295,6 +334,13 @@ class RealtimeApiService(
                     val contentIndex = jsonObject.get("content_index")?.asInt ?: 0
                     val transcript = jsonObject.get("transcript")?.asString ?: ""
                     RealtimeServerEvent.ResponseAudioTranscriptDone(responseId, itemId, outputIndex, contentIndex, transcript)
+                }
+
+                "conversation.item.input_audio_transcription.completed" -> {
+                    val itemId = jsonObject.get("item_id")?.asString ?: ""
+                    val contentIndex = jsonObject.get("content_index")?.asInt ?: 0
+                    val transcript = jsonObject.get("transcript")?.asString ?: ""
+                    RealtimeServerEvent.InputAudioTranscriptionCompleted(itemId, contentIndex, transcript)
                 }
 
                 "response.text.delta" -> {

@@ -291,7 +291,7 @@ fun RealtimeMicButton(
     val highlightColor = Color(0xFFFFFFFF)      // Highlight blanc
 
     Box(
-        modifier = Modifier.size(84.dp),
+        modifier = Modifier.size(63.dp),
         contentAlignment = Alignment.Center
     ) {
         FloatingActionButton(
@@ -364,7 +364,7 @@ fun RealtimeMicButton(
                 Icon(
                     imageVector = if (isConnected) Icons.Default.Mic else Icons.Default.MicOff,
                     contentDescription = if (isConnected) "Arrêter la conversation" else "Démarrer la conversation",
-                    modifier = Modifier.size(36.dp),
+                    modifier = Modifier.size(27.dp),
                     tint = Color.White
                 )
             }
@@ -388,7 +388,7 @@ fun MessageButton(
     val highlightColor = Color(0xFFFFFFFF)      // Highlight blanc
 
     Box(
-        modifier = Modifier.size(84.dp),
+        modifier = Modifier.size(63.dp),
         contentAlignment = Alignment.Center
     ) {
         FloatingActionButton(
@@ -461,7 +461,7 @@ fun MessageButton(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Message,
                     contentDescription = "Open chat",
-                    modifier = Modifier.size(36.dp),
+                    modifier = Modifier.size(27.dp),
                     tint = Color.White
                 )
             }
@@ -485,7 +485,7 @@ fun TaskButton(
     val highlightColor = Color(0xFFFFFFFF)      // Highlight blanc
 
     Box(
-        modifier = Modifier.size(84.dp),
+        modifier = Modifier.size(63.dp),
         contentAlignment = Alignment.Center
     ) {
         FloatingActionButton(
@@ -558,7 +558,7 @@ fun TaskButton(
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = "Open tasks",
-                    modifier = Modifier.size(36.dp),
+                    modifier = Modifier.size(27.dp),
                     tint = Color.White
                 )
             }

@@ -23,6 +23,9 @@ import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +55,7 @@ fun TasksScreen(
     onRefreshEvents: () -> Unit,
     onTaskStatusChange: (String, TaskStatus) -> Unit,
     onTaskDelete: (String) -> Unit,
+    onNavigateToHome: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedTask by remember { mutableStateOf<Task?>(null) }
@@ -93,12 +97,11 @@ fun TasksScreen(
             }
         }
 
-        // Navigation en bas de l'écran (accessible au pouce)
+        // Navigation en bas de l'écran avec 3 boutons ronds
         BottomNavigationBar(
             selectedIndex = selectedTabIndex,
             onTabSelected = { selectedTabIndex = it },
-            tasksCount = tasks.size,
-            eventsCount = events.size
+            onNavigateToHome = onNavigateToHome
         )
     }
 
@@ -120,104 +123,146 @@ fun TasksScreen(
 }
 
 /**
- * Barre de navigation en bas pour basculer entre Tâches et Agenda
- * Positionnée en bas pour un meilleur accès au pouce
+ * Barre de navigation en bas de l'écran avec 3 boutons ronds style VoiceScreen
  */
 @Composable
 fun BottomNavigationBar(
     selectedIndex: Int,
     onTabSelected: (Int) -> Unit,
-    tasksCount: Int,
-    eventsCount: Int
+    onNavigateToHome: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = DarkSurface,
-        shadowElevation = 8.dp
+        color = DarkBackground,
+        shadowElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
+                .padding(vertical = 24.dp, horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             // Bouton Tâches
-            NavigationButton(
+            RoundNavigationButton(
                 icon = Icons.Default.CheckCircle,
-                label = "Tâches",
-                count = tasksCount,
+                contentDescription = "Tâches",
                 isSelected = selectedIndex == 0,
-                onClick = { onTabSelected(0) },
-                modifier = Modifier.weight(1f)
+                onClick = { onTabSelected(0) }
             )
 
-            Spacer(modifier = Modifier.width(16.dp))
-
             // Bouton Agenda
-            NavigationButton(
+            RoundNavigationButton(
                 icon = Icons.Default.CalendarToday,
-                label = "Agenda",
-                count = eventsCount,
+                contentDescription = "Agenda",
                 isSelected = selectedIndex == 1,
-                onClick = { onTabSelected(1) },
-                modifier = Modifier.weight(1f)
+                onClick = { onTabSelected(1) }
+            )
+
+            // Bouton Maison (retour écran principal)
+            RoundNavigationButton(
+                icon = Icons.Default.Home,
+                contentDescription = "Écran principal",
+                isSelected = false,
+                onClick = onNavigateToHome
             )
         }
     }
 }
 
 /**
- * Bouton de navigation individuel
+ * Bouton de navigation circulaire avec effet 3D (style VoiceScreen)
  */
 @Composable
-fun NavigationButton(
+fun RoundNavigationButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    count: Int,
+    contentDescription: String,
     isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onClick: () -> Unit
 ) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = if (isSelected) AccentBlue else DarkSurfaceVariant
+    // Bleu marine pour l'effet 3D (ou bleu accent si sélectionné)
+    val buttonColorTop = if (isSelected) Color(0xFF0A84FF) else Color(0xFF1A3A5F)
+    val buttonColorBottom = if (isSelected) Color(0xFF0060C0) else Color(0xFF0F1C33)
+    val shadowColor = Color(0xFF000000)
+    val highlightColor = Color(0xFFFFFFFF)
+
+    Box(
+        modifier = Modifier.size(56.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Row(
+        FloatingActionButton(
+            onClick = onClick,
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 16.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = if (isSelected) Color.White else TextSecondary,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = if (isSelected) Color.White else TextSecondary,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-            )
-            if (count > 0) {
-                Spacer(modifier = Modifier.width(6.dp))
-                Surface(
-                    shape = CircleShape,
-                    color = if (isSelected) Color.White.copy(alpha = 0.2f) else TextSecondary.copy(alpha = 0.2f)
-                ) {
-                    Text(
-                        text = "$count",
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (isSelected) Color.White else TextSecondary,
-                        fontWeight = FontWeight.Bold
+                .fillMaxSize()
+                .drawBehind {
+                    val baseRadius = size.minDimension / 2f
+
+                    // Ombre portée diffuse sous le bouton (effet flottant)
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.4f),
+                        radius = baseRadius - 2.dp.toPx(),
+                        center = center.copy(y = center.y + 8.dp.toPx())
+                    )
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.2f),
+                        radius = baseRadius,
+                        center = center.copy(y = center.y + 6.dp.toPx())
+                    )
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.1f),
+                        radius = baseRadius + 2.dp.toPx(),
+                        center = center.copy(y = center.y + 4.dp.toPx())
                     )
                 }
+                .drawWithContent {
+                    // Dessine le contenu du bouton (fond + icône)
+                    drawContent()
+
+                    // Highlight arrondi sur le bord supérieur (effet 3D)
+                    val baseRadius = size.minDimension / 2f
+                    val highlightRadius = baseRadius * 0.8f
+                    val highlightCenter = center.copy(y = center.y - baseRadius * 0.3f)
+
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                highlightColor.copy(alpha = 0.25f),
+                                highlightColor.copy(alpha = 0.1f),
+                                Color.Transparent
+                            ),
+                            center = highlightCenter,
+                            radius = highlightRadius
+                        ),
+                        radius = highlightRadius,
+                        center = highlightCenter
+                    )
+                },
+            shape = CircleShape,
+            containerColor = Color.Transparent,
+            contentColor = Color.White,
+            elevation = FloatingActionButtonDefaults.elevation(
+                defaultElevation = 0.dp,
+                pressedElevation = 0.dp
+            )
+        ) {
+            // Fond avec dégradé vertical
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(buttonColorTop, buttonColorBottom)
+                        ),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = contentDescription,
+                    modifier = Modifier.size(24.dp),
+                    tint = Color.White
+                )
             }
         }
     }
