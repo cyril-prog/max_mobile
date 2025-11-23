@@ -10,8 +10,8 @@
     <!-- Pour l'accès Internet (appels API IA) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Pour la reconnaissance vocale (à décommenter quand implémenté) -->
-    <!-- <uses-permission android:name="android.permission.RECORD_AUDIO" /> -->
+    <!-- Pour la reconnaissance vocale et l'API Realtime -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- Pour lire le calendrier Google (à décommenter quand implémenté) -->
     <!-- <uses-permission android:name="android.permission.READ_CALENDAR" /> -->

@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,17 +32,17 @@ import kotlin.math.cos
 /**
  * ÉCRAN PRINCIPAL : Voice to Voice
  *
- * Interface minimaliste pour l'interaction vocale
+ * Interface minimaliste pour l'interaction vocale avec l'API Realtime d'OpenAI
  * - Visualiseur d'onde audio animé
- * - Bouton micro pour activer/désactiver l'écoute
+ * - Bouton micro pour activer/désactiver la connexion Realtime
  * - Bouton message pour naviguer vers le chat
  * - Bouton tâches pour naviguer vers les tâches et agenda
  */
 @Composable
 fun VoiceScreen(
-    isListening: Boolean,
+    isRealtimeConnected: Boolean,
     transcript: String,
-    onToggleListening: () -> Unit,
+    onToggleRealtime: () -> Unit,
     onNavigateToChat: () -> Unit,
     onNavigateToTasks: () -> Unit,
     modifier: Modifier = Modifier
@@ -59,7 +60,7 @@ fun VoiceScreen(
 
         // Visualiseur fluide avec orbe coloré
         FluidOrbVisualizer(
-            isActive = isListening,
+            isActive = isRealtimeConnected,
             modifier = Modifier
                 .size(280.dp)
         )
@@ -72,10 +73,10 @@ fun VoiceScreen(
             horizontalArrangement = Arrangement.spacedBy(24.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Bouton Micro
-            ListenButton(
-                isListening = isListening,
-                onClick = onToggleListening
+            // Bouton Micro (bascule entre micro barré et micro actif)
+            RealtimeMicButton(
+                isConnected = isRealtimeConnected,
+                onClick = onToggleRealtime
             )
 
             // Bouton Message
@@ -269,24 +270,33 @@ fun FluidOrbVisualizer(
 }
 
 /**
- * Bouton circulaire avec icône micro
+ * Bouton circulaire avec icône micro pour l'API Realtime
+ * - Micro barré (MicOff) par défaut (déconnecté)
+ * - Micro actif (Mic) quand connecté à l'API Realtime
  */
 @Composable
-fun ListenButton(
-    isListening: Boolean,
+fun RealtimeMicButton(
+    isConnected: Boolean,
     onClick: () -> Unit
 ) {
-    // Bouton circulaire bleu
+    // Couleur du bouton change selon l'état
+    val buttonColor = if (isConnected) {
+        Color(0xFF2563EB) // Bleu vif quand connecté
+    } else {
+        Color(0xFF1E3A5F) // Bleu sombre quand déconnecté
+    }
+
+    // Bouton circulaire avec animation de couleur
     FloatingActionButton(
         onClick = onClick,
         modifier = Modifier.size(84.dp),
         shape = CircleShape,
-        containerColor = Color(0xFF1E3A5F),
+        containerColor = buttonColor,
         contentColor = Color.White
     ) {
         Icon(
-            imageVector = Icons.Default.Mic,
-            contentDescription = "Listen",
+            imageVector = if (isConnected) Icons.Default.Mic else Icons.Default.MicOff,
+            contentDescription = if (isConnected) "Arrêter la conversation" else "Démarrer la conversation",
             modifier = Modifier.size(36.dp)
         )
     }

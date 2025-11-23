@@ -22,7 +22,17 @@
       "Bash(curl:*)",
       "Bash(.gradlew.bat assembleDebug)",
       "Bash(java:*)",
-      "Bash(where:*)"
+      "Bash(where:*)",
+      "Bash(.gradlew.bat installDebug)",
+      "Bash(nul)",
+      "Bash($env:JAVA_HOME=\"C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.17.10-hotspot\")",
+      "WebSearch",
+      "WebFetch(domain:developers.openai.com)",
+      "Bash(gradlew.bat assembleDebug:*)",
+      "Bash(cmd /c gradlew.bat assembleDebug)",
+      "Bash(powershell -Command \"& ''.\\gradlew.bat'' assembleDebug\")",
+      "Bash(powershell -Command \"& ''.\\gradlew.bat'' installDebug\")",
+      "Bash(powershell -Command \"& ''.\\gradlew.bat'' clean\")"
     ],
     "deny": [],
     "ask": []

@@ -7,6 +7,9 @@ import com.max.aiassistant.data.api.MaxApiService
 import com.max.aiassistant.data.api.parseWebhookResponse
 import com.max.aiassistant.data.api.toTask
 import com.max.aiassistant.data.api.toEvent
+import com.max.aiassistant.data.realtime.RealtimeApiService
+import com.max.aiassistant.data.realtime.RealtimeAudioManager
+import com.max.aiassistant.data.realtime.RealtimeServerEvent
 import com.max.aiassistant.model.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,10 +31,17 @@ import java.util.*
  */
 class MainViewModel : ViewModel() {
 
-    // ========== SERVICE API ==========
+    // ========== SERVICES API ==========
 
     private val apiService = MaxApiService.create()
     private val TAG = "MainViewModel"
+
+    // Clé API OpenAI pour l'API Realtime
+    private val OPENAI_API_KEY = BuildConfig.OPENAI_API_KEY
+
+    // Service Realtime (initialisé paresseusement)
+    private var realtimeService: RealtimeApiService? = null
+    private var audioManager: RealtimeAudioManager? = null
 
     // ========== ÉTAT DU CHAT ==========
 
@@ -238,33 +248,145 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // ========== ÉTAT VOICE ==========
+    // ========== ÉTAT VOICE & REALTIME ==========
 
-    private val _isListening = MutableStateFlow(false)
-    val isListening: StateFlow<Boolean> = _isListening.asStateFlow()
+    // État de connexion à l'API Realtime
+    private val _isRealtimeConnected = MutableStateFlow(false)
+    val isRealtimeConnected: StateFlow<Boolean> = _isRealtimeConnected.asStateFlow()
 
-    private val _voiceTranscript = MutableStateFlow("The capital of France is Paris")
+    // Transcription vocale reçue
+    private val _voiceTranscript = MutableStateFlow("")
     val voiceTranscript: StateFlow<String> = _voiceTranscript.asStateFlow()
 
-    /**
-     * Toggle le mode écoute voice
-     *
-     * STUB : Simule l'activation du micro
-     *
-     * TODO: Intégration reconnaissance vocale
-     * - Utiliser SpeechRecognizer d'Android
-     * - Ou intégrer Google Cloud Speech-to-Text
-     * - Gérer les permissions RECORD_AUDIO
-     */
-    fun toggleListening() {
-        _isListening.value = !_isListening.value
+    // Transcription en temps réel (pendant que l'utilisateur parle)
+    private val _liveTranscript = MutableStateFlow("")
+    val liveTranscript: StateFlow<String> = _liveTranscript.asStateFlow()
 
-        if (_isListening.value) {
-            // Simule la capture audio
-            viewModelScope.launch {
-                delay(2000)
-                _voiceTranscript.value = "Nouvelle transcription simulée..."
-                _isListening.value = false
+    /**
+     * Toggle la connexion à l'API Realtime
+     *
+     * - Si déconnecté : se connecte au WebSocket et démarre l'enregistrement audio
+     * - Si connecté : arrête l'enregistrement et déconnecte
+     */
+    fun toggleRealtimeConnection() {
+        if (_isRealtimeConnected.value) {
+            // Déconnexion
+            disconnectRealtime()
+        } else {
+            // Connexion
+            connectRealtime()
+        }
+    }
+
+    /**
+     * Connecte à l'API Realtime et démarre l'enregistrement audio
+     */
+    private fun connectRealtime() {
+        Log.d(TAG, "Connexion à l'API Realtime...")
+
+        // Initialise le service Realtime
+        realtimeService = RealtimeApiService(OPENAI_API_KEY)
+
+        // Initialise le gestionnaire audio
+        audioManager = RealtimeAudioManager { base64Audio ->
+            // Callback appelé pour chaque chunk audio capturé
+            realtimeService?.sendAudioChunk(base64Audio)
+        }
+
+        // Observe les événements du serveur
+        viewModelScope.launch {
+            realtimeService?.serverEvents?.collect { event ->
+                handleRealtimeEvent(event)
+            }
+        }
+
+        // Observe les erreurs
+        viewModelScope.launch {
+            realtimeService?.errors?.collect { error ->
+                Log.e(TAG, "Erreur Realtime: $error")
+            }
+        }
+
+        // Observe l'état de connexion
+        viewModelScope.launch {
+            realtimeService?.isConnected?.collect { connected ->
+                _isRealtimeConnected.value = connected
+                if (connected) {
+                    // Démarre l'enregistrement audio une fois connecté
+                    audioManager?.startRecording()
+                    Log.d(TAG, "Connexion Realtime établie, enregistrement démarré")
+                }
+            }
+        }
+
+        // Lance la connexion WebSocket
+        realtimeService?.connect()
+    }
+
+    /**
+     * Déconnecte de l'API Realtime et arrête l'enregistrement audio
+     */
+    private fun disconnectRealtime() {
+        Log.d(TAG, "Déconnexion de l'API Realtime...")
+
+        // Arrête l'enregistrement audio
+        audioManager?.stopRecording()
+
+        // Déconnecte le WebSocket
+        realtimeService?.disconnect()
+
+        _isRealtimeConnected.value = false
+        _voiceTranscript.value = ""
+        _liveTranscript.value = ""
+
+        Log.d(TAG, "Déconnexion Realtime terminée")
+    }
+
+    /**
+     * Gère les événements reçus du serveur Realtime
+     */
+    private fun handleRealtimeEvent(event: RealtimeServerEvent) {
+        when (event) {
+            is RealtimeServerEvent.Error -> {
+                Log.e(TAG, "Erreur serveur Realtime: ${event.error.message}")
+            }
+
+            is RealtimeServerEvent.SessionCreated -> {
+                Log.d(TAG, "Session Realtime créée")
+            }
+
+            is RealtimeServerEvent.InputAudioBufferSpeechStarted -> {
+                Log.d(TAG, "Détection de parole démarrée")
+                _liveTranscript.value = "Écoute en cours..."
+            }
+
+            is RealtimeServerEvent.InputAudioBufferSpeechStopped -> {
+                Log.d(TAG, "Détection de parole arrêtée")
+                _liveTranscript.value = "Traitement..."
+            }
+
+            is RealtimeServerEvent.ResponseAudioTranscriptDone -> {
+                Log.d(TAG, "Transcription reçue: ${event.transcript}")
+                _voiceTranscript.value = event.transcript
+                _liveTranscript.value = ""
+            }
+
+            is RealtimeServerEvent.ResponseAudioDelta -> {
+                // Chunk audio reçu de l'IA, on le joue
+                audioManager?.playAudioChunk(event.delta)
+            }
+
+            is RealtimeServerEvent.ResponseAudioDone -> {
+                Log.d(TAG, "Réponse audio terminée")
+            }
+
+            is RealtimeServerEvent.ResponseTextDelta -> {
+                // Delta de texte (si modalité texte activée)
+                Log.d(TAG, "Texte reçu: ${event.delta}")
+            }
+
+            else -> {
+                Log.d(TAG, "Événement Realtime: ${event::class.simpleName}")
             }
         }
     }
@@ -278,6 +400,18 @@ class MainViewModel : ViewModel() {
         loadRecentMessages()
         refreshTasks()
         refreshCalendarEvents()
+    }
+
+    // ========== NETTOYAGE ==========
+
+    /**
+     * Appelé quand le ViewModel est détruit
+     * Nettoie les ressources (WebSocket, AudioRecord, etc.)
+     */
+    override fun onCleared() {
+        super.onCleared()
+        audioManager?.cleanup()
+        realtimeService?.cleanup()
     }
 
 }
