@@ -14,6 +14,13 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Lecture de local.properties pour les clés API
+val localProperties = java.util.Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
+}
+
 android {
     namespace = "com.max.aiassistant"
     compileSdk = 35
@@ -29,6 +36,10 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // Expose OpenAI API Key via BuildConfig
+        val openAiKey = localProperties.getProperty("OPENAI_API_KEY", "")
+        buildConfigField("String", "OPENAI_API_KEY", "\"$openAiKey\"")
     }
 
     buildTypes {
@@ -52,6 +63,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {

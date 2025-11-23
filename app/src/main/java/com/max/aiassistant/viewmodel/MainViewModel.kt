@@ -3,6 +3,7 @@ package com.max.aiassistant.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.max.aiassistant.BuildConfig
 import com.max.aiassistant.data.api.MaxApiService
 import com.max.aiassistant.data.api.parseWebhookResponse
 import com.max.aiassistant.data.api.toTask
@@ -36,7 +37,7 @@ class MainViewModel : ViewModel() {
     private val apiService = MaxApiService.create()
     private val TAG = "MainViewModel"
 
-    // Clé API OpenAI pour l'API Realtime
+    // Clé API OpenAI pour l'API Realtime (chargée depuis local.properties via BuildConfig)
     private val OPENAI_API_KEY = BuildConfig.OPENAI_API_KEY
 
     // Service Realtime (initialisé paresseusement)
