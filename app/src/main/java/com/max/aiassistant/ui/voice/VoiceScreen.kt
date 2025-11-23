@@ -18,12 +18,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlin.math.cos
+import kotlin.math.sin
 import com.max.aiassistant.ui.theme.*
 import kotlin.math.PI
 import kotlin.math.sin
@@ -273,80 +277,292 @@ fun FluidOrbVisualizer(
  * Bouton circulaire avec icône micro pour l'API Realtime
  * - Micro barré (MicOff) par défaut (déconnecté)
  * - Micro actif (Mic) quand connecté à l'API Realtime
+ * - Effet 3D subtil avec dégradé, ombre et highlight
  */
 @Composable
 fun RealtimeMicButton(
     isConnected: Boolean,
     onClick: () -> Unit
 ) {
-    // Couleur du bouton change selon l'état
-    val buttonColor = if (isConnected) {
-        Color(0xFF2563EB) // Bleu vif quand connecté
-    } else {
-        Color(0xFF1E3A5F) // Bleu sombre quand déconnecté
-    }
+    // Bleu marine pour l'effet 3D
+    val buttonColorTop = Color(0xFF1A3A5F)      // Plus clair en haut
+    val buttonColorBottom = Color(0xFF0F1C33)   // Plus sombre en bas
+    val shadowColor = Color(0xFF000000)         // Ombre noire diffuse
+    val highlightColor = Color(0xFFFFFFFF)      // Highlight blanc
 
-    // Bouton circulaire avec animation de couleur
-    FloatingActionButton(
-        onClick = onClick,
+    Box(
         modifier = Modifier.size(84.dp),
-        shape = CircleShape,
-        containerColor = buttonColor,
-        contentColor = Color.White
+        contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = if (isConnected) Icons.Default.Mic else Icons.Default.MicOff,
-            contentDescription = if (isConnected) "Arrêter la conversation" else "Démarrer la conversation",
-            modifier = Modifier.size(36.dp)
-        )
+        FloatingActionButton(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxSize()
+                .drawBehind {
+                    val baseRadius = size.minDimension / 2f
+
+                    // Ombre portée diffuse sous le bouton (effet flottant)
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.4f),
+                        radius = baseRadius - 2.dp.toPx(),
+                        center = center.copy(y = center.y + 8.dp.toPx())
+                    )
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.2f),
+                        radius = baseRadius,
+                        center = center.copy(y = center.y + 6.dp.toPx())
+                    )
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.1f),
+                        radius = baseRadius + 2.dp.toPx(),
+                        center = center.copy(y = center.y + 4.dp.toPx())
+                    )
+                }
+                .drawWithContent {
+                    // Dessine le contenu du bouton (fond + icône)
+                    drawContent()
+
+                    // Highlight arrondi sur le bord supérieur (effet 3D)
+                    val baseRadius = size.minDimension / 2f
+                    val highlightRadius = baseRadius * 0.8f
+                    val highlightCenter = center.copy(y = center.y - baseRadius * 0.3f)
+
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                highlightColor.copy(alpha = 0.25f),
+                                highlightColor.copy(alpha = 0.1f),
+                                Color.Transparent
+                            ),
+                            center = highlightCenter,
+                            radius = highlightRadius
+                        ),
+                        radius = highlightRadius,
+                        center = highlightCenter
+                    )
+                },
+            shape = CircleShape,
+            containerColor = Color.Transparent,
+            contentColor = Color.White,
+            elevation = FloatingActionButtonDefaults.elevation(
+                defaultElevation = 0.dp,
+                pressedElevation = 0.dp
+            )
+        ) {
+            // Fond avec dégradé vertical
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(buttonColorTop, buttonColorBottom)
+                        ),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isConnected) Icons.Default.Mic else Icons.Default.MicOff,
+                    contentDescription = if (isConnected) "Arrêter la conversation" else "Démarrer la conversation",
+                    modifier = Modifier.size(36.dp),
+                    tint = Color.White
+                )
+            }
+        }
     }
 }
 
 /**
  * Bouton circulaire avec icône message
  * Pour naviguer vers le chat
+ * - Effet 3D subtil avec dégradé, ombre et highlight
  */
 @Composable
 fun MessageButton(
     onClick: () -> Unit
 ) {
-    // Bouton circulaire bleu pour le message
-    FloatingActionButton(
-        onClick = onClick,
+    // Bleu marine pour l'effet 3D
+    val buttonColorTop = Color(0xFF1A3A5F)      // Plus clair en haut
+    val buttonColorBottom = Color(0xFF0F1C33)   // Plus sombre en bas
+    val shadowColor = Color(0xFF000000)         // Ombre noire diffuse
+    val highlightColor = Color(0xFFFFFFFF)      // Highlight blanc
+
+    Box(
         modifier = Modifier.size(84.dp),
-        shape = CircleShape,
-        containerColor = Color(0xFF1E3A5F),
-        contentColor = Color.White
+        contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.Message,
-            contentDescription = "Open chat",
-            modifier = Modifier.size(36.dp)
-        )
+        FloatingActionButton(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxSize()
+                .drawBehind {
+                    val baseRadius = size.minDimension / 2f
+
+                    // Ombre portée diffuse sous le bouton (effet flottant)
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.4f),
+                        radius = baseRadius - 2.dp.toPx(),
+                        center = center.copy(y = center.y + 8.dp.toPx())
+                    )
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.2f),
+                        radius = baseRadius,
+                        center = center.copy(y = center.y + 6.dp.toPx())
+                    )
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.1f),
+                        radius = baseRadius + 2.dp.toPx(),
+                        center = center.copy(y = center.y + 4.dp.toPx())
+                    )
+                }
+                .drawWithContent {
+                    // Dessine le contenu du bouton (fond + icône)
+                    drawContent()
+
+                    // Highlight arrondi sur le bord supérieur (effet 3D)
+                    val baseRadius = size.minDimension / 2f
+                    val highlightRadius = baseRadius * 0.8f
+                    val highlightCenter = center.copy(y = center.y - baseRadius * 0.3f)
+
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                highlightColor.copy(alpha = 0.25f),
+                                highlightColor.copy(alpha = 0.1f),
+                                Color.Transparent
+                            ),
+                            center = highlightCenter,
+                            radius = highlightRadius
+                        ),
+                        radius = highlightRadius,
+                        center = highlightCenter
+                    )
+                },
+            shape = CircleShape,
+            containerColor = Color.Transparent,
+            contentColor = Color.White,
+            elevation = FloatingActionButtonDefaults.elevation(
+                defaultElevation = 0.dp,
+                pressedElevation = 0.dp
+            )
+        ) {
+            // Fond avec dégradé vertical
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(buttonColorTop, buttonColorBottom)
+                        ),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Message,
+                    contentDescription = "Open chat",
+                    modifier = Modifier.size(36.dp),
+                    tint = Color.White
+                )
+            }
+        }
     }
 }
 
 /**
  * Bouton circulaire avec icône tâches
  * Pour naviguer vers les tâches et l'agenda
+ * - Effet 3D subtil avec dégradé, ombre et highlight
  */
 @Composable
 fun TaskButton(
     onClick: () -> Unit
 ) {
-    // Bouton circulaire bleu pour les tâches
-    FloatingActionButton(
-        onClick = onClick,
+    // Bleu marine pour l'effet 3D
+    val buttonColorTop = Color(0xFF1A3A5F)      // Plus clair en haut
+    val buttonColorBottom = Color(0xFF0F1C33)   // Plus sombre en bas
+    val shadowColor = Color(0xFF000000)         // Ombre noire diffuse
+    val highlightColor = Color(0xFFFFFFFF)      // Highlight blanc
+
+    Box(
         modifier = Modifier.size(84.dp),
-        shape = CircleShape,
-        containerColor = Color(0xFF1E3A5F),
-        contentColor = Color.White
+        contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.CheckCircle,
-            contentDescription = "Open tasks",
-            modifier = Modifier.size(36.dp)
-        )
+        FloatingActionButton(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxSize()
+                .drawBehind {
+                    val baseRadius = size.minDimension / 2f
+
+                    // Ombre portée diffuse sous le bouton (effet flottant)
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.4f),
+                        radius = baseRadius - 2.dp.toPx(),
+                        center = center.copy(y = center.y + 8.dp.toPx())
+                    )
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.2f),
+                        radius = baseRadius,
+                        center = center.copy(y = center.y + 6.dp.toPx())
+                    )
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.1f),
+                        radius = baseRadius + 2.dp.toPx(),
+                        center = center.copy(y = center.y + 4.dp.toPx())
+                    )
+                }
+                .drawWithContent {
+                    // Dessine le contenu du bouton (fond + icône)
+                    drawContent()
+
+                    // Highlight arrondi sur le bord supérieur (effet 3D)
+                    val baseRadius = size.minDimension / 2f
+                    val highlightRadius = baseRadius * 0.8f
+                    val highlightCenter = center.copy(y = center.y - baseRadius * 0.3f)
+
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                highlightColor.copy(alpha = 0.25f),
+                                highlightColor.copy(alpha = 0.1f),
+                                Color.Transparent
+                            ),
+                            center = highlightCenter,
+                            radius = highlightRadius
+                        ),
+                        radius = highlightRadius,
+                        center = highlightCenter
+                    )
+                },
+            shape = CircleShape,
+            containerColor = Color.Transparent,
+            contentColor = Color.White,
+            elevation = FloatingActionButtonDefaults.elevation(
+                defaultElevation = 0.dp,
+                pressedElevation = 0.dp
+            )
+        ) {
+            // Fond avec dégradé vertical
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(buttonColorTop, buttonColorBottom)
+                        ),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Open tasks",
+                    modifier = Modifier.size(36.dp),
+                    tint = Color.White
+                )
+            }
+        }
     }
 }
 
