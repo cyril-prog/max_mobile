@@ -99,13 +99,19 @@ class MainActivity : ComponentActivity() {
                 // État pour l'animation de transition futuriste
                 var isTransitioning by remember { mutableStateOf(false) }
                 var targetPage by remember { mutableIntStateOf(0) }
+                var contentAlpha by remember { mutableFloatStateOf(1f) }
 
                 // Box pour superposer l'animation de transition
-                Box(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black) // Fond noir pour que le fade révèle du noir
+                ) {
                     // HorizontalPager pour le swipe entre les écrans
                     HorizontalPager(
                         state = pagerState,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .alpha(contentAlpha), // Applique l'alpha au contenu pour le fondu
                         userScrollEnabled = !isTransitioning // Désactive le swipe pendant la transition
                     ) { page ->
                     when (page) {
@@ -129,10 +135,9 @@ class MainActivity : ComponentActivity() {
                                     isTransitioning = true
                                 },
                                 onNavigateToTasks = {
-                                    // Navigation fluide vers TasksScreen (page 2)
-                                    coroutineScope.launch {
-                                        pagerState.animateScrollToPage(2)
-                                    }
+                                    // Déclenche l'animation de transition vers les tâches
+                                    targetPage = 2
+                                    isTransitioning = true
                                 }
                             )
                         }
@@ -176,6 +181,9 @@ class MainActivity : ComponentActivity() {
                     // Overlay d'animation de transition futuriste
                     if (isTransitioning) {
                         FuturisticTransition(
+                            onAlphaChange = { alpha ->
+                                contentAlpha = alpha
+                            },
                             onPageChange = {
                                 // Appelé quand le cercle est au maximum (milieu de l'animation)
                                 coroutineScope.launch {
@@ -184,6 +192,7 @@ class MainActivity : ComponentActivity() {
                             },
                             onTransitionComplete = {
                                 // Appelé à la fin complète de l'animation
+                                contentAlpha = 1f
                                 isTransitioning = false
                             }
                         )
@@ -195,116 +204,67 @@ class MainActivity : ComponentActivity() {
 }
 
 /**
- * Animation de transition futuriste en deux phases
- * Phase 1 : Le cercle bleu s'agrandit progressivement jusqu'à remplir l'écran
- * Phase 2 : Le cercle rétrécit et disparaît, révélant le nouvel écran
+ * Animation de transition sobre en deux phases
+ * Phase 1 : Fade out de l'écran actuel vers le noir (contenu devient transparent)
+ * Phase 2 : Fade in du nouvel écran depuis le noir (contenu redevient opaque)
  */
 @Composable
 fun FuturisticTransition(
+    onAlphaChange: (Float) -> Unit,
     onPageChange: () -> Unit,
     onTransitionComplete: () -> Unit
 ) {
-    // Configuration de l'écran
-    val configuration = LocalConfiguration.current
-    val screenWidth = configuration.screenWidthDp.dp
-    val screenHeight = configuration.screenHeightDp.dp
-    val screenDiagonal = sqrt(
-        (screenWidth.value * screenWidth.value) + (screenHeight.value * screenHeight.value)
-    )
-
     // États de l'animation
-    var animationPhase by remember { mutableStateOf(-1) }
-    // -1 = initial (taille normale du cercle)
-    // 0 = expansion (cercle grandit)
-    // 1 = page change (cercle au maximum)
-    // 2 = contraction (cercle rétrécit)
+    var animationPhase by remember { mutableStateOf(0) }
+    // 0 = fade out (l'écran actuel disparaît)
+    // 1 = changement de page
+    // 2 = fade in (le nouvel écran apparaît)
 
-    // Offset vertical initial (position du cercle dans VoiceScreen)
-    val initialVerticalOffset = -screenHeight * 0.22f // -22% vers le haut
-
-    // État de l'offset avec valeur initiale explicite
-    var verticalOffset by remember { mutableStateOf(initialVerticalOffset) }
-
-    // Échelle cible en fonction de la phase
-    val targetScale = when (animationPhase) {
-        -1 -> 1f                     // Phase initiale : taille normale (280dp)
-        0 -> screenDiagonal / 140f   // Phase expansion : grandit jusqu'à remplir l'écran
-        else -> 0f                   // Phase contraction : rétrécit jusqu'à disparaître
+    // Alpha cible en fonction de la phase
+    val targetAlpha = when (animationPhase) {
+        0 -> 0f    // Phase fade out : transparent (le contenu disparaît)
+        else -> 1f // Phase fade in : opaque (le contenu apparaît)
     }
 
-    // Animation de scale pour le cercle
-    val scale by animateFloatAsState(
-        targetValue = targetScale,
+    // Durée différente selon la phase (fade out plus lent)
+    val animationDuration = when (animationPhase) {
+        0 -> 2000 // Fade out très lent (2400ms) pour une disparition progressive
+        else -> 1200 // Fade in standard (1200ms)
+    }
+
+    // Animation d'alpha pour le contenu avec durée variable
+    val alpha by animateFloatAsState(
+        targetValue = targetAlpha,
         animationSpec = tween(
-            durationMillis = 900, // 900ms par phase pour une animation plus douce
-            easing = FastOutSlowInEasing
+            durationMillis = animationDuration,
+            easing = EaseInOut // EaseInOut pour une animation douce
         ),
-        label = "circleScale"
+        label = "contentAlpha",
+        finishedListener = {
+            // Callback appelé quand l'animation est terminée
+        }
     )
 
-    // Animation de l'offset uniquement pendant l'expansion (phase 0)
-    LaunchedEffect(animationPhase) {
-        if (animationPhase == 0) {
-            // Anime l'offset de sa position actuelle (en haut) vers le centre
-            androidx.compose.animation.core.animate(
-                initialValue = initialVerticalOffset.value,
-                targetValue = 0f,
-                animationSpec = tween(
-                    durationMillis = 900,
-                    easing = FastOutSlowInEasing
-                )
-            ) { value, _ ->
-                verticalOffset = value.dp
-            }
-        }
+    // Mise à jour de l'alpha du contenu à chaque frame
+    LaunchedEffect(alpha) {
+        onAlphaChange(alpha)
     }
 
     // Gestion de la séquence d'animation
     LaunchedEffect(Unit) {
-        // Phase initiale : cercle à sa taille normale
-        animationPhase = -1
-        delay(50) // Court délai pour s'assurer que le rendu initial est fait
-
-        // Phase 1 : Expansion (cercle grandit)
+        // Phase 1 : Fade out (le contenu devient transparent) - 2400ms
         animationPhase = 0
-        delay(900) // Attendre la fin de l'expansion
+        delay(0) // Attendre la fin du fade out
 
-        // Phase 2 : Changer de page (quand le cercle est au maximum)
-        animationPhase = 1
-        onPageChange() // Change de page (mais garde l'overlay visible)
-        delay(100) // Court délai pour que le changement de page soit effectif
+        // Phase 2 : Changer de page et commencer immédiatement le fade in
+        onPageChange() // Change de page
+        animationPhase = 1 // Démarre immédiatement le fade in sans délai
 
-        // Phase 3 : Contraction (cercle rétrécit)
-        animationPhase = 2
-        delay(900) // Attendre la fin de la contraction
+        // Phase 3 : Fade in (le contenu redevient opaque) - 1200ms
+        delay(1200) // Attendre la fin du fade in
 
-        // Fin de l'animation : masquer l'overlay
+        // Fin de l'animation
         onTransitionComplete()
-    }
-
-    // Overlay avec le cercle animé
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Transparent),
-        contentAlignment = Alignment.Center
-    ) {
-        // Affiche le cercle pendant toutes les phases sauf quand complètement disparu
-        if (scale > 0.01f) {
-            Box(
-                modifier = Modifier
-                    .size(280.dp) // Taille de base de l'orbe
-                    .scale(scale)
-                    .offset(y = verticalOffset), // Offset animé : part d'en haut, puis se centre
-                contentAlignment = Alignment.Center
-            ) {
-                // Utilise le même visualiseur fluide que dans VoiceScreen
-                FluidOrbVisualizer(
-                    isActive = true,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-        }
     }
 }
 
