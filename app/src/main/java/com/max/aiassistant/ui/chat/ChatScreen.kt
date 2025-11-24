@@ -17,7 +17,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,8 +25,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.max.aiassistant.model.Message
+import com.max.aiassistant.ui.common.MiniFluidOrb
 import com.max.aiassistant.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -71,29 +72,10 @@ fun ChatScreen(
                     horizontalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Logo Max (cercle avec "M")
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(AccentBlue),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "M",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Text(
-                        text = "Max",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold
+                    // Orbe bleu miniature (lien visuel avec VoiceScreen)
+                    MiniFluidOrb(
+                        onClick = onVoiceInput,
+                        modifier = Modifier.size(80.dp)
                     )
                 }
             },
@@ -127,7 +109,6 @@ fun ChatScreen(
                     messageText = ""
                 }
             },
-            onVoiceInput = onVoiceInput,
             modifier = Modifier
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .windowInsetsPadding(WindowInsets.ime)
@@ -182,14 +163,13 @@ fun MessageBubble(message: Message) {
 }
 
 /**
- * Barre d'entrée de message avec champ texte, bouton envoi et bouton micro
+ * Barre d'entrée de message avec champ texte et bouton envoi
  */
 @Composable
 fun MessageInputBar(
     value: String,
     onValueChange: (String) -> Unit,
     onSend: () -> Unit,
-    onVoiceInput: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -227,6 +207,7 @@ fun MessageInputBar(
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge,
                 keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences,
                     imeAction = ImeAction.Send
                 ),
                 keyboardActions = KeyboardActions(
@@ -236,36 +217,22 @@ fun MessageInputBar(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Bouton d'envoi (visible seulement si du texte est saisi)
-            if (value.isNotBlank()) {
-                IconButton(
-                    onClick = onSend,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(AccentBlue)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send message",
-                        tint = Color.White
+            // Bouton d'envoi (toujours visible, désactivé si le champ est vide)
+            val isEnabled = value.isNotBlank()
+            IconButton(
+                onClick = { if (isEnabled) onSend() },
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isEnabled) AccentBlue else DarkSurfaceVariant
                     )
-                }
-            } else {
-                // Bouton maison (visible quand le champ est vide)
-                IconButton(
-                    onClick = onVoiceInput,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(DarkSurfaceVariant)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Home,
-                        contentDescription = "Retour à l'écran principal",
-                        tint = TextPrimary
-                    )
-                }
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Send,
+                    contentDescription = "Envoyer le message",
+                    tint = if (isEnabled) Color.White else TextSecondary
+                )
             }
         }
     }

@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.max.aiassistant.model.*
+import com.max.aiassistant.ui.common.MiniFluidOrb
 import com.max.aiassistant.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -69,10 +70,18 @@ fun TasksScreen(
     ) {
         // Mini calendrier de la semaine (toujours visible)
         Column(modifier = Modifier.padding(16.dp)) {
-            WeekCalendar()
+            WeekCalendar(onNavigateToHome = onNavigateToHome)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Sélecteur d'onglets (Tâches / Événements)
+            TabSelector(
+                selectedIndex = selectedTabIndex,
+                onTabSelected = { selectedTabIndex = it }
+            )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Contenu selon l'onglet sélectionné
         Box(
@@ -96,13 +105,6 @@ fun TasksScreen(
                 )
             }
         }
-
-        // Navigation en bas de l'écran avec 3 boutons ronds
-        BottomNavigationBar(
-            selectedIndex = selectedTabIndex,
-            onTabSelected = { selectedTabIndex = it },
-            onNavigateToHome = onNavigateToHome
-        )
     }
 
     // Dialog des détails de la tâche
@@ -123,148 +125,65 @@ fun TasksScreen(
 }
 
 /**
- * Barre de navigation en bas de l'écran avec 3 boutons ronds style VoiceScreen
+ * Sélecteur d'onglets moderne (Tâches / Événements)
+ * Avec indicateur bleu sur l'onglet actif
  */
 @Composable
-fun BottomNavigationBar(
+fun TabSelector(
     selectedIndex: Int,
-    onTabSelected: (Int) -> Unit,
-    onNavigateToHome: () -> Unit
+    onTabSelected: (Int) -> Unit
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = DarkBackground,
-        shadowElevation = 0.dp
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DarkSurface, RoundedCornerShape(12.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 24.dp, horizontal = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Bouton Tâches
-            RoundNavigationButton(
-                icon = Icons.Default.CheckCircle,
-                contentDescription = "Tâches",
-                isSelected = selectedIndex == 0,
-                onClick = { onTabSelected(0) }
-            )
+        // Onglet Tâches
+        TabItem(
+            text = "Tâches",
+            isSelected = selectedIndex == 0,
+            onClick = { onTabSelected(0) },
+            modifier = Modifier.weight(1f)
+        )
 
-            // Bouton Agenda
-            RoundNavigationButton(
-                icon = Icons.Default.CalendarToday,
-                contentDescription = "Agenda",
-                isSelected = selectedIndex == 1,
-                onClick = { onTabSelected(1) }
-            )
-
-            // Bouton Maison (retour écran principal)
-            RoundNavigationButton(
-                icon = Icons.Default.Home,
-                contentDescription = "Écran principal",
-                isSelected = false,
-                onClick = onNavigateToHome
-            )
-        }
+        // Onglet Événements
+        TabItem(
+            text = "Événements",
+            isSelected = selectedIndex == 1,
+            onClick = { onTabSelected(1) },
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
 /**
- * Bouton de navigation circulaire avec effet 3D (style VoiceScreen)
+ * Item d'onglet individuel
  */
 @Composable
-fun RoundNavigationButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    contentDescription: String,
+fun TabItem(
+    text: String,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    // Bleu marine pour l'effet 3D (ou bleu accent si sélectionné)
-    val buttonColorTop = if (isSelected) Color(0xFF0A84FF) else Color(0xFF1A3A5F)
-    val buttonColorBottom = if (isSelected) Color(0xFF0060C0) else Color(0xFF0F1C33)
-    val shadowColor = Color(0xFF000000)
-    val highlightColor = Color(0xFFFFFFFF)
-
     Box(
-        modifier = Modifier.size(56.dp),
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                if (isSelected) AccentBlue else Color.Transparent
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {
-        FloatingActionButton(
-            onClick = onClick,
-            modifier = Modifier
-                .fillMaxSize()
-                .drawBehind {
-                    val baseRadius = size.minDimension / 2f
-
-                    // Ombre portée diffuse sous le bouton (effet flottant)
-                    drawCircle(
-                        color = shadowColor.copy(alpha = 0.4f),
-                        radius = baseRadius - 2.dp.toPx(),
-                        center = center.copy(y = center.y + 8.dp.toPx())
-                    )
-                    drawCircle(
-                        color = shadowColor.copy(alpha = 0.2f),
-                        radius = baseRadius,
-                        center = center.copy(y = center.y + 6.dp.toPx())
-                    )
-                    drawCircle(
-                        color = shadowColor.copy(alpha = 0.1f),
-                        radius = baseRadius + 2.dp.toPx(),
-                        center = center.copy(y = center.y + 4.dp.toPx())
-                    )
-                }
-                .drawWithContent {
-                    // Dessine le contenu du bouton (fond + icône)
-                    drawContent()
-
-                    // Highlight arrondi sur le bord supérieur (effet 3D)
-                    val baseRadius = size.minDimension / 2f
-                    val highlightRadius = baseRadius * 0.8f
-                    val highlightCenter = center.copy(y = center.y - baseRadius * 0.3f)
-
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                highlightColor.copy(alpha = 0.25f),
-                                highlightColor.copy(alpha = 0.1f),
-                                Color.Transparent
-                            ),
-                            center = highlightCenter,
-                            radius = highlightRadius
-                        ),
-                        radius = highlightRadius,
-                        center = highlightCenter
-                    )
-                },
-            shape = CircleShape,
-            containerColor = Color.Transparent,
-            contentColor = Color.White,
-            elevation = FloatingActionButtonDefaults.elevation(
-                defaultElevation = 0.dp,
-                pressedElevation = 0.dp
-            )
-        ) {
-            // Fond avec dégradé vertical
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(buttonColorTop, buttonColorBottom)
-                        ),
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = contentDescription,
-                    modifier = Modifier.size(24.dp),
-                    tint = Color.White
-                )
-            }
-        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (isSelected) Color.White else TextSecondary,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+        )
     }
 }
 
@@ -405,7 +324,7 @@ fun AgendaContent(
  * Le jour actuel est mis en évidence
  */
 @Composable
-fun WeekCalendar() {
+fun WeekCalendar(onNavigateToHome: () -> Unit) {
     val calendar = Calendar.getInstance()
     val today = calendar.get(Calendar.DAY_OF_MONTH)
 
@@ -421,11 +340,13 @@ fun WeekCalendar() {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "WOD", // Work Of Day ou Week Overview Display
-            style = MaterialTheme.typography.titleLarge,
-            color = TextPrimary,
-            fontWeight = FontWeight.Bold
+        // Espace pour éviter que l'orbe soit coupé
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Orbe bleu miniature (lien visuel avec les autres écrans)
+        MiniFluidOrb(
+            onClick = onNavigateToHome,
+            modifier = Modifier.size(80.dp)
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -569,7 +490,7 @@ fun TaskItemCompact(
 }
 
 /**
- * Dialog affichant tous les détails d'une tâche
+ * Dialog affichant tous les détails d'une tâche (version compacte)
  */
 @Composable
 fun TaskDetailsDialog(
@@ -578,111 +499,75 @@ fun TaskDetailsDialog(
     onStatusChange: (TaskStatus) -> Unit,
     onDelete: () -> Unit
 ) {
+    var selectedTab by remember { mutableStateOf(0) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = DarkSurface,
         title = {
-            Text(
-                text = task.title,
-                color = TextPrimary,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = task.title,
+                    color = TextPrimary,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Métadonnées compactes (format horizontal)
+                CompactMetadata(task = task)
+            }
         },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Statut actuel
-                DetailRow(
-                    icon = Icons.Default.Info,
-                    label = "Statut",
-                    value = when (task.status) {
-                        TaskStatus.TODO -> "À faire"
-                        TaskStatus.IN_PROGRESS -> "En cours"
-                        TaskStatus.COMPLETED -> "Terminé"
-                    },
-                    valueColor = when (task.status) {
-                        TaskStatus.COMPLETED -> CompletedGreen
-                        TaskStatus.IN_PROGRESS -> AccentBlue
-                        else -> NormalOrange
-                    }
-                )
-
-                // Priorité
-                DetailRow(
-                    icon = Icons.Default.PriorityHigh,
-                    label = "Priorité",
-                    value = when (task.priority) {
-                        TaskPriority.URGENT -> "Haute"
-                        TaskPriority.NORMAL -> "Normale"
-                        TaskPriority.LOW -> "Basse"
-                    },
-                    valueColor = when (task.priority) {
-                        TaskPriority.URGENT -> UrgentRed
-                        TaskPriority.NORMAL -> NormalOrange
-                        TaskPriority.LOW -> CompletedGreen
-                    }
-                )
-
-                // Deadline
-                DetailRow(
-                    icon = Icons.Default.Schedule,
-                    label = "Échéance",
-                    value = task.deadline
-                )
-
-                // Catégorie
-                if (task.category.isNotEmpty()) {
-                    DetailRow(
-                        icon = Icons.Default.Label,
-                        label = "Catégorie",
-                        value = task.category
+                // Onglets Description / Notes
+                if (task.description.isNotEmpty() || task.note.isNotEmpty()) {
+                    TaskContentTabSelector(
+                        selectedIndex = selectedTab,
+                        onTabSelected = { selectedTab = it },
+                        hasDescription = task.description.isNotEmpty(),
+                        hasNote = task.note.isNotEmpty()
                     )
-                }
 
-                // Durée estimée
-                if (task.estimatedDuration.isNotEmpty()) {
-                    DetailRow(
-                        icon = Icons.Default.Timer,
-                        label = "Durée estimée",
-                        value = task.estimatedDuration
-                    )
-                }
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                // Description
-                if (task.description.isNotEmpty()) {
-                    Divider(color = DarkSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "Description",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = TextSecondary,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = task.description,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextPrimary
-                        )
-                    }
-                }
-
-                // Note
-                if (task.note.isNotEmpty()) {
-                    Divider(color = DarkSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "Notes",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = TextSecondary,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = task.note,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextPrimary
-                        )
+                    // Contenu selon l'onglet sélectionné
+                    when (selectedTab) {
+                        0 -> {
+                            if (task.description.isNotEmpty()) {
+                                Text(
+                                    text = task.description,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextPrimary,
+                                    lineHeight = 20.sp
+                                )
+                            } else {
+                                Text(
+                                    text = "Aucune description",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextSecondary,
+                                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                )
+                            }
+                        }
+                        1 -> {
+                            if (task.note.isNotEmpty()) {
+                                Text(
+                                    text = task.note,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextPrimary,
+                                    lineHeight = 20.sp
+                                )
+                            } else {
+                                Text(
+                                    text = "Aucune note",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextSecondary,
+                                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -725,39 +610,181 @@ fun TaskDetailsDialog(
 }
 
 /**
- * Ligne de détail pour le dialog
+ * Métadonnées compactes affichées horizontalement
+ * Format: "À faire • Normale • 6 jours • Travail • 2h"
  */
 @Composable
-fun DetailRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    value: String,
-    valueColor: Color = TextPrimary
+fun CompactMetadata(task: Task) {
+    val statusText = when (task.status) {
+        TaskStatus.TODO -> "À faire"
+        TaskStatus.IN_PROGRESS -> "En cours"
+        TaskStatus.COMPLETED -> "Terminé"
+    }
+    val statusColor = when (task.status) {
+        TaskStatus.COMPLETED -> CompletedGreen
+        TaskStatus.IN_PROGRESS -> AccentBlue
+        else -> NormalOrange
+    }
+
+    val priorityText = when (task.priority) {
+        TaskPriority.URGENT -> "Haute"
+        TaskPriority.NORMAL -> "Normale"
+        TaskPriority.LOW -> "Basse"
+    }
+    val priorityColor = when (task.priority) {
+        TaskPriority.URGENT -> UrgentRed
+        TaskPriority.NORMAL -> NormalOrange
+        TaskPriority.LOW -> CompletedGreen
+    }
+
+    // Construction de la chaîne de métadonnées
+    val metadata = buildList {
+        add(statusText to statusColor)
+        add(priorityText to priorityColor)
+        add(task.deadline to TextPrimary)
+        if (task.category.isNotEmpty()) add(task.category to TextPrimary)
+        if (task.estimatedDuration.isNotEmpty()) add(task.estimatedDuration to TextPrimary)
+    }
+
+    // Affichage sur deux lignes si nécessaire
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Première ligne (statut, priorité, deadline)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            metadata.take(3).forEachIndexed { index, (text, color) ->
+                if (index > 0) {
+                    Text(
+                        text = "•",
+                        color = TextSecondary,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Text(
+                    text = text,
+                    color = color,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        // Deuxième ligne si nécessaire (catégorie, durée)
+        if (metadata.size > 3) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                metadata.drop(3).forEachIndexed { index, (text, color) ->
+                    if (index > 0) {
+                        Text(
+                            text = "•",
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Text(
+                        text = text,
+                        color = color,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Sélecteur d'onglets pour Description / Notes
+ */
+@Composable
+fun TaskContentTabSelector(
+    selectedIndex: Int,
+    onTabSelected: (Int) -> Unit,
+    hasDescription: Boolean,
+    hasNote: Boolean
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DarkSurfaceVariant, RoundedCornerShape(8.dp))
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        if (hasDescription) {
+            TaskContentTabItem(
+                text = "Description",
+                isSelected = selectedIndex == 0,
+                onClick = { onTabSelected(0) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        if (hasNote) {
+            TaskContentTabItem(
+                text = "Notes",
+                isSelected = selectedIndex == 1 || (!hasDescription && selectedIndex == 0),
+                onClick = { onTabSelected(1) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+/**
+ * Item d'onglet pour le contenu de tâche
+ */
+@Composable
+fun TaskContentTabItem(
+    text: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(
+                if (isSelected) AccentBlue else Color.Transparent
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (isSelected) Color.White else TextSecondary,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+        )
+    }
+}
+
+/**
+ * Ligne de détail simple pour les événements
+ */
+@Composable
+fun EventDetailRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    value: String
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = TextSecondary,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(16.dp)
         )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = TextSecondary
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = valueColor,
-                fontWeight = FontWeight.Medium
-            )
-        }
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextPrimary
+        )
     }
 }
 
@@ -860,30 +887,21 @@ fun EventDetailsDialog(
         },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Horaires
-                DetailRow(
+                EventDetailRow(
                     icon = Icons.Default.Schedule,
-                    label = "Horaires",
                     value = "${event.startTime} - ${event.endTime}"
                 )
 
                 // Lieu si disponible
                 if (event.location.isNotEmpty()) {
-                    DetailRow(
+                    EventDetailRow(
                         icon = Icons.Default.Place,
-                        label = "Lieu",
                         value = event.location
                     )
                 }
-
-                // Source
-                DetailRow(
-                    icon = Icons.Default.CalendarToday,
-                    label = "Source",
-                    value = event.source
-                )
 
                 // Description si disponible
                 if (event.description.isNotEmpty()) {
