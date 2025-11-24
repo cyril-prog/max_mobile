@@ -32,8 +32,8 @@ interface MaxApiService {
     @POST("webhook/save_conv")
     suspend fun saveConversation(@Body payload: List<MessageData>): Response<ResponseBody>
 
-    @POST("webhook/prompt_system")
-    suspend fun getSystemContext(): List<SystemContextApiResponse>
+    @GET("webhook/get_memory")
+    suspend fun getMemory(): MemoryApiResponse
 
     companion object {
         private const val BASE_URL = "https://n8n.srv1086212.hstgr.cloud/"

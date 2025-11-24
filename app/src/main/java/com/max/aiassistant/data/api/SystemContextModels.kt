@@ -3,12 +3,13 @@ package com.max.aiassistant.data.api
 import com.google.gson.annotations.SerializedName
 
 /**
- * Modèles de données pour le contexte système récupéré depuis /webhook/prompt_system
+ * Modèles de données pour le contexte système du voice-to-voice
  *
- * Ce contexte enrichit le prompt système du voice-to-voice avec :
- * - Les tâches en cours de l'utilisateur
- * - La mémoire (intérêts, matériel, personnalité, projets)
- * - L'historique récent des messages
+ * Ce contexte enrichit le prompt système avec :
+ * - Les tâches en cours de l'utilisateur (via /webhook/get_tasks)
+ * - La mémoire (via /webhook/get_memory)
+ * - L'historique récent des messages (via /webhook/get_recent_messages)
+ * - Les événements du calendrier (via /webhook/get_calendar)
  */
 
 /**
@@ -104,6 +105,18 @@ data class ConversationMessageContent(
     val responseMetadata: Map<String, Any>? = null,
     @SerializedName("invalid_tool_calls")
     val invalidToolCalls: List<Any>? = null
+)
+
+/**
+ * Réponse de l'API /webhook/get_memory
+ * Retourne la mémoire long terme de l'utilisateur
+ */
+data class MemoryApiResponse(
+    val text: MemoryData
+)
+
+data class MemoryData(
+    val data: List<SystemMemory>
 )
 
 /**

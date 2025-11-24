@@ -10,7 +10,6 @@ import com.max.aiassistant.data.api.MessageData
 import com.max.aiassistant.data.api.parseWebhookResponse
 import com.max.aiassistant.data.api.toTask
 import com.max.aiassistant.data.api.toEvent
-import com.max.aiassistant.data.api.toEnrichedPrompt
 import com.max.aiassistant.data.realtime.RealtimeApiService
 import com.max.aiassistant.data.realtime.RealtimeAudioManager
 import com.max.aiassistant.data.realtime.RealtimeServerEvent
@@ -56,36 +55,185 @@ class MainViewModel : ViewModel() {
     val messages: StateFlow<List<Message>> = _messages.asStateFlow()
 
     /**
-     * Charge le contexte système (tâches, mémoire, historique) pour enrichir le prompt voice-to-voice
+     * Charge le contexte système (tâches, mémoire, historique, calendrier) pour enrichir le prompt voice-to-voice
+     * Récupère les données depuis 4 endpoints différents de manière robuste
      */
     private fun loadSystemContext() {
         viewModelScope.launch {
+            Log.d(TAG, "Chargement du contexte système...")
+            val builder = StringBuilder()
+
+            // 1. Récupération des tâches
             try {
-                Log.d(TAG, "Chargement du contexte système...")
+                Log.d(TAG, "Récupération des tâches...")
+                val tasksResponse = apiService.getTasks()
+                val tasks = tasksResponse.text.data
 
-                val response = apiService.getSystemContext()
-
-                // La réponse est un tableau, on prend le premier élément
-                if (response.isNotEmpty()) {
-                    systemContext = response[0].toEnrichedPrompt()
-                    Log.d(TAG, "Contexte système chargé (${systemContext.length} caractères)")
-                    Log.d(TAG, "Contexte prévisualisation: ${systemContext.take(300)}...")
+                if (tasks.isNotEmpty()) {
+                    builder.append("\n\n=== TÂCHES EN COURS (${tasks.size}) ===\n")
+                    tasks.forEach { task ->
+                        builder.append("- [${task.statut}] ${task.titre}")
+                        if (task.priorite.isNotEmpty() && task.priorite.lowercase() != "normale") {
+                            builder.append(" (${task.priorite})")
+                        }
+                        if (task.dateLimite.isNotEmpty()) {
+                            builder.append(" - Échéance: ${task.dateLimite.split("T")[0]}")
+                        }
+                        builder.append("\n")
+                        if (task.description.isNotEmpty()) {
+                            builder.append("  Description: ${task.description}\n")
+                        }
+                    }
+                    Log.d(TAG, "✅ ${tasks.size} tâches récupérées")
                 } else {
-                    Log.w(TAG, "La réponse du contexte système est vide")
-                    systemContext = ""
+                    Log.d(TAG, "Aucune tâche trouvée")
                 }
-
             } catch (e: Exception) {
-                Log.e(TAG, "Erreur lors du chargement du contexte système", e)
-                Log.e(TAG, "Stack trace:", e)
-                // En cas d'erreur, on garde le contexte vide
-                systemContext = ""
+                Log.e(TAG, "❌ Erreur lors de la récupération des tâches (ignorée)", e)
+            }
+
+            // 2. Récupération des événements du calendrier
+            try {
+                Log.d(TAG, "Récupération des événements du calendrier...")
+                val eventsResponse = apiService.getCalendarEvents()
+                val events = eventsResponse.text.data
+
+                if (events.isNotEmpty()) {
+                    builder.append("\n=== ÉVÉNEMENTS DU CALENDRIER (${events.size}) ===\n")
+                    events.forEach { event ->
+                        builder.append("- ${event.summary}")
+                        val startTime = event.start.dateTime ?: event.start.date ?: "?"
+                        builder.append(" - ${startTime.split("T")[0]}")
+                        if (event.location?.isNotEmpty() == true) {
+                            builder.append(" (${event.location})")
+                        }
+                        builder.append("\n")
+                    }
+                    Log.d(TAG, "✅ ${events.size} événements récupérés")
+                } else {
+                    Log.d(TAG, "Aucun événement trouvé")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Erreur lors de la récupération des événements (ignorée)", e)
+            }
+
+            // 3. Récupération des messages récents
+            try {
+                Log.d(TAG, "Récupération des messages récents...")
+                val messagesResponse = apiService.getRecentMessages()
+                val messages = messagesResponse.text.data
+
+                if (messages.isNotEmpty()) {
+                    builder.append("\n=== CONTEXTE RÉCENT DE CONVERSATION ===\n")
+                    // Prendre les 5 derniers messages pour ne pas surcharger
+                    messages.takeLast(5).forEach { msg ->
+                        val type = if (msg.message.type == "human") "Utilisateur" else "Max"
+                        val content = msg.message.content.take(100) // Limiter à 100 caractères
+                        builder.append("- $type: $content\n")
+                    }
+                    Log.d(TAG, "✅ ${messages.size} messages récupérés (${messages.takeLast(5).size} affichés)")
+                } else {
+                    Log.d(TAG, "Aucun message récent trouvé")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Erreur lors de la récupération des messages récents (ignorée)", e)
+            }
+
+            // 4. Récupération de la mémoire long terme
+            try {
+                Log.d(TAG, "Récupération de la mémoire long terme...")
+                val memoryResponse = apiService.getMemory()
+
+                if (memoryResponse.text.data.isNotEmpty()) {
+                    val memory = memoryResponse.text.data[0]
+                    builder.append("\n=== CONTEXTE UTILISATEUR (MÉMOIRE) ===\n")
+
+                    if (memory.interets != null) {
+                        builder.append("\nINTERÊTS :\n")
+                        formatMemorySection(memory.interets, builder)
+                    }
+
+                    if (memory.materiel != null) {
+                        builder.append("\nMATÉRIEL :\n")
+                        formatMemorySection(memory.materiel, builder)
+                    }
+
+                    if (memory.personnalite != null) {
+                        builder.append("\nPERSONNALITÉ :\n")
+                        formatMemorySection(memory.personnalite, builder)
+                    }
+
+                    if (memory.autonomieMax != null) {
+                        builder.append("\nAUTONOMIE DE MAX :\n")
+                        formatMemorySection(memory.autonomieMax, builder)
+                    }
+
+                    if (memory.certifications != null) {
+                        builder.append("\nCERTIFICATIONS :\n")
+                        formatMemorySection(memory.certifications, builder)
+                    }
+
+                    if (memory.projetsEnCours != null) {
+                        builder.append("\nPROJETS EN COURS :\n")
+                        formatMemorySection(memory.projetsEnCours, builder)
+                    }
+
+                    if (memory.interetModelesIA != null) {
+                        builder.append("\nINTÉRÊT MODÈLES IA :\n")
+                        formatMemorySection(memory.interetModelesIA, builder)
+                    }
+
+                    if (memory.objectifAmelioration != null) {
+                        builder.append("\nOBJECTIFS D'AMÉLIORATION :\n")
+                        formatMemorySection(memory.objectifAmelioration, builder)
+                    }
+
+                    if (memory.methodesApprentissage != null) {
+                        builder.append("\nMÉTHODES D'APPRENTISSAGE :\n")
+                        formatMemorySection(memory.methodesApprentissage, builder)
+                    }
+
+                    if (memory.rappelsEtNotifications != null) {
+                        builder.append("\nRAPPELS ET NOTIFICATIONS :\n")
+                        formatMemorySection(memory.rappelsEtNotifications, builder)
+                    }
+
+                    Log.d(TAG, "✅ Mémoire long terme récupérée")
+                } else {
+                    Log.d(TAG, "Aucune mémoire trouvée")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Erreur lors de la récupération de la mémoire (ignorée)", e)
+            }
+
+            // Stocke le contexte final
+            systemContext = builder.toString()
+            Log.d(TAG, "✅ Contexte système complet chargé (${systemContext.length} caractères)")
+            Log.d(TAG, "Aperçu du contexte: ${systemContext.take(300)}...")
+        }
+    }
+
+    /**
+     * Formatte une section de mémoire (récursif pour les maps imbriquées)
+     */
+    private fun formatMemorySection(section: Map<String, Any>, builder: StringBuilder, indent: String = "") {
+        section.forEach { (key, value) ->
+            when (value) {
+                is Map<*, *> -> {
+                    builder.append("$indent- $key:\n")
+                    @Suppress("UNCHECKED_CAST")
+                    formatMemorySection(value as Map<String, Any>, builder, "$indent  ")
+                }
+                else -> {
+                    builder.append("$indent- $key: $value\n")
+                }
             }
         }
     }
 
     /**
-     * Charge les messages récents depuis l'API au démarrage
+     * Charge les messages récents depuis l'API
+     * Peut être appelée au démarrage ou quand on arrive sur l'écran du chat
      */
     fun loadRecentMessages() {
         viewModelScope.launch {
@@ -370,6 +518,12 @@ class MainViewModel : ViewModel() {
         }
 
         // Lance la connexion WebSocket avec le contexte système
+        Log.d(TAG, "📝 Contexte système envoyé à Realtime (${systemContext.length} caractères)")
+        if (systemContext.isEmpty()) {
+            Log.w(TAG, "⚠️ ATTENTION : Le contexte système est VIDE ! Les appels API n'ont peut-être pas terminé.")
+        } else {
+            Log.d(TAG, "Aperçu du contexte envoyé: ${systemContext.take(200)}...")
+        }
         realtimeService?.connect(systemContext)
     }
 
@@ -501,7 +655,7 @@ class MainViewModel : ViewModel() {
     }
 
     /**
-     * Envoie la conversation complète à n8n
+     * Envoie seulement les nouveaux messages (les 2 derniers) à n8n
      */
     private fun sendConversationToN8n() {
         Log.d(TAG, "*** sendConversationToN8n appelé")
@@ -513,21 +667,24 @@ class MainViewModel : ViewModel() {
                     return@launch
                 }
 
-                Log.d(TAG, "*** Envoi de ${conversationMessages.size} messages à n8n...")
-                Log.d(TAG, "*** URL: https://n8n.srv1086212.hstgr.cloud/webhook/save_conv")
-                Log.d(TAG, "*** Payload: ${conversationMessages.take(2)}")  // Log les 2 premiers messages
+                // Prend seulement les 2 derniers messages (la paire user + AI qui vient d'être ajoutée)
+                val messagesToSend = conversationMessages.takeLast(2)
 
-                val response = apiService.saveConversation(conversationMessages)
+                Log.d(TAG, "*** Envoi de ${messagesToSend.size} nouveaux messages à n8n (total conversation: ${conversationMessages.size})...")
+                Log.d(TAG, "*** URL: https://n8n.srv1086212.hstgr.cloud/webhook/save_conv")
+                Log.d(TAG, "*** Payload: $messagesToSend")
+
+                val response = apiService.saveConversation(messagesToSend)
 
                 if (response.isSuccessful) {
-                    Log.d(TAG, "*** ✅ Conversation envoyée avec succès à n8n")
+                    Log.d(TAG, "*** ✅ Nouveaux messages envoyés avec succès à n8n")
                     Log.d(TAG, "*** Response code: ${response.code()}")
                 } else {
-                    Log.e(TAG, "*** ❌ Erreur lors de l'envoi de la conversation: ${response.code()}")
+                    Log.e(TAG, "*** ❌ Erreur lors de l'envoi des messages: ${response.code()}")
                     Log.e(TAG, "*** Response body: ${response.errorBody()?.string()}")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "*** ❌ Exception lors de l'envoi de la conversation à n8n", e)
+                Log.e(TAG, "*** ❌ Exception lors de l'envoi des messages à n8n", e)
                 e.printStackTrace()
             }
         }

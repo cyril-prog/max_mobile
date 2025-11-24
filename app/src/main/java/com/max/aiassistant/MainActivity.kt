@@ -101,6 +101,13 @@ class MainActivity : ComponentActivity() {
                 var targetPage by remember { mutableIntStateOf(0) }
                 var contentAlpha by remember { mutableFloatStateOf(1f) }
 
+                // Recharge les messages quand on arrive sur l'écran du chat (page 1)
+                LaunchedEffect(pagerState.currentPage) {
+                    if (pagerState.currentPage == 1) {
+                        viewModel.loadRecentMessages()
+                    }
+                }
+
                 // Box pour superposer l'animation de transition
                 Box(modifier = Modifier
                     .fillMaxSize()

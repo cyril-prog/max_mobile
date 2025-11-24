@@ -49,14 +49,12 @@ fun ChatScreen(
 ) {
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
 
-    // Auto-scroll vers le bas quand un nouveau message arrive
+    // Auto-scroll vers le bas quand un nouveau message arrive ou quand on charge la liste
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
-            coroutineScope.launch {
-                listState.animateScrollToItem(messages.size - 1)
-            }
+            // Défile directement vers le dernier message
+            listState.animateScrollToItem(messages.size - 1)
         }
     }
 

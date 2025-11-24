@@ -40,7 +40,8 @@
       "Bash(powershell -Command \"Get-Command adb -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
       "Bash(del /F \"C:\\Users\\cyril\\projet\\max_mobile\\app\\src\\main\\java\\com\\max\\aiassistant\\data\\api\\ConversationModels.kt\")",
       "Bash(powershell -Command \"Remove-Item -Force ''C:\\Users\\cyril\\projet\\max_mobile\\app\\src\\main\\java\\com\\max\\aiassistant\\data\\api\\ConversationModels.kt''\")",
-      "Bash(powershell -Command \"& ''.\\gradlew.bat'' clean assembleDebug installDebug\")"
+      "Bash(powershell -Command \"& ''.\\gradlew.bat'' clean assembleDebug installDebug\")",
+      "Bash(powershell -Command \"& ''.\\gradlew.bat'' clean build\")"
     ],
     "deny": [],
     "ask": []
