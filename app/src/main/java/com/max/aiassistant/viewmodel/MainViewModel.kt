@@ -400,10 +400,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Supprime une tâche
+     * Supprime une tâche via l'API et met à jour la liste locale
      */
     fun deleteTask(taskId: String) {
-        _tasks.value = _tasks.value.filter { it.id != taskId }
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Suppression de la tâche $taskId...")
+
+                // Appel de l'API pour supprimer la tâche
+                val response = apiService.deleteTask(taskId)
+
+                if (response.isSuccessful) {
+                    // Suppression réussie, on retire la tâche de la liste locale
+                    _tasks.value = _tasks.value.filter { it.id != taskId }
+                    Log.d(TAG, "Tâche supprimée avec succès")
+                } else {
+                    Log.e(TAG, "Erreur lors de la suppression de la tâche: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors de la suppression de la tâche", e)
+            }
+        }
     }
 
     // ========== ÉTAT DU PLANNING ==========

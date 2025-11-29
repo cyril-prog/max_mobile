@@ -35,6 +35,9 @@ interface MaxApiService {
     @GET("webhook/get_memory")
     suspend fun getMemory(): MemoryApiResponse
 
+    @GET("webhook/del_task")
+    suspend fun deleteTask(@Query("id") taskId: String): Response<ResponseBody>
+
     companion object {
         private const val BASE_URL = "https://n8n.srv1086212.hstgr.cloud/"
 
