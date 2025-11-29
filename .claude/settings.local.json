@@ -41,7 +41,9 @@
       "Bash(del /F \"C:\\Users\\cyril\\projet\\max_mobile\\app\\src\\main\\java\\com\\max\\aiassistant\\data\\api\\ConversationModels.kt\")",
       "Bash(powershell -Command \"Remove-Item -Force ''C:\\Users\\cyril\\projet\\max_mobile\\app\\src\\main\\java\\com\\max\\aiassistant\\data\\api\\ConversationModels.kt''\")",
       "Bash(powershell -Command \"& ''.\\gradlew.bat'' clean assembleDebug installDebug\")",
-      "Bash(powershell -Command \"& ''.\\gradlew.bat'' clean build\")"
+      "Bash(powershell -Command \"& ''.\\gradlew.bat'' clean build\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@148.230.125.5 \"cd /root && docker-compose up -d n8n n8n-worker\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@148.230.125.5 \"docker inspect root-n8n-1 | grep -A 2 ''Image''\")"
     ],
     "deny": [],
     "ask": []

@@ -18,8 +18,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +48,7 @@ import java.util.*
  * - Onglets pour basculer entre Tâches et Agenda
  * - Contenu selon l'onglet sélectionné
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksScreen(
     tasks: List<Task>,
@@ -190,6 +193,7 @@ fun TabItem(
 /**
  * Contenu de l'onglet Tâches
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksContent(
     tasks: List<Task>,
@@ -198,12 +202,13 @@ fun TasksContent(
     onTaskClick: (Task) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
-
-    SwipeRefresh(
-        state = swipeRefreshState,
+    val pullRefreshState = rememberPullToRefreshState()
+    PullToRefreshBox(
+        state = pullRefreshState,
+        isRefreshing = isRefreshing,
         onRefresh = onRefresh,
         modifier = modifier
+            .fillMaxSize()
     ) {
         // Liste des tâches
         if (tasks.isEmpty() && !isRefreshing) {
@@ -252,6 +257,7 @@ fun TasksContent(
 /**
  * Contenu de l'onglet Agenda
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgendaContent(
     events: List<Event>,
@@ -260,12 +266,12 @@ fun AgendaContent(
     modifier: Modifier = Modifier
 ) {
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
-    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
-
-    SwipeRefresh(
-        state = swipeRefreshState,
+    val pullRefreshState = rememberPullToRefreshState()
+    PullToRefreshBox(
+        state = pullRefreshState,
+        isRefreshing = isRefreshing,
         onRefresh = onRefresh,
-        modifier = modifier
+        modifier = modifier.fillMaxSize()
     ) {
         // Liste des événements
         if (events.isEmpty() && !isRefreshing) {

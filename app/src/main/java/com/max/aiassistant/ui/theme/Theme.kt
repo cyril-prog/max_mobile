@@ -1,14 +1,18 @@
 package com.max.aiassistant.ui.theme
 
 import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
+import androidx.compose.ui.platform.LocalContext
 
 /**
  * Schéma de couleurs pour le mode sombre de Max
@@ -46,15 +50,22 @@ fun MaxTheme(
     content: @Composable () -> Unit
 ) {
     val colorScheme = DarkColorScheme
+    val context = LocalContext.current
+    val componentActivity = context.findComponentActivity()
+    val transparentScrim = Color.Transparent.toArgb()
 
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            // Configure la barre de statut pour le mode sombre
-            val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.background.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
-        }
+    DisposableEffect(componentActivity, darkTheme) {
+        componentActivity?.enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(
+                lightScrim = transparentScrim,
+                darkScrim = transparentScrim
+            ),
+            navigationBarStyle = SystemBarStyle.auto(
+                lightScrim = transparentScrim,
+                darkScrim = transparentScrim
+            )
+        )
+        onDispose { }
     }
 
     MaterialTheme(
@@ -62,4 +73,10 @@ fun MaxTheme(
         typography = MaxTypography,
         content = content
     )
+}
+
+private tailrec fun Context.findComponentActivity(): ComponentActivity? = when (this) {
+    is ComponentActivity -> this
+    is ContextWrapper -> baseContext.findComponentActivity()
+    else -> null
 }

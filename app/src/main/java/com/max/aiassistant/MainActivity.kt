@@ -26,10 +26,12 @@ import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.max.aiassistant.model.TaskStatus
 import com.max.aiassistant.ui.chat.ChatScreen
+import com.max.aiassistant.ui.notes.NotesScreen
 import com.max.aiassistant.ui.tasks.TasksScreen
 import com.max.aiassistant.ui.theme.MaxTheme
 import com.max.aiassistant.ui.voice.VoiceScreen
 import com.max.aiassistant.ui.voice.FluidOrbVisualizer
+import com.max.aiassistant.ui.weather.WeatherScreen
 import com.max.aiassistant.viewmodel.MainViewModel
 import kotlin.math.sqrt
 
@@ -38,13 +40,14 @@ import kotlin.math.sqrt
  *
  * Single-Activity architecture avec Jetpack Compose
  *
- * Gère la navigation entre 3 écrans via HorizontalPager :
+ * Gère la navigation entre 5 écrans via HorizontalPager :
  * - Page 0 : VoiceScreen (Voice to Voice) - ÉCRAN PAR DÉFAUT
  * - Page 1 : ChatScreen (Messenger)
  * - Page 2 : TasksScreen (Tâches & Planning)
+ * - Page 3 : WeatherScreen (Météo)
+ * - Page 4 : NotesScreen (Prise de notes)
  *
- * L'utilisateur peut swiper horizontalement entre les pages
- * ou utiliser les boutons de navigation dans Voice et Chat
+ * L'utilisateur peut naviguer entre les pages via les boutons de navigation
  */
 class MainActivity : ComponentActivity() {
 
@@ -86,11 +89,16 @@ class MainActivity : ComponentActivity() {
                 val isLoadingEvents by viewModel.isLoadingEvents.collectAsState()
                 val isRealtimeConnected by viewModel.isRealtimeConnected.collectAsState()
                 val voiceTranscript by viewModel.voiceTranscript.collectAsState()
+                val weatherData by viewModel.weatherData.collectAsState()
+                val isLoadingWeather by viewModel.isLoadingWeather.collectAsState()
+                val notes by viewModel.notes.collectAsState()
+                val cityName by viewModel.cityName.collectAsState()
+                val citySearchResults by viewModel.citySearchResults.collectAsState()
 
-                // État du pager (3 pages, commence à la page 0 = Voice)
+                // État du pager (5 pages, commence à la page 0 = Voice)
                 val pagerState = rememberPagerState(
                     initialPage = 0, // Démarre sur VoiceScreen (écran principal)
-                    pageCount = { 3 }
+                    pageCount = { 5 }
                 )
 
                 // Scope pour les animations de navigation
@@ -101,10 +109,22 @@ class MainActivity : ComponentActivity() {
                 var targetPage by remember { mutableIntStateOf(0) }
                 var contentAlpha by remember { mutableFloatStateOf(1f) }
 
-                // Recharge les messages quand on arrive sur l'écran du chat (page 1)
+                // Recharge les données quand on change de page
                 LaunchedEffect(pagerState.currentPage) {
-                    if (pagerState.currentPage == 1) {
-                        viewModel.loadRecentMessages()
+                    when (pagerState.currentPage) {
+                        1 -> {
+                            // Page 1 : ChatScreen - recharge les messages
+                            viewModel.loadRecentMessages()
+                        }
+                        2 -> {
+                            // Page 2 : TasksScreen - recharge les tâches et événements
+                            viewModel.refreshTasks()
+                            viewModel.refreshCalendarEvents()
+                        }
+                        3 -> {
+                            // Page 3 : WeatherScreen - recharge la météo
+                            viewModel.refreshWeather()
+                        }
                     }
                 }
 
@@ -145,6 +165,16 @@ class MainActivity : ComponentActivity() {
                                     // Déclenche l'animation de transition vers les tâches
                                     targetPage = 2
                                     isTransitioning = true
+                                },
+                                onNavigateToWeather = {
+                                    // Déclenche l'animation de transition vers la météo
+                                    targetPage = 3
+                                    isTransitioning = true
+                                },
+                                onNavigateToNotes = {
+                                    // Déclenche l'animation de transition vers les notes
+                                    targetPage = 4
+                                    isTransitioning = true
                                 }
                             )
                         }
@@ -180,6 +210,42 @@ class MainActivity : ComponentActivity() {
                                     viewModel.deleteTask(taskId)
                                 },
                                 onNavigateToHome = {
+                                    // Déclenche l'animation de transition vers l'écran principal
+                                    targetPage = 0
+                                    isTransitioning = true
+                                }
+                            )
+                        }
+
+                        // PAGE 3 : Écran Météo
+                        3 -> {
+                            WeatherScreen(
+                                weatherData = weatherData,
+                                cityName = cityName,
+                                citySearchResults = citySearchResults,
+                                isRefreshing = isLoadingWeather,
+                                onRefresh = { viewModel.refreshWeather() },
+                                onSearchCity = { query -> viewModel.searchCity(query) },
+                                onSelectCity = { city -> viewModel.selectCity(city) },
+                                onNavigateBack = {
+                                    // Déclenche l'animation de transition vers l'écran principal
+                                    targetPage = 0
+                                    isTransitioning = true
+                                }
+                            )
+                        }
+
+                        // PAGE 4 : Écran Notes
+                        4 -> {
+                            NotesScreen(
+                                notes = notes,
+                                onAddNote = { title, content ->
+                                    viewModel.addNote(title, content)
+                                },
+                                onDeleteNote = { noteId ->
+                                    viewModel.deleteNote(noteId)
+                                },
+                                onNavigateBack = {
                                     // Déclenche l'animation de transition vers l'écran principal
                                     targetPage = 0
                                     isTransitioning = true

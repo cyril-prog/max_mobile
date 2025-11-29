@@ -1,6 +1,8 @@
 package com.max.aiassistant.viewmodel
 
+import android.app.Application
 import android.util.Log
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.max.aiassistant.BuildConfig
@@ -10,6 +12,7 @@ import com.max.aiassistant.data.api.MessageData
 import com.max.aiassistant.data.api.parseWebhookResponse
 import com.max.aiassistant.data.api.toTask
 import com.max.aiassistant.data.api.toEvent
+import com.max.aiassistant.data.api.toWeatherData
 import com.max.aiassistant.data.realtime.RealtimeApiService
 import com.max.aiassistant.data.realtime.RealtimeAudioManager
 import com.max.aiassistant.data.realtime.RealtimeServerEvent
@@ -32,11 +35,14 @@ import java.util.*
  *
  * Utilise StateFlow pour exposer l'état de manière réactive aux composables
  */
-class MainViewModel : ViewModel() {
+class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ========== SERVICES API ==========
 
     private val apiService = MaxApiService.create()
+    private val weatherApiService = com.max.aiassistant.data.api.WeatherApiService.create()
+    private val geocodingApiService = com.max.aiassistant.data.api.GeocodingApiService.create()
+    private val weatherPreferences = com.max.aiassistant.data.preferences.WeatherPreferences(application.applicationContext)
     private val TAG = "MainViewModel"
 
     // Clé API OpenAI pour l'API Realtime (chargée depuis local.properties via BuildConfig)
@@ -408,6 +414,114 @@ class MainViewModel : ViewModel() {
     private val _isLoadingEvents = MutableStateFlow(false)
     val isLoadingEvents: StateFlow<Boolean> = _isLoadingEvents.asStateFlow()
 
+    // ========== ÉTAT DE LA MÉTÉO ==========
+
+    private val _weatherData = MutableStateFlow<com.max.aiassistant.data.api.WeatherData?>(null)
+    val weatherData: StateFlow<com.max.aiassistant.data.api.WeatherData?> = _weatherData.asStateFlow()
+
+    private val _isLoadingWeather = MutableStateFlow(false)
+    val isLoadingWeather: StateFlow<Boolean> = _isLoadingWeather.asStateFlow()
+
+    // État de la ville actuelle
+    private val _cityName = MutableStateFlow(com.max.aiassistant.data.preferences.WeatherPreferences.DEFAULT_CITY_NAME)
+    val cityName: StateFlow<String> = _cityName.asStateFlow()
+
+    private val _cityLatitude = MutableStateFlow(com.max.aiassistant.data.preferences.WeatherPreferences.DEFAULT_LATITUDE)
+    val cityLatitude: StateFlow<Double> = _cityLatitude.asStateFlow()
+
+    private val _cityLongitude = MutableStateFlow(com.max.aiassistant.data.preferences.WeatherPreferences.DEFAULT_LONGITUDE)
+    val cityLongitude: StateFlow<Double> = _cityLongitude.asStateFlow()
+
+    // Résultats de recherche de ville
+    private val _citySearchResults = MutableStateFlow<List<com.max.aiassistant.data.api.CityResult>>(emptyList())
+    val citySearchResults: StateFlow<List<com.max.aiassistant.data.api.CityResult>> = _citySearchResults.asStateFlow()
+
+    // ========== ÉTAT DES NOTES ==========
+
+    private val _notes = MutableStateFlow<List<Note>>(emptyList())
+    val notes: StateFlow<List<Note>> = _notes.asStateFlow()
+
+    /**
+     * Ajoute une nouvelle note
+     */
+    fun addNote(title: String, content: String) {
+        val newNote = Note(
+            id = java.util.UUID.randomUUID().toString(),
+            title = title,
+            content = content,
+            timestamp = System.currentTimeMillis()
+        )
+        _notes.value = _notes.value + newNote
+        Log.d(TAG, "Note ajoutée: $title")
+    }
+
+    /**
+     * Supprime une note
+     */
+    fun deleteNote(noteId: String) {
+        _notes.value = _notes.value.filter { it.id != noteId }
+        Log.d(TAG, "Note supprimée: $noteId")
+    }
+
+    /**
+     * Recherche des villes par nom
+     */
+    fun searchCity(cityName: String) {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Recherche de ville: $cityName")
+                val response = geocodingApiService.searchCity(cityName)
+                _citySearchResults.value = response.results ?: emptyList()
+                Log.d(TAG, "Résultats de recherche: ${_citySearchResults.value.size} villes trouvées")
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors de la recherche de ville", e)
+                _citySearchResults.value = emptyList()
+            }
+        }
+    }
+
+    /**
+     * Change la ville actuelle et recharge les données météo
+     */
+    fun selectCity(city: com.max.aiassistant.data.api.CityResult) {
+        viewModelScope.launch {
+            _cityName.value = city.name
+            _cityLatitude.value = city.latitude
+            _cityLongitude.value = city.longitude
+            Log.d(TAG, "Ville sélectionnée: ${city.name} (${city.latitude}, ${city.longitude})")
+
+            weatherPreferences.saveCity(city.name, city.latitude, city.longitude)
+            refreshWeather()
+        }
+    }
+
+    /**
+     * Récupère les données météo depuis Open-Meteo
+     */
+    fun refreshWeather() {
+        viewModelScope.launch {
+            try {
+                _isLoadingWeather.value = true
+                Log.d(TAG, "Récupération des données météo pour ${_cityName.value}...")
+
+                val response = weatherApiService.getWeatherForecast(
+                    latitude = _cityLatitude.value,
+                    longitude = _cityLongitude.value
+                )
+                val weatherData = response.toWeatherData()
+
+                _weatherData.value = weatherData
+                Log.d(TAG, "Données météo récupérées: ${weatherData.currentTemperature}°C, ${weatherData.hourlyForecasts.size} prévisions horaires")
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors de la récupération de la météo", e)
+                // En cas d'erreur, on garde les données actuelles
+            } finally {
+                _isLoadingWeather.value = false
+            }
+        }
+    }
+
     /**
      * Récupère les événements du calendrier depuis l'API
      */
@@ -418,7 +532,13 @@ class MainViewModel : ViewModel() {
                 Log.d(TAG, "Récupération des événements du calendrier...")
 
                 val response = apiService.getCalendarEvents()
-                val events = response.text.data.map { it.toEvent() }
+                // Trie les événements par date/heure (les plus proches en premier)
+                val events = response.text.data
+                    .sortedBy { eventApiData ->
+                        // Utilise dateTime si disponible, sinon date (pour événements "toute la journée")
+                        eventApiData.start.dateTime ?: eventApiData.start.date ?: ""
+                    }
+                    .map { it.toEvent() }
 
                 _events.value = events
                 Log.d(TAG, "Événements récupérés: ${events.size}")
@@ -704,13 +824,28 @@ class MainViewModel : ViewModel() {
     // ========== INITIALISATION ==========
 
     /**
-     * Bloc d'initialisation : charge les messages, tâches et événements au démarrage
+     * Bloc d'initialisation : charge les messages, tâches, événements et météo au démarrage
      */
     init {
         loadSystemContext()
         loadRecentMessages()
         refreshTasks()
         refreshCalendarEvents()
+        refreshWeather()
+
+        viewModelScope.launch {
+            weatherPreferences.cityPreferences.collect { prefs ->
+                val cityChanged = prefs.cityName != _cityName.value ||
+                    prefs.latitude != _cityLatitude.value ||
+                    prefs.longitude != _cityLongitude.value
+                _cityName.value = prefs.cityName
+                _cityLatitude.value = prefs.latitude
+                _cityLongitude.value = prefs.longitude
+                if (cityChanged) {
+                    refreshWeather()
+                }
+            }
+        }
     }
 
     // ========== NETTOYAGE ==========

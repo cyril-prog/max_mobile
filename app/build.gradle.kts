@@ -92,7 +92,7 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
 
     // Material 3 - Design moderne
-    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material3:material3:1.2.0")
     implementation("androidx.compose.material:material-icons-extended")
 
     // ViewModel pour Compose
@@ -112,6 +112,9 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    // DataStore for persisting weather city selection
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     // Debugging
     debugImplementation("androidx.compose.ui:ui-tooling")

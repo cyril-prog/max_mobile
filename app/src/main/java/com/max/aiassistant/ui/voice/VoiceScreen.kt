@@ -11,8 +11,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,9 +40,7 @@ import kotlin.math.cos
  *
  * Interface minimaliste pour l'interaction vocale avec l'API Realtime d'OpenAI
  * - Visualiseur d'onde audio animé
- * - Bouton micro pour activer/désactiver la connexion Realtime
- * - Bouton message pour naviguer vers le chat
- * - Bouton tâches pour naviguer vers les tâches et agenda
+ * - 5 boutons de navigation en ligne : Météo, Tâches, Micro (agrandi au centre), Message, Notes
  */
 @Composable
 fun VoiceScreen(
@@ -49,6 +49,8 @@ fun VoiceScreen(
     onToggleRealtime: () -> Unit,
     onNavigateToChat: () -> Unit,
     onNavigateToTasks: () -> Unit,
+    onNavigateToWeather: () -> Unit,
+    onNavigateToNotes: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -72,26 +74,28 @@ fun VoiceScreen(
         // Grand espace entre l'orbe et les boutons
         Spacer(modifier = Modifier.weight(2f))
 
-        // Boutons d'action (Micro, Message et Tâches)
+        // 5 boutons de navigation en ligne : Météo, Tâches, Micro (agrandi), Message, Notes
         Row(
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Bouton Micro (bascule entre micro barré et micro actif)
+            // Bouton Météo
+            WeatherButton(onClick = onNavigateToWeather)
+
+            // Bouton Tâches
+            TaskButton(onClick = onNavigateToTasks)
+
+            // Bouton Micro au centre (plus gros)
             RealtimeMicButton(
                 isConnected = isRealtimeConnected,
                 onClick = onToggleRealtime
             )
 
             // Bouton Message
-            MessageButton(
-                onClick = onNavigateToChat
-            )
+            MessageButton(onClick = onNavigateToChat)
 
-            // Bouton Tâches
-            TaskButton(
-                onClick = onNavigateToTasks
-            )
+            // Bouton Notes
+            NotesButton(onClick = onNavigateToNotes)
         }
 
         // Espace en bas pour pousser les boutons vers le bas (plus petit)
@@ -275,8 +279,9 @@ fun FluidOrbVisualizer(
 
 /**
  * Bouton circulaire avec icône micro pour l'API Realtime
- * - Micro barré (MicOff) par défaut (déconnecté)
- * - Micro actif (Mic) quand connecté à l'API Realtime
+ * - Toujours affiche l'icône Mic (non barré)
+ * - Plus gros que les autres boutons (fonction principale)
+ * - Change de couleur quand connecté à l'API Realtime
  * - Effet 3D subtil avec dégradé, ombre et highlight
  */
 @Composable
@@ -284,14 +289,14 @@ fun RealtimeMicButton(
     isConnected: Boolean,
     onClick: () -> Unit
 ) {
-    // Bleu marine pour l'effet 3D
-    val buttonColorTop = Color(0xFF1A3A5F)      // Plus clair en haut
-    val buttonColorBottom = Color(0xFF0F1C33)   // Plus sombre en bas
+    // Couleurs différentes selon l'état de connexion
+    val buttonColorTop = if (isConnected) Color(0xFF0EA5E9) else Color(0xFF1A3A5F)
+    val buttonColorBottom = if (isConnected) Color(0xFF0284C7) else Color(0xFF0F1C33)
     val shadowColor = Color(0xFF000000)         // Ombre noire diffuse
     val highlightColor = Color(0xFFFFFFFF)      // Highlight blanc
 
     Box(
-        modifier = Modifier.size(63.dp),
+        modifier = Modifier.size(65.dp),  // Plus gros que les autres (50dp)
         contentAlignment = Alignment.Center
     ) {
         FloatingActionButton(
@@ -362,9 +367,9 @@ fun RealtimeMicButton(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (isConnected) Icons.Default.Mic else Icons.Default.MicOff,
+                    imageVector = Icons.Default.Mic,  // Toujours Mic (non barré)
                     contentDescription = if (isConnected) "Arrêter la conversation" else "Démarrer la conversation",
-                    modifier = Modifier.size(27.dp),
+                    modifier = Modifier.size(28.dp),  // Plus gros pour s'adapter au bouton
                     tint = Color.White
                 )
             }
@@ -388,7 +393,7 @@ fun MessageButton(
     val highlightColor = Color(0xFFFFFFFF)      // Highlight blanc
 
     Box(
-        modifier = Modifier.size(63.dp),
+        modifier = Modifier.size(50.dp),
         contentAlignment = Alignment.Center
     ) {
         FloatingActionButton(
@@ -402,17 +407,17 @@ fun MessageButton(
                     drawCircle(
                         color = shadowColor.copy(alpha = 0.4f),
                         radius = baseRadius - 2.dp.toPx(),
-                        center = center.copy(y = center.y + 8.dp.toPx())
+                        center = center.copy(y = center.y + 6.dp.toPx())
                     )
                     drawCircle(
                         color = shadowColor.copy(alpha = 0.2f),
                         radius = baseRadius,
-                        center = center.copy(y = center.y + 6.dp.toPx())
+                        center = center.copy(y = center.y + 5.dp.toPx())
                     )
                     drawCircle(
                         color = shadowColor.copy(alpha = 0.1f),
                         radius = baseRadius + 2.dp.toPx(),
-                        center = center.copy(y = center.y + 4.dp.toPx())
+                        center = center.copy(y = center.y + 3.dp.toPx())
                     )
                 }
                 .drawWithContent {
@@ -461,7 +466,7 @@ fun MessageButton(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Message,
                     contentDescription = "Open chat",
-                    modifier = Modifier.size(27.dp),
+                    modifier = Modifier.size(22.dp),
                     tint = Color.White
                 )
             }
@@ -485,7 +490,7 @@ fun TaskButton(
     val highlightColor = Color(0xFFFFFFFF)      // Highlight blanc
 
     Box(
-        modifier = Modifier.size(63.dp),
+        modifier = Modifier.size(50.dp),
         contentAlignment = Alignment.Center
     ) {
         FloatingActionButton(
@@ -499,17 +504,17 @@ fun TaskButton(
                     drawCircle(
                         color = shadowColor.copy(alpha = 0.4f),
                         radius = baseRadius - 2.dp.toPx(),
-                        center = center.copy(y = center.y + 8.dp.toPx())
+                        center = center.copy(y = center.y + 6.dp.toPx())
                     )
                     drawCircle(
                         color = shadowColor.copy(alpha = 0.2f),
                         radius = baseRadius,
-                        center = center.copy(y = center.y + 6.dp.toPx())
+                        center = center.copy(y = center.y + 5.dp.toPx())
                     )
                     drawCircle(
                         color = shadowColor.copy(alpha = 0.1f),
                         radius = baseRadius + 2.dp.toPx(),
-                        center = center.copy(y = center.y + 4.dp.toPx())
+                        center = center.copy(y = center.y + 3.dp.toPx())
                     )
                 }
                 .drawWithContent {
@@ -558,11 +563,201 @@ fun TaskButton(
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = "Open tasks",
-                    modifier = Modifier.size(27.dp),
+                    modifier = Modifier.size(22.dp),
                     tint = Color.White
                 )
             }
         }
     }
 }
+
+/**
+ * Bouton circulaire avec icône météo
+ * Pour naviguer vers l'écran météo
+ * - Effet 3D subtil avec dégradé, ombre et highlight
+ */
+@Composable
+fun WeatherButton(
+    onClick: () -> Unit
+) {
+    // Bleu marine pour l'effet 3D
+    val buttonColorTop = Color(0xFF1A3A5F)      // Plus clair en haut
+    val buttonColorBottom = Color(0xFF0F1C33)   // Plus sombre en bas
+    val shadowColor = Color(0xFF000000)         // Ombre noire diffuse
+    val highlightColor = Color(0xFFFFFFFF)      // Highlight blanc
+
+    Box(
+        modifier = Modifier.size(50.dp),  // Un peu plus petit que les boutons de navigation
+        contentAlignment = Alignment.Center
+    ) {
+        FloatingActionButton(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxSize()
+                .drawBehind {
+                    val baseRadius = size.minDimension / 2f
+
+                    // Ombre portée diffuse sous le bouton (effet flottant)
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.3f),
+                        radius = baseRadius - 2.dp.toPx(),
+                        center = center.copy(y = center.y + 6.dp.toPx())
+                    )
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.15f),
+                        radius = baseRadius,
+                        center = center.copy(y = center.y + 4.dp.toPx())
+                    )
+                }
+                .drawWithContent {
+                    // Dessine le contenu du bouton (fond + icône)
+                    drawContent()
+
+                    // Highlight arrondi sur le bord supérieur (effet 3D)
+                    val baseRadius = size.minDimension / 2f
+                    val highlightRadius = baseRadius * 0.8f
+                    val highlightCenter = center.copy(y = center.y - baseRadius * 0.3f)
+
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                highlightColor.copy(alpha = 0.25f),
+                                highlightColor.copy(alpha = 0.1f),
+                                Color.Transparent
+                            ),
+                            center = highlightCenter,
+                            radius = highlightRadius
+                        ),
+                        radius = highlightRadius,
+                        center = highlightCenter
+                    )
+                },
+            shape = CircleShape,
+            containerColor = Color.Transparent,
+            contentColor = Color.White,
+            elevation = FloatingActionButtonDefaults.elevation(
+                defaultElevation = 0.dp,
+                pressedElevation = 0.dp
+            )
+        ) {
+            // Fond avec dégradé vertical
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(buttonColorTop, buttonColorBottom)
+                        ),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WbSunny,
+                    contentDescription = "Météo",
+                    modifier = Modifier.size(22.dp),
+                    tint = Color.White  // Blanc pour harmoniser avec les autres boutons
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Bouton circulaire avec icône notes
+ * Pour naviguer vers l'écran de prise de notes
+ * - Effet 3D subtil avec dégradé, ombre et highlight
+ */
+@Composable
+fun NotesButton(
+    onClick: () -> Unit
+) {
+    // Bleu marine pour l'effet 3D
+    val buttonColorTop = Color(0xFF1A3A5F)      // Plus clair en haut
+    val buttonColorBottom = Color(0xFF0F1C33)   // Plus sombre en bas
+    val shadowColor = Color(0xFF000000)         // Ombre noire diffuse
+    val highlightColor = Color(0xFFFFFFFF)      // Highlight blanc
+
+    Box(
+        modifier = Modifier.size(50.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        FloatingActionButton(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxSize()
+                .drawBehind {
+                    val baseRadius = size.minDimension / 2f
+
+                    // Ombre portée diffuse sous le bouton (effet flottant)
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.4f),
+                        radius = baseRadius - 2.dp.toPx(),
+                        center = center.copy(y = center.y + 6.dp.toPx())
+                    )
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.2f),
+                        radius = baseRadius,
+                        center = center.copy(y = center.y + 5.dp.toPx())
+                    )
+                    drawCircle(
+                        color = shadowColor.copy(alpha = 0.1f),
+                        radius = baseRadius + 2.dp.toPx(),
+                        center = center.copy(y = center.y + 3.dp.toPx())
+                    )
+                }
+                .drawWithContent {
+                    // Dessine le contenu du bouton (fond + icône)
+                    drawContent()
+
+                    // Highlight arrondi sur le bord supérieur (effet 3D)
+                    val baseRadius = size.minDimension / 2f
+                    val highlightRadius = baseRadius * 0.8f
+                    val highlightCenter = center.copy(y = center.y - baseRadius * 0.3f)
+
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                highlightColor.copy(alpha = 0.25f),
+                                highlightColor.copy(alpha = 0.1f),
+                                Color.Transparent
+                            ),
+                            center = highlightCenter,
+                            radius = highlightRadius
+                        ),
+                        radius = highlightRadius,
+                        center = highlightCenter
+                    )
+                },
+            shape = CircleShape,
+            containerColor = Color.Transparent,
+            contentColor = Color.White,
+            elevation = FloatingActionButtonDefaults.elevation(
+                defaultElevation = 0.dp,
+                pressedElevation = 0.dp
+            )
+        ) {
+            // Fond avec dégradé vertical
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(buttonColorTop, buttonColorBottom)
+                        ),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Notes",
+                    modifier = Modifier.size(22.dp),
+                    tint = Color.White
+                )
+            }
+        }
+    }
+}
+
 
