@@ -60,6 +60,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages: StateFlow<List<Message>> = _messages.asStateFlow()
 
+    // Indicateur de chargement pour la réponse de l'IA
+    private val _isWaitingForAiResponse = MutableStateFlow(false)
+    val isWaitingForAiResponse: StateFlow<Boolean> = _isWaitingForAiResponse.asStateFlow()
+
     /**
      * Charge le contexte système (tâches, mémoire, historique, calendrier) pour enrichir le prompt voice-to-voice
      * Récupère les données depuis 4 endpoints différents de manière robuste
@@ -296,6 +300,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
         _messages.value = _messages.value + userMessage
 
+        // Active l'indicateur de chargement
+        _isWaitingForAiResponse.value = true
+
         // Envoie le message à l'API et récupère la réponse
         viewModelScope.launch {
             try {
@@ -350,6 +357,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     isFromUser = false
                 )
                 _messages.value = _messages.value + errorMessage
+            } finally {
+                // Désactive l'indicateur de chargement
+                _isWaitingForAiResponse.value = false
             }
         }
     }

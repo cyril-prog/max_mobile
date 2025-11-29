@@ -83,6 +83,7 @@ class MainActivity : ComponentActivity() {
 
                 // Collecte de l'état réactif depuis le ViewModel
                 val messages by viewModel.messages.collectAsState()
+                val isWaitingForAiResponse by viewModel.isWaitingForAiResponse.collectAsState()
                 val tasks by viewModel.tasks.collectAsState()
                 val events by viewModel.events.collectAsState()
                 val isLoadingTasks by viewModel.isLoadingTasks.collectAsState()
@@ -184,6 +185,7 @@ class MainActivity : ComponentActivity() {
                         1 -> {
                             ChatScreen(
                                 messages = messages,
+                                isWaitingForAiResponse = isWaitingForAiResponse,
                                 onSendMessage = { message ->
                                     viewModel.sendMessage(message)
                                 },

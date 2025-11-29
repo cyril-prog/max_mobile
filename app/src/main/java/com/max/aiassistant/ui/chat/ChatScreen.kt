@@ -1,5 +1,6 @@
 package com.max.aiassistant.ui.chat
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -23,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -46,6 +48,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ChatScreen(
     messages: List<Message>,
+    isWaitingForAiResponse: Boolean,
     onSendMessage: (String) -> Unit,
     onVoiceInput: () -> Unit,
     onNavigateToHome: () -> Unit,
@@ -53,12 +56,15 @@ fun ChatScreen(
 ) {
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
 
-    // Auto-scroll vers le bas quand un nouveau message arrive ou quand on charge la liste
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            // Défile directement vers le dernier message
-            listState.animateScrollToItem(messages.size - 1)
+    // Auto-scroll vers le bas quand un nouveau message arrive ou quand l'état de chargement change
+    LaunchedEffect(messages.size, isWaitingForAiResponse) {
+        // Calcule l'index du dernier élément (messages + typing indicator si présent)
+        val itemCount = messages.size + if (isWaitingForAiResponse) 1 else 0
+        if (itemCount > 0) {
+            // Défile directement vers le dernier élément
+            listState.animateScrollToItem(itemCount - 1)
         }
     }
 
@@ -105,6 +111,13 @@ fun ChatScreen(
         ) {
             items(messages, key = { it.id }) { message ->
                 MessageBubble(message = message)
+            }
+
+            // Indicateur de chargement si l'IA est en train de réfléchir
+            if (isWaitingForAiResponse) {
+                item(key = "typing_indicator") {
+                    TypingIndicator()
+                }
             }
         }
 
@@ -246,4 +259,87 @@ fun MessageInputBar(
             }
         }
     }
+}
+
+/**
+ * Indicateur de saisie animé (typing indicator)
+ * Affiche trois points qui rebondissent pour indiquer que l'IA est en train de réfléchir
+ */
+@Composable
+fun TypingIndicator() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End
+    ) {
+        val bubbleShape = RoundedCornerShape(
+            topStart = 20.dp,
+            topEnd = 20.dp,
+            bottomStart = 20.dp,
+            bottomEnd = 4.dp
+        )
+
+        Surface(
+            shape = bubbleShape,
+            color = MaxMessageBg,
+            tonalElevation = 2.dp,
+            shadowElevation = 4.dp,
+            modifier = Modifier
+                .widthIn(max = 280.dp)
+                .border(
+                    width = 0.5.dp,
+                    color = BorderColor.copy(alpha = 0.3f),
+                    shape = bubbleShape
+                )
+        ) {
+            Row(
+                modifier = Modifier.padding(
+                    horizontal = 20.dp,
+                    vertical = 16.dp
+                ),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Animation de 3 points qui rebondissent en cascade
+                repeat(3) { index ->
+                    TypingDot(delayMillis = index * 150)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Un point animé pour le typing indicator
+ * Rebondit verticalement avec un délai pour créer un effet de cascade
+ */
+@Composable
+fun TypingDot(delayMillis: Int) {
+    // Animation infinie de translation verticale
+    val infiniteTransition = rememberInfiniteTransition(label = "typing_dot_$delayMillis")
+
+    val translateY by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = -8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = 600,
+                delayMillis = delayMillis,
+                easing = FastOutSlowInEasing
+            ),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "translate_y"
+    )
+
+    Box(
+        modifier = Modifier
+            .size(8.dp)
+            .graphicsLayer {
+                translationY = translateY
+            }
+            .background(
+                color = TextSecondary.copy(alpha = 0.7f),
+                shape = CircleShape
+            )
+    )
 }
