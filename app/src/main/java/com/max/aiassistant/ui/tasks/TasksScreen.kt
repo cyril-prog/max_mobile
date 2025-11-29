@@ -513,7 +513,7 @@ fun TaskItemCompact(
 }
 
 /**
- * Dialog affichant tous les détails d'une tâche (version compacte)
+ * Dialog affichant tous les détails d'une tâche (version moderne)
  */
 @Composable
 fun TaskDetailsDialog(
@@ -523,113 +523,427 @@ fun TaskDetailsDialog(
     onDelete: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = DarkSurface,
-        title = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    // Dialog de confirmation de suppression
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            containerColor = Color(0xFF2C2C2E),
+            title = {
                 Text(
-                    text = task.title,
-                    color = TextPrimary,
-                    style = MaterialTheme.typography.titleLarge,
+                    text = "Supprimer la tâche ?",
+                    color = Color.White,
                     fontWeight = FontWeight.Bold
                 )
-
-                // Métadonnées compactes (format horizontal)
-                CompactMetadata(task = task)
+            },
+            text = {
+                Text(
+                    text = "Cette action est irréversible. Voulez-vous vraiment supprimer cette tâche ?",
+                    color = Color.White.copy(alpha = 0.8f),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirmation = false
+                        onDelete()
+                    }
+                ) {
+                    Text("Supprimer", color = UrgentRed, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) {
+                    Text("Annuler", color = Color.White.copy(alpha = 0.7f))
+                }
             }
-        },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Onglets Description / Notes
-                if (task.description.isNotEmpty() || task.note.isNotEmpty()) {
-                    TaskContentTabSelector(
-                        selectedIndex = selectedTab,
-                        onTabSelected = { selectedTab = it },
-                        hasDescription = task.description.isNotEmpty(),
-                        hasNote = task.note.isNotEmpty()
+        )
+    }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss
+    ) {
+        // Conteneur principal avec gradient de fond (largeur augmentée)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .clip(RoundedCornerShape(24.dp))
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF1C1C1E),
+                            Color(0xFF2C2C2E)
+                        )
+                    )
+                )
+        ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    // En-tête avec titre et icônes d'action
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        // Titre compact
+                        Text(
+                            text = task.title,
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp, top = 4.dp)
+                        )
+
+                        // Icônes d'action (plus hautes et plus compactes)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(0.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            // Icône supprimer
+                            IconButton(
+                                onClick = { showDeleteConfirmation = true },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Supprimer",
+                                    tint = Color(0xFFB71C1C),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            // Icône fermer
+                            IconButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Fermer",
+                                    tint = Color(0xFFC62828),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Métadonnées avec badges modernes (clickable pour changer le statut)
+                    Box(
+                        modifier = Modifier.clickable {
+                            val newStatus = when (task.status) {
+                                TaskStatus.TODO -> TaskStatus.IN_PROGRESS
+                                TaskStatus.IN_PROGRESS -> TaskStatus.COMPLETED
+                                TaskStatus.COMPLETED -> TaskStatus.TODO
+                            }
+                            onStatusChange(newStatus)
+                        }
+                    ) {
+                        ModernCompactMetadata(task = task)
+                    }
+
+                    // Séparateur élégant
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(
+                                brush = Brush.horizontalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.White.copy(alpha = 0.1f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    // Onglets Description / Notes
+                    if (task.description.isNotEmpty() || task.note.isNotEmpty()) {
+                        ModernTaskContentTabSelector(
+                            selectedIndex = selectedTab,
+                            onTabSelected = { selectedTab = it },
+                            hasDescription = task.description.isNotEmpty(),
+                            hasNote = task.note.isNotEmpty()
+                        )
 
-                    // Contenu selon l'onglet sélectionné
-                    when (selectedTab) {
-                        0 -> {
-                            if (task.description.isNotEmpty()) {
-                                Text(
-                                    text = task.description,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextPrimary,
-                                    lineHeight = 20.sp
-                                )
-                            } else {
-                                Text(
-                                    text = "Aucune description",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextSecondary,
-                                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                                )
-                            }
-                        }
-                        1 -> {
-                            if (task.note.isNotEmpty()) {
-                                Text(
-                                    text = task.note,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextPrimary,
-                                    lineHeight = 20.sp
-                                )
-                            } else {
-                                Text(
-                                    text = "Aucune note",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextSecondary,
-                                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                                )
+                        // Contenu avec fond subtil
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF1A1A1C))
+                                .padding(12.dp)
+                        ) {
+                            when (selectedTab) {
+                                0 -> {
+                                    if (task.description.isNotEmpty()) {
+                                        Text(
+                                            text = task.description,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color.White.copy(alpha = 0.9f),
+                                            lineHeight = 22.sp
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "Aucune description",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = TextSecondary,
+                                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                        )
+                                    }
+                                }
+                                1 -> {
+                                    if (task.note.isNotEmpty()) {
+                                        Text(
+                                            text = task.note,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color.White.copy(alpha = 0.9f),
+                                            lineHeight = 22.sp
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "Aucune note",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = TextSecondary,
+                                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            // Bouton de changement de statut
-            TextButton(
-                onClick = {
-                    val newStatus = when (task.status) {
-                        TaskStatus.TODO -> TaskStatus.IN_PROGRESS
-                        TaskStatus.IN_PROGRESS -> TaskStatus.COMPLETED
-                        TaskStatus.COMPLETED -> TaskStatus.TODO
-                    }
-                    onStatusChange(newStatus)
-                }
+    }
+}
+
+/**
+ * Composable pour un bouton moderne avec fond coloré
+ */
+@Composable
+fun ModernButton(
+    text: String,
+    onClick: () -> Unit,
+    backgroundColor: Color,
+    textColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = backgroundColor
+        ),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Text(
+            text = text,
+            color = textColor,
+            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+/**
+ * Métadonnées modernes avec badges colorés
+ */
+@Composable
+fun ModernCompactMetadata(task: Task) {
+    val statusText = when (task.status) {
+        TaskStatus.TODO -> "À faire"
+        TaskStatus.IN_PROGRESS -> "En cours"
+        TaskStatus.COMPLETED -> "Terminé"
+    }
+    val statusColor = when (task.status) {
+        TaskStatus.COMPLETED -> CompletedGreen
+        TaskStatus.IN_PROGRESS -> AccentBlue
+        else -> NormalOrange
+    }
+
+    val priorityText = when (task.priority) {
+        TaskPriority.URGENT -> "Haute"
+        TaskPriority.NORMAL -> "Normale"
+        TaskPriority.LOW -> "Basse"
+    }
+    val priorityColor = when (task.priority) {
+        TaskPriority.URGENT -> UrgentRed
+        TaskPriority.NORMAL -> NormalOrange
+        TaskPriority.LOW -> CompletedGreen
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // Première ligne avec badges
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Badge de statut
+            ModernBadge(text = statusText, color = statusColor)
+
+            // Badge de priorité
+            ModernBadge(text = priorityText, color = priorityColor)
+
+            // Deadline
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Icon(
+                    imageVector = Icons.Default.Schedule,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.size(14.dp)
+                )
                 Text(
-                    text = when (task.status) {
-                        TaskStatus.TODO -> "Démarrer"
-                        TaskStatus.IN_PROGRESS -> "Terminer"
-                        TaskStatus.COMPLETED -> "Réactiver"
-                    },
-                    color = AccentBlue
+                    text = task.deadline,
+                    color = Color.White.copy(alpha = 0.8f),
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
-        },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Bouton supprimer
-                TextButton(onClick = onDelete) {
-                    Text("Supprimer", color = UrgentRed)
+        }
+
+        // Deuxième ligne (catégorie et durée)
+        if (task.category.isNotEmpty() || task.estimatedDuration.isNotEmpty()) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (task.category.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Category,
+                            contentDescription = null,
+                            tint = AccentBlue.copy(alpha = 0.7f),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = task.category,
+                            color = Color.White.copy(alpha = 0.8f),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
-                // Bouton fermer
-                TextButton(onClick = onDismiss) {
-                    Text("Fermer", color = TextSecondary)
+
+                if (task.estimatedDuration.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Timer,
+                            contentDescription = null,
+                            tint = AccentBlue.copy(alpha = 0.7f),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = task.estimatedDuration,
+                            color = Color.White.copy(alpha = 0.8f),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         }
-    )
+    }
+}
+
+/**
+ * Badge moderne avec fond coloré
+ */
+@Composable
+fun ModernBadge(text: String, color: Color) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(color.copy(alpha = 0.15f))
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Text(
+            text = text,
+            color = color,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+/**
+ * Sélecteur d'onglets moderne avec animation
+ */
+@Composable
+fun ModernTaskContentTabSelector(
+    selectedIndex: Int,
+    onTabSelected: (Int) -> Unit,
+    hasDescription: Boolean,
+    hasNote: Boolean
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF1A1A1C))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        if (hasDescription) {
+            ModernTabItem(
+                text = "Description",
+                isSelected = selectedIndex == 0,
+                onClick = { onTabSelected(0) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        if (hasNote) {
+            ModernTabItem(
+                text = "Notes",
+                isSelected = selectedIndex == 1 || (!hasDescription && selectedIndex == 0),
+                onClick = { onTabSelected(1) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+/**
+ * Item d'onglet moderne
+ */
+@Composable
+fun ModernTabItem(
+    text: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                if (isSelected) AccentBlue else Color.Transparent
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (isSelected) Color.White else Color.White.copy(alpha = 0.6f),
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+        )
+    }
 }
 
 /**
