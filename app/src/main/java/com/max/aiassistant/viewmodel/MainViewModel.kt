@@ -432,6 +432,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _cityLongitude = MutableStateFlow(com.max.aiassistant.data.preferences.WeatherPreferences.DEFAULT_LONGITUDE)
     val cityLongitude: StateFlow<Double> = _cityLongitude.asStateFlow()
 
+    private val _showAllergies = MutableStateFlow(com.max.aiassistant.data.preferences.WeatherPreferences.DEFAULT_SHOW_ALLERGIES)
+    val showAllergies: StateFlow<Boolean> = _showAllergies.asStateFlow()
+
     // Résultats de recherche de ville
     private val _citySearchResults = MutableStateFlow<List<com.max.aiassistant.data.api.CityResult>>(emptyList())
     val citySearchResults: StateFlow<List<com.max.aiassistant.data.api.CityResult>> = _citySearchResults.asStateFlow()
@@ -492,6 +495,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             weatherPreferences.saveCity(city.name, city.latitude, city.longitude)
             refreshWeather()
+        }
+    }
+
+    /**
+     * Modifie la préférence d'affichage du bloc allergies
+     */
+    fun setShowAllergies(show: Boolean) {
+        viewModelScope.launch {
+            _showAllergies.value = show
+            weatherPreferences.setShowAllergies(show)
+            Log.d(TAG, "Affichage des allergies: $show")
         }
     }
 
@@ -841,6 +855,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _cityName.value = prefs.cityName
                 _cityLatitude.value = prefs.latitude
                 _cityLongitude.value = prefs.longitude
+                _showAllergies.value = prefs.showAllergies
                 if (cityChanged) {
                     refreshWeather()
                 }

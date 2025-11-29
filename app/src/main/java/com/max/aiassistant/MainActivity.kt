@@ -94,6 +94,7 @@ class MainActivity : ComponentActivity() {
                 val notes by viewModel.notes.collectAsState()
                 val cityName by viewModel.cityName.collectAsState()
                 val citySearchResults by viewModel.citySearchResults.collectAsState()
+                val showAllergies by viewModel.showAllergies.collectAsState()
 
                 // État du pager (5 pages, commence à la page 0 = Voice)
                 val pagerState = rememberPagerState(
@@ -190,6 +191,11 @@ class MainActivity : ComponentActivity() {
                                     // Déclenche l'animation de transition vers l'écran principal
                                     targetPage = 0
                                     isTransitioning = true
+                                },
+                                onNavigateToHome = {
+                                    // Déclenche l'animation de transition vers l'écran principal
+                                    targetPage = 0
+                                    isTransitioning = true
                                 }
                             )
                         }
@@ -223,10 +229,12 @@ class MainActivity : ComponentActivity() {
                                 weatherData = weatherData,
                                 cityName = cityName,
                                 citySearchResults = citySearchResults,
+                                showAllergies = showAllergies,
                                 isRefreshing = isLoadingWeather,
                                 onRefresh = { viewModel.refreshWeather() },
                                 onSearchCity = { query -> viewModel.searchCity(query) },
                                 onSelectCity = { city -> viewModel.selectCity(city) },
+                                onSetShowAllergies = { show -> viewModel.setShowAllergies(show) },
                                 onNavigateBack = {
                                     // Déclenche l'animation de transition vers l'écran principal
                                     targetPage = 0

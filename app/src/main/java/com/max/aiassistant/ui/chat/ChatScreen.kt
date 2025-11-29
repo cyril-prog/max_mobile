@@ -27,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import com.max.aiassistant.model.Message
 import com.max.aiassistant.ui.common.MiniFluidOrb
 import com.max.aiassistant.ui.theme.*
@@ -46,6 +48,7 @@ fun ChatScreen(
     messages: List<Message>,
     onSendMessage: (String) -> Unit,
     onVoiceInput: () -> Unit,
+    onNavigateToHome: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var messageText by remember { mutableStateOf("") }
@@ -63,26 +66,32 @@ fun ChatScreen(
         modifier = modifier
             .fillMaxSize()
             .background(DarkBackground)
+            .pointerInput(onNavigateToHome) {
+                var cumulativeDrag = 0f
+                var swipeTriggered = false
+                detectHorizontalDragGestures(
+                    onHorizontalDrag = { _, dragAmount ->
+                        if (dragAmount > 0f) {
+                            cumulativeDrag += dragAmount
+                            if (!swipeTriggered && cumulativeDrag >= 80f) {
+                                swipeTriggered = true
+                                onNavigateToHome()
+                            }
+                        }
+                    },
+                    onDragEnd = {
+                        cumulativeDrag = 0f
+                        swipeTriggered = false
+                    },
+                    onDragCancel = {
+                        cumulativeDrag = 0f
+                        swipeTriggered = false
+                    }
+                )
+            }
     ) {
-        // Barre de titre (toujours visible)
-        TopAppBar(
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // Orbe bleu miniature (lien visuel avec VoiceScreen)
-                    MiniFluidOrb(
-                        onClick = onVoiceInput,
-                        modifier = Modifier.size(80.dp)
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = DarkBackground
-            )
-        )
+        // Espace en haut pour éviter que les messages soient coupés
+        Spacer(modifier = Modifier.height(32.dp))
 
         // Zone de messages (se compresse quand le clavier apparaît)
         LazyColumn(
@@ -195,13 +204,14 @@ fun MessageInputBar(
                     )
                 },
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = DarkSurfaceVariant,
-                    unfocusedContainerColor = DarkSurfaceVariant,
+                    focusedContainerColor = DarkSurface,
+                    unfocusedContainerColor = DarkSurface,
                     focusedTextColor = TextPrimary,
                     unfocusedTextColor = TextPrimary,
                     cursorColor = AccentBlue,
                     focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent
                 ),
                 shape = RoundedCornerShape(24.dp),
                 singleLine = true,

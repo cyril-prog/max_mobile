@@ -34,6 +34,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import com.max.aiassistant.model.*
 import com.max.aiassistant.ui.common.MiniFluidOrb
 import com.max.aiassistant.ui.theme.*
@@ -70,10 +72,36 @@ fun TasksScreen(
             .fillMaxSize()
             .background(DarkBackground)
             .windowInsetsPadding(WindowInsets.navigationBars)
+            .pointerInput(onNavigateToHome) {
+                var cumulativeDrag = 0f
+                var swipeTriggered = false
+                detectHorizontalDragGestures(
+                    onHorizontalDrag = { _, dragAmount ->
+                        if (dragAmount > 0f) {
+                            cumulativeDrag += dragAmount
+                            if (!swipeTriggered && cumulativeDrag >= 80f) {
+                                swipeTriggered = true
+                                onNavigateToHome()
+                            }
+                        }
+                    },
+                    onDragEnd = {
+                        cumulativeDrag = 0f
+                        swipeTriggered = false
+                    },
+                    onDragCancel = {
+                        cumulativeDrag = 0f
+                        swipeTriggered = false
+                    }
+                )
+            }
     ) {
+        // Espace en haut pour éviter que le calendrier soit coupé
+        Spacer(modifier = Modifier.height(32.dp))
+
         // Mini calendrier de la semaine (toujours visible)
         Column(modifier = Modifier.padding(16.dp)) {
-            WeekCalendar(onNavigateToHome = onNavigateToHome)
+            WeekCalendar()
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -330,7 +358,7 @@ fun AgendaContent(
  * Le jour actuel est mis en évidence
  */
 @Composable
-fun WeekCalendar(onNavigateToHome: () -> Unit) {
+fun WeekCalendar() {
     val calendar = Calendar.getInstance()
     val today = calendar.get(Calendar.DAY_OF_MONTH)
 
@@ -346,17 +374,6 @@ fun WeekCalendar(onNavigateToHome: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Espace pour éviter que l'orbe soit coupé
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Orbe bleu miniature (lien visuel avec les autres écrans)
-        MiniFluidOrb(
-            onClick = onNavigateToHome,
-            modifier = Modifier.size(80.dp)
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {

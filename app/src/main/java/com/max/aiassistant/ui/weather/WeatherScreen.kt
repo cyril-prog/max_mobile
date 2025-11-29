@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.LocalFlorist
 import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.filled.Umbrella
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -47,6 +48,8 @@ import com.max.aiassistant.ui.theme.DarkSurface
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.ui.geometry.Offset
+import java.util.Calendar
 
 /**
  * Écran météo avec prévisions heure par heure
@@ -58,26 +61,30 @@ fun WeatherScreen(
     weatherData: WeatherData?,
     cityName: String,
     citySearchResults: List<CityResult>,
+    showAllergies: Boolean,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     onSearchCity: (String) -> Unit,
     onSelectCity: (CityResult) -> Unit,
+    onSetShowAllergies: (Boolean) -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // État pour afficher/masquer le dialog de sélection de ville
-    var showCityDialog by remember { mutableStateOf(false) }
+    // État pour afficher/masquer le dialog des paramètres météo
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
-    if (showCityDialog) {
-        CitySelectionDialog(
+    if (showSettingsDialog) {
+        WeatherSettingsDialog(
             currentCity = cityName,
             citySearchResults = citySearchResults,
-            onDismiss = { showCityDialog = false },
+            showAllergies = showAllergies,
+            onDismiss = { showSettingsDialog = false },
             onSearchCity = onSearchCity,
             onSelectCity = { city ->
                 onSelectCity(city)
-                showCityDialog = false
-            }
+                showSettingsDialog = false
+            },
+            onSetShowAllergies = onSetShowAllergies
         )
     }
 
@@ -137,15 +144,18 @@ fun WeatherScreen(
                         CurrentWeatherCard(
                             weatherData = weatherData,
                             cityName = cityName,
-                            onClick = { showCityDialog = true }
+                            onOpenSettings = { showSettingsDialog = true }
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Carte des allergies (pollens)
-                        AllergyCard(weatherData = weatherData)
-
-                        Spacer(modifier = Modifier.height(24.dp))
+                        // Carte des allergies (pollens) - affichée selon les préférences
+                        if (showAllergies) {
+                            AllergyCard(weatherData = weatherData)
+                            Spacer(modifier = Modifier.height(24.dp))
+                        } else {
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
 
                         // Onglets pour choisir entre heure par heure et jour par jour
                         var selectedTabIndex by remember { mutableStateOf(0) }
@@ -215,18 +225,69 @@ fun WeatherScreen(
 }
 
 /**
+ * Retourne les couleurs de dégradé selon les conditions météorologiques
+ * @param weatherCode Code météo WMO
+ * @return Paire de couleurs (début, fin) pour le dégradé
+ */
+private fun getWeatherGradient(weatherCode: Int): Pair<Color, Color> {
+    // Déterminer si c'est la nuit (entre 20h et 6h)
+    val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+    val isNight = currentHour >= 20 || currentHour < 6
+
+    return when {
+        // Ciel dégagé (codes 0, 1)
+        weatherCode in listOf(0, 1) -> {
+            if (isNight) {
+                // Nuit claire : #283D5B → #364F6B
+                Pair(Color(0xFF283D5B), Color(0xFF364F6B))
+            } else {
+                // Ensoleillé jour : #5B9BD5 → #7CB3E0
+                Pair(Color(0xFF5B9BD5), Color(0xFF7CB3E0))
+            }
+        }
+        // Brouillard (codes 45, 48)
+        weatherCode in listOf(45, 48) -> {
+            // Brumeux : #6B7F8C → #7A8D9A
+            Pair(Color(0xFF6B7F8C), Color(0xFF7A8D9A))
+        }
+        // Pluie et bruine (codes 51-67, 80-82)
+        weatherCode in listOf(51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82) -> {
+            // Pluvieux : #455A64 → #546E7A
+            Pair(Color(0xFF455A64), Color(0xFF546E7A))
+        }
+        // Neige (codes 71-77, 85-86)
+        weatherCode in listOf(71, 73, 75, 77, 85, 86) -> {
+            // Neigeux : #8FA3AD → #A5B8C2
+            Pair(Color(0xFF8FA3AD), Color(0xFFA5B8C2))
+        }
+        // Orage (codes 95, 96, 99)
+        weatherCode in listOf(95, 96, 99) -> {
+            // Orageux : #3D4E5C → #4A5F6F
+            Pair(Color(0xFF3D4E5C), Color(0xFF4A5F6F))
+        }
+        // Nuageux (codes 2, 3) et défaut
+        else -> {
+            // Nuageux : #637A87 → #758D9A
+            Pair(Color(0xFF637A87), Color(0xFF758D9A))
+        }
+    }
+}
+
+/**
  * Carte affichant la température et les conditions actuelles
  */
 @Composable
 fun CurrentWeatherCard(
     weatherData: WeatherData,
     cityName: String,
-    onClick: () -> Unit
+    onOpenSettings: () -> Unit
 ) {
+    // Récupérer le dégradé adaptatif selon les conditions météo
+    val (startColor, endColor) = getWeatherGradient(weatherData.weatherCode)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
             .heightIn(min = 176.dp),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = DarkSurface)
@@ -235,16 +296,31 @@ fun CurrentWeatherCard(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF1E3A5F),
-                            Color(0xFF0F1C33)
-                        )
+                    brush = Brush.linearGradient(
+                        colors = listOf(startColor, endColor),
+                        start = Offset(0f, 0f),
+                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
                     )
                 )
-                .padding(24.dp),
+                .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
+            // Icône de paramètres en haut à droite
+            IconButton(
+                onClick = onOpenSettings,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 8.dp, y = (-12).dp)
+                    .size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = "Paramètres météo",
+                    tint = Color.White.copy(alpha = 0.8f),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -253,7 +329,7 @@ fun CurrentWeatherCard(
                 Column(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.Start,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
                         text = cityName,
@@ -339,7 +415,7 @@ private fun WeatherMetricColumn(
     Column(
         modifier = modifier,
         horizontalAlignment = metric.alignment,
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         val textAlign = when (metric.alignment) {
             Alignment.CenterHorizontally -> TextAlign.Center
@@ -382,6 +458,134 @@ private fun WeatherMetricColumn(
             )
         }
     }
+}
+
+/**
+ * Dialog de paramètres météo
+ * Permet de choisir la ville et de configurer l'affichage des allergies
+ */
+@Composable
+private fun WeatherSettingsDialog(
+    currentCity: String,
+    citySearchResults: List<CityResult>,
+    showAllergies: Boolean,
+    onDismiss: () -> Unit,
+    onSearchCity: (String) -> Unit,
+    onSelectCity: (CityResult) -> Unit,
+    onSetShowAllergies: (Boolean) -> Unit
+) {
+    var cityQuery by rememberSaveable(currentCity) { mutableStateOf(currentCity) }
+    var hasSearched by rememberSaveable { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Paramètres météo") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Section 1: Choix de la ville
+                Text(
+                    text = "Ville",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+
+                OutlinedTextField(
+                    value = cityQuery,
+                    onValueChange = { cityQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Rechercher une ville") },
+                    singleLine = true
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = {
+                            onSearchCity(cityQuery.trim())
+                            hasSearched = true
+                        },
+                        enabled = cityQuery.trim().length >= 2
+                    ) {
+                        Text("Rechercher")
+                    }
+                }
+
+                if (citySearchResults.isEmpty()) {
+                    val helperText = if (hasSearched) {
+                        "Aucun résultat, essayez un autre nom."
+                    } else {
+                        "Saisissez au moins 2 lettres puis lancez une recherche."
+                    }
+                    Text(
+                        text = helperText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.7f)
+                    )
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp)
+                    ) {
+                        items(citySearchResults) { city ->
+                            CityResultRow(
+                                city = city,
+                                onSelect = { onSelectCity(city) }
+                            )
+                        }
+                    }
+                }
+
+                // Divider entre les sections
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Section 2: Options d'affichage
+                Text(
+                    text = "Affichage",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+
+                // Switch pour afficher/masquer les allergies
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Afficher les allergies",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Informations sur les pollens",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                    }
+                    Switch(
+                        checked = showAllergies,
+                        onCheckedChange = onSetShowAllergies
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Fermer")
+            }
+        }
+    )
 }
 
 @Composable
@@ -497,26 +701,27 @@ fun AllergyCard(weatherData: WeatherData) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(154.dp),
+            .wrapContentHeight(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = DarkSurface)
     ) {
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .background(
-                    brush = Brush.verticalGradient(
+                    brush = Brush.linearGradient(
                         colors = listOf(
-                            Color(0xFF1E3A5F),
-                            Color(0xFF0F1C33)
-                        )
+                            Color(0xFF002C0F),
+                            Color(0xFF0D3C1F)
+                        ),
+                        start = Offset(0f, 0f),
+                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
                     )
                 )
-                .padding(24.dp),
-            contentAlignment = Alignment.Center
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
                 horizontalAlignment = Alignment.Start,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -524,7 +729,7 @@ fun AllergyCard(weatherData: WeatherData) {
                 Text(
                     text = "Allergies",
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color.White.copy(alpha = 0.8f),
+                    color = Color.White,
                     fontWeight = FontWeight.Bold
                 )
 
@@ -541,20 +746,20 @@ fun AllergyCard(weatherData: WeatherData) {
                         Icon(
                             imageVector = Icons.Filled.Grass,
                             contentDescription = "Graminées",
-                            tint = Color(getPollenColor(weatherData.grassPollen)),
-                            modifier = Modifier.size(32.dp)
+                            tint = Color(0xFFF5F5F5),
+                            modifier = Modifier.size(27.dp)
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "Graminées",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
                         Text(
                             text = getPollenLevel(weatherData.grassPollen),
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.White,
                             fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "Graminées",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.6f)
                         )
                     }
 
@@ -566,20 +771,20 @@ fun AllergyCard(weatherData: WeatherData) {
                         Icon(
                             imageVector = Icons.Filled.Park,
                             contentDescription = "Arbres",
-                            tint = Color(getPollenColor(weatherData.birchPollen)),
-                            modifier = Modifier.size(32.dp)
+                            tint = Color(0xFFF5F5F5),
+                            modifier = Modifier.size(27.dp)
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "Arbres",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
                         Text(
                             text = getPollenLevel(weatherData.birchPollen),
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.White,
                             fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "Arbres",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.6f)
                         )
                     }
 
@@ -591,20 +796,20 @@ fun AllergyCard(weatherData: WeatherData) {
                         Icon(
                             imageVector = Icons.Filled.LocalFlorist,
                             contentDescription = "Herbacées",
-                            tint = Color(getPollenColor(weatherData.weedPollen)),
-                            modifier = Modifier.size(32.dp)
+                            tint = Color(0xFFF5F5F5),
+                            modifier = Modifier.size(27.dp)
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "Herbacées",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
                         Text(
                             text = getPollenLevel(weatherData.weedPollen),
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.White,
                             fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "Herbacées",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.6f)
                         )
                     }
                 }
