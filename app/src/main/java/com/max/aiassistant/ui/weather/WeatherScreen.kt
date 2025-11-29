@@ -9,12 +9,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Grass
 import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.LocalFlorist
+import androidx.compose.material.icons.filled.Air
+import androidx.compose.material.icons.filled.Umbrella
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,7 +29,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.max.aiassistant.data.api.CityResult
@@ -76,21 +82,6 @@ fun WeatherScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Météo Nantes", style = MaterialTheme.typography.titleLarge) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DarkBackground,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
-                )
-            )
-        },
         containerColor = DarkBackground
     ) { paddingValues ->
         PullToRefreshBox(
@@ -101,6 +92,29 @@ fun WeatherScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
+                    .pointerInput(onNavigateBack) {
+                        var cumulativeDrag = 0f
+                        var swipeTriggered = false
+                        detectHorizontalDragGestures(
+                            onHorizontalDrag = { _, dragAmount ->
+                                if (dragAmount > 0f) {
+                                    cumulativeDrag += dragAmount
+                                    if (!swipeTriggered && cumulativeDrag >= 80f) {
+                                        swipeTriggered = true
+                                        onNavigateBack()
+                                    }
+                                }
+                            },
+                            onDragEnd = {
+                                cumulativeDrag = 0f
+                                swipeTriggered = false
+                            },
+                            onDragCancel = {
+                                cumulativeDrag = 0f
+                                swipeTriggered = false
+                            }
+                        )
+                    }
             ) {
                 if (weatherData == null) {
                     // État de chargement initial
@@ -236,19 +250,10 @@ fun CurrentWeatherCard(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Icône météo à gauche (colonne 1, fusion des 2 lignes)
-                Icon(
-                    imageVector = getWeatherIcon(weatherData.weatherCode),
-                    contentDescription = getWeatherDescription(weatherData.weatherCode),
-                    tint = Color.White.copy(alpha = 0.9f),
-                    modifier = Modifier.size(88.dp)
-                )
-
-                // Colonne 2 : Température et informations
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.Start,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
                         text = cityName,
@@ -258,69 +263,123 @@ fun CurrentWeatherCard(
                         fontWeight = FontWeight.Medium
                     )
 
-                    // Ligne 1 : Température
-                    Text(
-                        text = "${weatherData.currentTemperature.toInt()}°C",
-                        fontSize = 56.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${weatherData.currentTemperature.toInt()}°C",
+                            fontSize = 56.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Icon(
+                            imageVector = getWeatherIcon(weatherData.weatherCode),
+                            contentDescription = getWeatherDescription(weatherData.weatherCode),
+                            tint = Color.White.copy(alpha = 0.9f),
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
+
+                    val precipitationProb = weatherData.hourlyForecasts.firstOrNull()?.precipitationProb ?: 0
+                    val metrics = listOf(
+                        WeatherMetric(
+                            icon = Icons.Filled.WaterDrop,
+                            value = "${weatherData.currentHumidity}%",
+                            label = "Humidité",
+                            alignment = Alignment.Start
+                        ),
+                        WeatherMetric(
+                            icon = Icons.Filled.Air,
+                            value = "${weatherData.currentWindSpeed.toInt()} km/h",
+                            label = "Vent",
+                            alignment = Alignment.CenterHorizontally,
+                            weight = 1.4f
+                        ),
+                        WeatherMetric(
+                            icon = Icons.Filled.Umbrella,
+                            value = if (precipitationProb > 0) "${precipitationProb}%" else "Non",
+                            label = "Pluie",
+                            alignment = Alignment.End
+                        )
                     )
 
-                    // Ligne 2 : Humidité, Vent, Pluie
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Humidité
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "${weatherData.currentHumidity}%",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = Color.White,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "Humidité",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.6f)
-                            )
-                        }
-
-                        // Vent
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "${weatherData.currentWindSpeed.toInt()} km/h",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = Color.White,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "Vent",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.6f)
-                            )
-                        }
-
-                        // Précipitations
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = if (weatherData.hourlyForecasts.firstOrNull()?.precipitationProb ?: 0 > 0) {
-                                    "${weatherData.hourlyForecasts.firstOrNull()?.precipitationProb ?: 0}%"
-                                } else {
-                                    "Non"
-                                },
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = Color.White,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "Pluie",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.6f)
+                        metrics.forEach { metric ->
+                            WeatherMetricColumn(
+                                metric = metric,
+                                modifier = Modifier.weight(metric.weight)
                             )
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+private data class WeatherMetric(
+    val icon: ImageVector,
+    val value: String,
+    val label: String,
+    val alignment: Alignment.Horizontal,
+    val weight: Float = 1f
+)
+
+@Composable
+private fun WeatherMetricColumn(
+    metric: WeatherMetric,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = metric.alignment,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        val textAlign = when (metric.alignment) {
+            Alignment.CenterHorizontally -> TextAlign.Center
+            Alignment.End -> TextAlign.End
+            else -> TextAlign.Start
+        }
+
+        Text(
+            text = metric.label,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.6f),
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = textAlign
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = when (metric.alignment) {
+                Alignment.CenterHorizontally -> Arrangement.Center
+                Alignment.End -> Arrangement.End
+                else -> Arrangement.Start
+            }
+        ) {
+            Icon(
+                imageVector = metric.icon,
+                contentDescription = metric.label,
+                tint = Color.White.copy(alpha = 0.9f),
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = metric.value,
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White,
+                fontWeight = FontWeight.Medium,
+                textAlign = textAlign,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
