@@ -4,6 +4,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -185,8 +186,9 @@ fun NavigationSidebarScaffold(
 }
 
 /**
- * Sidebar de navigation simple et élégante
- * Design harmonisé avec la sphère et les boutons principaux
+ * Sidebar de navigation avec effet de transition liquide
+ * L'indicateur de sélection "coule" entre les boutons
+ * Le tracking du doigt suit le mouvement même entre les boutons
  */
 @Composable
 private fun FloatingNavigationSidebar(
@@ -201,55 +203,241 @@ private fun FloatingNavigationSidebar(
         Pair(NavigationScreen.WEATHER, Icons.Default.WbSunny),
         Pair(NavigationScreen.NOTES, Icons.Default.Edit)
     )
+    
+    val currentIndex = screens.indexOfFirst { it.first == currentScreen }
+    
+    // État pour tracker le bouton pressé (preview)
+    var pressedIndex by remember { mutableStateOf<Int?>(null) }
+    var isDragging by remember { mutableStateOf(false) }
+    
+    // Position cible de l'indicateur (pressé ou sélectionné)
+    val targetIndex = pressedIndex ?: currentIndex
+    
+    // Animation de la position de l'indicateur liquide
+    val indicatorPosition by animateFloatAsState(
+        targetValue = targetIndex.toFloat(),
+        animationSpec = spring(
+            dampingRatio = 0.6f,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "liquidIndicator"
+    )
+    
+    // Animation d'étirement pendant le mouvement (effet blob)
+    val isMoving = pressedIndex != null && pressedIndex != currentIndex
+    val stretchFactor by animateFloatAsState(
+        targetValue = if (isMoving) 1.4f else 1f,
+        animationSpec = spring(
+            dampingRatio = 0.5f,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "stretch"
+    )
+    
+    // Pulsation du halo
+    val infiniteTransition = rememberInfiniteTransition(label = "halo_pulse")
+    val haloPulse by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "haloPulse"
+    )
 
-    // Container avec fond bleu profond harmonisé
-    Column(
+    val buttonSize = 48.dp
+    val buttonSpacing = 8.dp
+    val density = LocalDensity.current
+
+    Box(
         modifier = modifier
             .padding(end = 8.dp)
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0D1B2A).copy(alpha = 0.95f), // Bleu très foncé
-                        Color(0xFF1B2838).copy(alpha = 0.95f)  // Bleu foncé
-                    )
-                ),
-                shape = RoundedCornerShape(28.dp)
-            )
-            .padding(vertical = 12.dp, horizontal = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        screens.forEach { (screen, icon) ->
-            SimpleNavButton(
-                icon = icon,
-                isSelected = screen == currentScreen,
-                onClick = { onNavigateToScreen(screen) }
-            )
+        // Container avec fond et gestion globale du touch
+        Column(
+            modifier = Modifier
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF0D1B2A).copy(alpha = 0.95f),
+                            Color(0xFF1B2838).copy(alpha = 0.95f)
+                        )
+                    ),
+                    shape = RoundedCornerShape(28.dp)
+                )
+                .padding(vertical = 12.dp, horizontal = 10.dp)
+                .pointerInput(screens.size) {
+                    val buttonSizePx = buttonSize.toPx()
+                    val spacingPx = buttonSpacing.toPx()
+                    val totalHeightPerButton = buttonSizePx + spacingPx
+                    
+                    detectDragGestures(
+                        onDragStart = { offset ->
+                            isDragging = true
+                            // Calculer quel bouton est sous le doigt
+                            val index = (offset.y / totalHeightPerButton).toInt()
+                                .coerceIn(0, screens.size - 1)
+                            pressedIndex = index
+                        },
+                        onDrag = { change, _ ->
+                            change.consume()
+                            // Mettre à jour l'index selon la position Y du doigt
+                            val index = (change.position.y / totalHeightPerButton).toInt()
+                                .coerceIn(0, screens.size - 1)
+                            pressedIndex = index
+                        },
+                        onDragEnd = {
+                            // Navigation vers le bouton sous le doigt au release
+                            pressedIndex?.let { index ->
+                                if (index in screens.indices) {
+                                    onNavigateToScreen(screens[index].first)
+                                }
+                            }
+                            pressedIndex = null
+                            isDragging = false
+                        },
+                        onDragCancel = {
+                            // Annulation : retour à la position initiale
+                            pressedIndex = null
+                            isDragging = false
+                        }
+                    )
+                },
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(buttonSpacing)
+        ) {
+            // Canvas pour dessiner l'indicateur liquide DERRIÈRE les boutons
+            Box(modifier = Modifier.size(buttonSize, buttonSize * screens.size + buttonSpacing * (screens.size - 1))) {
+                // Indicateur liquide animé
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val buttonSizePx = buttonSize.toPx()
+                    val spacingPx = buttonSpacing.toPx()
+                    val totalHeightPerButton = buttonSizePx + spacingPx
+                    
+                    // Position Y de l'indicateur
+                    val indicatorY = indicatorPosition * totalHeightPerButton + buttonSizePx / 2
+                    
+                    // Calcul de l'étirement vertical (effet blob)
+                    val baseRadius = buttonSizePx / 2 * 1.15f
+                    val stretchedHeight = baseRadius * stretchFactor
+                    
+                    val centerX = size.width / 2
+                    
+                    // Halo externe (glow diffus)
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                Color(0xFF0A84FF).copy(alpha = 0.3f * haloPulse),
+                                Color(0xFF0A84FF).copy(alpha = 0.15f * haloPulse),
+                                Color.Transparent
+                            ),
+                            center = Offset(centerX, indicatorY),
+                            radius = baseRadius * 1.8f
+                        ),
+                        center = Offset(centerX, indicatorY),
+                        radius = baseRadius * 1.8f
+                    )
+                    
+                    // Forme blob liquide (ellipse déformée pendant le mouvement)
+                    if (stretchFactor > 1.05f) {
+                        // Pendant le mouvement : forme étirée type blob
+                        val path = Path().apply {
+                            val topY = indicatorY - stretchedHeight * 0.6f
+                            val bottomY = indicatorY + stretchedHeight * 0.6f
+                            val controlOffset = baseRadius * 0.8f
+                            
+                            moveTo(centerX, topY)
+                            
+                            cubicTo(
+                                centerX + controlOffset * 1.3f, topY + stretchedHeight * 0.2f,
+                                centerX + controlOffset * 1.3f, bottomY - stretchedHeight * 0.2f,
+                                centerX, bottomY
+                            )
+                            
+                            cubicTo(
+                                centerX - controlOffset * 1.3f, bottomY - stretchedHeight * 0.2f,
+                                centerX - controlOffset * 1.3f, topY + stretchedHeight * 0.2f,
+                                centerX, topY
+                            )
+                            close()
+                        }
+                        
+                        drawPath(
+                            path = path,
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFF0A84FF).copy(alpha = 0.5f),
+                                    Color(0xFF1E5AAF).copy(alpha = 0.4f)
+                                )
+                            )
+                        )
+                        
+                        drawPath(
+                            path = path,
+                            color = Color(0xFF0A84FF).copy(alpha = 0.7f),
+                            style = Stroke(width = 2.dp.toPx())
+                        )
+                    } else {
+                        // Au repos : cercle avec halo
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF0A84FF).copy(alpha = 0.45f),
+                                    Color(0xFF1E5AAF).copy(alpha = 0.3f),
+                                    Color.Transparent
+                                ),
+                                center = Offset(centerX, indicatorY),
+                                radius = baseRadius
+                            ),
+                            center = Offset(centerX, indicatorY),
+                            radius = baseRadius
+                        )
+                        
+                        drawCircle(
+                            color = Color(0xFF0A84FF).copy(alpha = 0.6f * haloPulse),
+                            center = Offset(centerX, indicatorY),
+                            radius = baseRadius * 0.95f,
+                            style = Stroke(width = 2.dp.toPx())
+                        )
+                    }
+                }
+                
+                // Boutons superposés (sans gestion du touch, juste affichage)
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(buttonSpacing)
+                ) {
+                    screens.forEachIndexed { index, (screen, icon) ->
+                        LiquidNavButton(
+                            icon = icon,
+                            isSelected = index == currentIndex,
+                            isPressed = index == pressedIndex
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
 /**
- * Bouton de navigation harmonisé avec le style de l'app
- * Mêmes couleurs que les boutons principaux et la sphère
+ * Bouton de navigation pour l'effet liquide
+ * Affichage uniquement - le touch est géré au niveau parent
  */
 @Composable
-private fun SimpleNavButton(
+private fun LiquidNavButton(
     icon: ImageVector,
     isSelected: Boolean,
-    onClick: () -> Unit,
+    isPressed: Boolean,
     modifier: Modifier = Modifier
 ) {
-    // État hover/press
-    var isHovered by remember { mutableStateOf(false) }
-    var isPressed by remember { mutableStateOf(false) }
-    
-    // Animation de scale fluide
+    // Animation de scale
     val scale by animateFloatAsState(
         targetValue = when {
-            isPressed -> 0.9f
-            isHovered -> 1.15f
-            isSelected -> 1.1f
+            isPressed -> 0.92f
+            isSelected -> 1.05f
             else -> 1f
         },
         animationSpec = spring(
@@ -259,17 +447,13 @@ private fun SimpleNavButton(
         label = "buttonScale"
     )
     
-    // Couleurs harmonisées avec la sphère et les boutons principaux
-    val backgroundColor = if (isSelected) {
-        Color(0xFF1E3A5F) // Bleu profond (même que MaxMessageBg et la sphère)
-    } else {
-        Color(0xFF152238) // Bleu foncé subtil
-    }
+    // Couleur de fond
+    val backgroundColor = Color(0xFF152238)
     
-    val iconColor = if (isSelected) {
-        Color.White
-    } else {
-        Color.White.copy(alpha = 0.6f)
+    // Couleur de l'icône
+    val iconColor = when {
+        isPressed || isSelected -> Color.White
+        else -> Color.White.copy(alpha = 0.6f)
     }
 
     Box(
@@ -277,21 +461,7 @@ private fun SimpleNavButton(
             .size(48.dp)
             .scale(scale)
             .clip(CircleShape)
-            .background(backgroundColor)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        isHovered = true
-                        tryAwaitRelease()
-                        isPressed = false
-                        isHovered = false
-                    },
-                    onTap = {
-                        onClick()
-                    }
-                )
-            },
+            .background(backgroundColor),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -302,3 +472,4 @@ private fun SimpleNavButton(
         )
     }
 }
+
