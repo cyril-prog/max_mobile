@@ -48,6 +48,9 @@ import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.max.aiassistant.model.Message
 import com.max.aiassistant.ui.common.MiniFluidOrb
+import com.max.aiassistant.ui.common.NavigationSidebarScaffold
+import com.max.aiassistant.ui.common.NavigationScreen
+import com.max.aiassistant.ui.common.rememberNavigationSidebarState
 import com.max.aiassistant.ui.theme.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -59,10 +62,57 @@ import java.io.File
  * - Barre de titre avec logo et nom "Max"
  * - Zone de messages scrollable
  * - Barre d'entrée avec champ texte, bouton image et bouton envoi
+ * - Sidebar de navigation accessible par swipe vers la gauche depuis le bord droit
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
+    messages: List<Message>,
+    isWaitingForAiResponse: Boolean,
+    onSendMessage: (String, Uri?) -> Unit,
+    onVoiceInput: () -> Unit,
+    onNavigateToHome: () -> Unit,
+    onNavigateToTasks: () -> Unit = {},
+    onNavigateToWeather: () -> Unit = {},
+    onNavigateToNotes: () -> Unit = {},
+    initialText: String = "",
+    onInitialTextConsumed: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val sidebarState = rememberNavigationSidebarState()
+    
+    NavigationSidebarScaffold(
+        currentScreen = NavigationScreen.CHAT,
+        onNavigateToScreen = { screen ->
+            when (screen) {
+                NavigationScreen.VOICE -> onNavigateToHome()
+                NavigationScreen.CHAT -> { /* Déjà sur cet écran */ }
+                NavigationScreen.TASKS -> onNavigateToTasks()
+                NavigationScreen.WEATHER -> onNavigateToWeather()
+                NavigationScreen.NOTES -> onNavigateToNotes()
+            }
+        },
+        sidebarState = sidebarState
+    ) {
+        ChatScreenContent(
+            messages = messages,
+            isWaitingForAiResponse = isWaitingForAiResponse,
+            onSendMessage = onSendMessage,
+            onVoiceInput = onVoiceInput,
+            onNavigateToHome = onNavigateToHome,
+            initialText = initialText,
+            onInitialTextConsumed = onInitialTextConsumed,
+            modifier = modifier
+        )
+    }
+}
+
+/**
+ * Contenu de l'écran Chat
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChatScreenContent(
     messages: List<Message>,
     isWaitingForAiResponse: Boolean,
     onSendMessage: (String, Uri?) -> Unit,

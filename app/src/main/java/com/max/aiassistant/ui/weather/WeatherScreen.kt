@@ -45,6 +45,9 @@ import com.max.aiassistant.data.api.getPollenLevel
 import com.max.aiassistant.data.api.getPollenColor
 import com.max.aiassistant.ui.theme.DarkBackground
 import com.max.aiassistant.ui.theme.DarkSurface
+import com.max.aiassistant.ui.common.NavigationSidebarScaffold
+import com.max.aiassistant.ui.common.NavigationScreen
+import com.max.aiassistant.ui.common.rememberNavigationSidebarState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -54,10 +57,65 @@ import java.util.Calendar
 /**
  * Écran météo avec prévisions heure par heure
  * Affiche la température actuelle et les prévisions pour les 24 prochaines heures
+ * - Sidebar de navigation accessible par swipe vers la gauche depuis le bord droit
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeatherScreen(
+    weatherData: WeatherData?,
+    cityName: String,
+    citySearchResults: List<CityResult>,
+    showAllergies: Boolean,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
+    onSearchCity: (String) -> Unit,
+    onSelectCity: (CityResult) -> Unit,
+    onSetShowAllergies: (Boolean) -> Unit,
+    onNavigateBack: () -> Unit,
+    onRadarClick: () -> Unit,
+    onNavigateToChat: () -> Unit = {},
+    onNavigateToTasks: () -> Unit = {},
+    onNavigateToNotes: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val sidebarState = rememberNavigationSidebarState()
+    
+    NavigationSidebarScaffold(
+        currentScreen = NavigationScreen.WEATHER,
+        onNavigateToScreen = { screen ->
+            when (screen) {
+                NavigationScreen.VOICE -> onNavigateBack()
+                NavigationScreen.CHAT -> onNavigateToChat()
+                NavigationScreen.TASKS -> onNavigateToTasks()
+                NavigationScreen.WEATHER -> { /* Déjà sur cet écran */ }
+                NavigationScreen.NOTES -> onNavigateToNotes()
+            }
+        },
+        sidebarState = sidebarState
+    ) {
+        WeatherScreenContent(
+            weatherData = weatherData,
+            cityName = cityName,
+            citySearchResults = citySearchResults,
+            showAllergies = showAllergies,
+            isRefreshing = isRefreshing,
+            onRefresh = onRefresh,
+            onSearchCity = onSearchCity,
+            onSelectCity = onSelectCity,
+            onSetShowAllergies = onSetShowAllergies,
+            onNavigateBack = onNavigateBack,
+            onRadarClick = onRadarClick,
+            modifier = modifier
+        )
+    }
+}
+
+/**
+ * Contenu de l'écran Météo
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WeatherScreenContent(
     weatherData: WeatherData?,
     cityName: String,
     citySearchResults: List<CityResult>,

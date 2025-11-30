@@ -219,6 +219,18 @@ class MainActivity : ComponentActivity() {
                                     targetPage = 0
                                     isTransitioning = true
                                 },
+                                onNavigateToTasks = {
+                                    targetPage = 2
+                                    isTransitioning = true
+                                },
+                                onNavigateToWeather = {
+                                    targetPage = 3
+                                    isTransitioning = true
+                                },
+                                onNavigateToNotes = {
+                                    targetPage = 4
+                                    isTransitioning = true
+                                },
                                 initialText = sharedText ?: "",
                                 onInitialTextConsumed = { _sharedText.value = null }
                             )
@@ -273,6 +285,18 @@ class MainActivity : ComponentActivity() {
                                     // Déclenche l'animation de transition vers l'écran principal
                                     targetPage = 0
                                     isTransitioning = true
+                                },
+                                onNavigateToChat = {
+                                    targetPage = 1
+                                    isTransitioning = true
+                                },
+                                onNavigateToWeather = {
+                                    targetPage = 3
+                                    isTransitioning = true
+                                },
+                                onNavigateToNotes = {
+                                    targetPage = 4
+                                    isTransitioning = true
                                 }
                             )
                         }
@@ -298,6 +322,18 @@ class MainActivity : ComponentActivity() {
                                     // Navigue vers l'écran radar (page 5)
                                     targetPage = 5
                                     isTransitioning = true
+                                },
+                                onNavigateToChat = {
+                                    targetPage = 1
+                                    isTransitioning = true
+                                },
+                                onNavigateToTasks = {
+                                    targetPage = 2
+                                    isTransitioning = true
+                                },
+                                onNavigateToNotes = {
+                                    targetPage = 4
+                                    isTransitioning = true
                                 }
                             )
                         }
@@ -318,6 +354,18 @@ class MainActivity : ComponentActivity() {
                                 onNavigateBack = {
                                     // Déclenche l'animation de transition vers l'écran principal
                                     targetPage = 0
+                                    isTransitioning = true
+                                },
+                                onNavigateToChat = {
+                                    targetPage = 1
+                                    isTransitioning = true
+                                },
+                                onNavigateToTasks = {
+                                    targetPage = 2
+                                    isTransitioning = true
+                                },
+                                onNavigateToWeather = {
+                                    targetPage = 3
                                     isTransitioning = true
                                 }
                             )

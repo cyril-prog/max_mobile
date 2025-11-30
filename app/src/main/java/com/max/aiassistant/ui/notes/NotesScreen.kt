@@ -41,6 +41,9 @@ import com.max.aiassistant.ui.theme.DarkSurface
 import com.max.aiassistant.ui.theme.DarkSurfaceVariant
 import com.max.aiassistant.ui.theme.TextPrimary
 import com.max.aiassistant.ui.theme.TextSecondary
+import com.max.aiassistant.ui.common.NavigationSidebarScaffold
+import com.max.aiassistant.ui.common.NavigationScreen
+import com.max.aiassistant.ui.common.rememberNavigationSidebarState
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.foundation.ScrollState
@@ -105,10 +108,53 @@ fun Modifier.verticalScrollbar(
 /**
  * Écran de prise de notes
  * Permet de créer, afficher et supprimer des notes (texte ou checklist)
+ * - Sidebar de navigation accessible par swipe vers la gauche depuis le bord droit
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotesScreen(
+    notes: List<Note>,
+    onAddNote: (String, String) -> Unit,
+    onUpdateNote: (String, String, String) -> Unit,
+    onDeleteNote: (String) -> Unit,
+    onNavigateBack: () -> Unit,
+    onNavigateToChat: () -> Unit = {},
+    onNavigateToTasks: () -> Unit = {},
+    onNavigateToWeather: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val sidebarState = rememberNavigationSidebarState()
+    
+    NavigationSidebarScaffold(
+        currentScreen = NavigationScreen.NOTES,
+        onNavigateToScreen = { screen ->
+            when (screen) {
+                NavigationScreen.VOICE -> onNavigateBack()
+                NavigationScreen.CHAT -> onNavigateToChat()
+                NavigationScreen.TASKS -> onNavigateToTasks()
+                NavigationScreen.WEATHER -> onNavigateToWeather()
+                NavigationScreen.NOTES -> { /* Déjà sur cet écran */ }
+            }
+        },
+        sidebarState = sidebarState
+    ) {
+        NotesScreenContent(
+            notes = notes,
+            onAddNote = onAddNote,
+            onUpdateNote = onUpdateNote,
+            onDeleteNote = onDeleteNote,
+            onNavigateBack = onNavigateBack,
+            modifier = modifier
+        )
+    }
+}
+
+/**
+ * Contenu de l'écran Notes
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NotesScreenContent(
     notes: List<Note>,
     onAddNote: (String, String) -> Unit,
     onUpdateNote: (String, String, String) -> Unit,

@@ -47,6 +47,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import com.max.aiassistant.model.*
 import com.max.aiassistant.ui.common.MiniFluidOrb
+import com.max.aiassistant.ui.common.NavigationSidebarScaffold
+import com.max.aiassistant.ui.common.NavigationScreen
+import com.max.aiassistant.ui.common.rememberNavigationSidebarState
 import com.max.aiassistant.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -58,10 +61,77 @@ import java.util.*
  * - Mini calendrier de la semaine en haut (toujours visible)
  * - Onglets pour basculer entre Tâches et Agenda
  * - Contenu selon l'onglet sélectionné
+ * - Sidebar de navigation accessible par swipe vers la gauche depuis le bord droit
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksScreen(
+    tasks: List<Task>,
+    events: List<Event>,
+    isRefreshing: Boolean,
+    isRefreshingEvents: Boolean,
+    onRefresh: () -> Unit,
+    onRefreshEvents: () -> Unit,
+    onTaskStatusChange: (String, TaskStatus) -> Unit,
+    onTaskPriorityChange: (String, TaskPriority) -> Unit,
+    onTaskDurationChange: (String, String) -> Unit,
+    onTaskDeadlineChange: (String, String) -> Unit,
+    onTaskCategoryChange: (String, String) -> Unit,
+    onTaskTitleChange: (String, String) -> Unit,
+    onTaskDescriptionChange: (String, String) -> Unit,
+    onTaskNoteChange: (String, String) -> Unit,
+    onTaskDelete: (String) -> Unit,
+    onTaskCreate: (titre: String, categorie: String, description: String, priorite: TaskPriority, dateLimite: String) -> Unit,
+    onNavigateToHome: () -> Unit,
+    onNavigateToChat: () -> Unit = {},
+    onNavigateToWeather: () -> Unit = {},
+    onNavigateToNotes: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val sidebarState = rememberNavigationSidebarState()
+    
+    NavigationSidebarScaffold(
+        currentScreen = NavigationScreen.TASKS,
+        onNavigateToScreen = { screen ->
+            when (screen) {
+                NavigationScreen.VOICE -> onNavigateToHome()
+                NavigationScreen.CHAT -> onNavigateToChat()
+                NavigationScreen.TASKS -> { /* Déjà sur cet écran */ }
+                NavigationScreen.WEATHER -> onNavigateToWeather()
+                NavigationScreen.NOTES -> onNavigateToNotes()
+            }
+        },
+        sidebarState = sidebarState
+    ) {
+        TasksScreenContent(
+            tasks = tasks,
+            events = events,
+            isRefreshing = isRefreshing,
+            isRefreshingEvents = isRefreshingEvents,
+            onRefresh = onRefresh,
+            onRefreshEvents = onRefreshEvents,
+            onTaskStatusChange = onTaskStatusChange,
+            onTaskPriorityChange = onTaskPriorityChange,
+            onTaskDurationChange = onTaskDurationChange,
+            onTaskDeadlineChange = onTaskDeadlineChange,
+            onTaskCategoryChange = onTaskCategoryChange,
+            onTaskTitleChange = onTaskTitleChange,
+            onTaskDescriptionChange = onTaskDescriptionChange,
+            onTaskNoteChange = onTaskNoteChange,
+            onTaskDelete = onTaskDelete,
+            onTaskCreate = onTaskCreate,
+            onNavigateToHome = onNavigateToHome,
+            modifier = modifier
+        )
+    }
+}
+
+/**
+ * Contenu de l'écran Tâches
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TasksScreenContent(
     tasks: List<Task>,
     events: List<Event>,
     isRefreshing: Boolean,
