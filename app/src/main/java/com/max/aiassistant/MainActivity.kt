@@ -290,6 +290,9 @@ class MainActivity : ComponentActivity() {
                                 onAddNote = { title, content ->
                                     viewModel.addNote(title, content)
                                 },
+                                onUpdateNote = { noteId, title, content ->
+                                    viewModel.updateNote(noteId, title, content)
+                                },
                                 onDeleteNote = { noteId ->
                                     viewModel.deleteNote(noteId)
                                 },

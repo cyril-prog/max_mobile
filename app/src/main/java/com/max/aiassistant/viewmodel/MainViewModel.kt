@@ -44,6 +44,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val weatherApiService = com.max.aiassistant.data.api.WeatherApiService.create()
     private val geocodingApiService = com.max.aiassistant.data.api.GeocodingApiService.create()
     private val weatherPreferences = com.max.aiassistant.data.preferences.WeatherPreferences(application.applicationContext)
+    private val notesPreferences = com.max.aiassistant.data.preferences.NotesPreferences(application.applicationContext)
     private val TAG = "MainViewModel"
 
     // Clé API OpenAI pour l'API Realtime (chargée depuis local.properties via BuildConfig)
@@ -663,7 +664,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             timestamp = System.currentTimeMillis()
         )
         _notes.value = _notes.value + newNote
+        notesPreferences.saveNotes(_notes.value)
         Log.d(TAG, "Note ajoutée: $title")
+    }
+
+    /**
+     * Met à jour une note existante
+     */
+    fun updateNote(noteId: String, title: String, content: String) {
+        _notes.value = _notes.value.map { note ->
+            if (note.id == noteId) {
+                note.copy(title = title, content = content)
+            } else {
+                note
+            }
+        }
+        notesPreferences.saveNotes(_notes.value)
+        Log.d(TAG, "Note mise à jour: $noteId")
     }
 
     /**
@@ -671,6 +688,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun deleteNote(noteId: String) {
         _notes.value = _notes.value.filter { it.id != noteId }
+        notesPreferences.saveNotes(_notes.value)
         Log.d(TAG, "Note supprimée: $noteId")
     }
 
@@ -1054,6 +1072,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshTasks()
         refreshCalendarEvents()
         refreshWeather()
+        // Charger les notes sauvegardées
+        _notes.value = notesPreferences.loadNotes()
 
         viewModelScope.launch {
             weatherPreferences.cityPreferences.collect { prefs ->
