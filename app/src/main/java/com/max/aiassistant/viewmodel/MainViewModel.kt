@@ -454,6 +454,58 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Met à jour la catégorie d'une tâche
+     */
+    fun updateTaskCategory(taskId: String, newCategory: String) {
+        _tasks.value = _tasks.value.map { task ->
+            if (task.id == taskId) {
+                task.copy(category = newCategory)
+            } else {
+                task
+            }
+        }
+    }
+
+    /**
+     * Met à jour le titre d'une tâche
+     */
+    fun updateTaskTitle(taskId: String, newTitle: String) {
+        _tasks.value = _tasks.value.map { task ->
+            if (task.id == taskId) {
+                task.copy(title = newTitle)
+            } else {
+                task
+            }
+        }
+    }
+
+    /**
+     * Met à jour la description d'une tâche
+     */
+    fun updateTaskDescription(taskId: String, newDescription: String) {
+        _tasks.value = _tasks.value.map { task ->
+            if (task.id == taskId) {
+                task.copy(description = newDescription)
+            } else {
+                task
+            }
+        }
+    }
+
+    /**
+     * Met à jour les notes d'une tâche
+     */
+    fun updateTaskNote(taskId: String, newNote: String) {
+        _tasks.value = _tasks.value.map { task ->
+            if (task.id == taskId) {
+                task.copy(note = newNote)
+            } else {
+                task
+            }
+        }
+    }
+
+    /**
      * Supprime une tâche via l'API et met à jour la liste locale
      */
     fun deleteTask(taskId: String) {

@@ -226,6 +226,18 @@ class MainActivity : ComponentActivity() {
                                 onTaskDeadlineChange = { taskId, newDeadlineDate ->
                                     viewModel.updateTaskDeadline(taskId, newDeadlineDate)
                                 },
+                                onTaskCategoryChange = { taskId, newCategory ->
+                                    viewModel.updateTaskCategory(taskId, newCategory)
+                                },
+                                onTaskTitleChange = { taskId, newTitle ->
+                                    viewModel.updateTaskTitle(taskId, newTitle)
+                                },
+                                onTaskDescriptionChange = { taskId, newDescription ->
+                                    viewModel.updateTaskDescription(taskId, newDescription)
+                                },
+                                onTaskNoteChange = { taskId, newNote ->
+                                    viewModel.updateTaskNote(taskId, newNote)
+                                },
                                 onTaskDelete = { taskId ->
                                     viewModel.deleteTask(taskId)
                                 },
