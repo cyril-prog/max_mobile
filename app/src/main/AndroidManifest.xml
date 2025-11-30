@@ -13,6 +13,16 @@
     <!-- Pour la reconnaissance vocale et l'API Realtime -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- Pour l'accès à la caméra (prise de photo dans le chat) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    
+    <!-- Pour l'accès aux images (sélection depuis la galerie) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Fallback pour Android < 13 -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
+        android:maxSdkVersion="32" />
+
     <!-- Pour lire le calendrier Google (à décommenter quand implémenté) -->
     <!-- <uses-permission android:name="android.permission.READ_CALENDAR" /> -->
 
@@ -47,6 +57,17 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+        
+        <!-- FileProvider pour partager les images avec la caméra -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>

@@ -206,8 +206,8 @@ class MainActivity : ComponentActivity() {
                             ChatScreen(
                                 messages = messages,
                                 isWaitingForAiResponse = isWaitingForAiResponse,
-                                onSendMessage = { message ->
-                                    viewModel.sendMessage(message)
+                                onSendMessage = { message, imageUri ->
+                                    viewModel.sendMessage(message, imageUri)
                                 },
                                 onVoiceInput = {
                                     // Déclenche l'animation de transition vers l'écran principal

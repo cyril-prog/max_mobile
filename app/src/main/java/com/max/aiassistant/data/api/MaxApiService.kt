@@ -19,6 +19,9 @@ interface MaxApiService {
 
     @GET("webhook/max_mobile")
     suspend fun sendMessage(@Query("text") text: String): Response<ResponseBody>
+    
+    @POST("webhook/max_mobile_image")
+    suspend fun sendMessageWithImage(@Body request: ImageMessageRequest): Response<ResponseBody>
 
     @GET("webhook/get_tasks")
     suspend fun getTasks(): TasksApiResponse
@@ -75,3 +78,13 @@ interface MaxApiService {
         }
     }
 }
+
+/**
+ * Requête pour envoyer un message avec une image
+ * @param text Le texte du message
+ * @param image L'image encodée en Base64
+ */
+data class ImageMessageRequest(
+    val text: String,
+    val image: String
+)

@@ -116,6 +116,9 @@ dependencies {
     // DataStore for persisting weather city selection
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
+    // Coil pour le chargement d'images dans Compose
+    implementation("io.coil-kt:coil-compose:2.5.0")
+
     // Debugging
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

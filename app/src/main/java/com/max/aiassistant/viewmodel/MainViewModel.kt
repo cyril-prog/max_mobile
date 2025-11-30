@@ -1,6 +1,8 @@
 package com.max.aiassistant.viewmodel
 
 import android.app.Application
+import android.net.Uri
+import android.util.Base64
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -18,11 +20,13 @@ import com.max.aiassistant.data.realtime.RealtimeApiService
 import com.max.aiassistant.data.realtime.RealtimeAudioManager
 import com.max.aiassistant.data.realtime.RealtimeServerEvent
 import com.max.aiassistant.model.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.*
 
 /**
@@ -290,15 +294,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Envoie un message à Max via l'API webhook
+     * @param content Le texte du message
+     * @param imageUri L'URI de l'image attachée (optionnel)
      */
-    fun sendMessage(content: String) {
-        if (content.isBlank()) return
+    fun sendMessage(content: String, imageUri: Uri? = null) {
+        if (content.isBlank() && imageUri == null) return
 
         // Ajoute le message de l'utilisateur immédiatement
         val userMessage = Message(
             id = UUID.randomUUID().toString(),
             content = content,
-            isFromUser = true
+            isFromUser = true,
+            imageUri = imageUri
         )
         _messages.value = _messages.value + userMessage
 
@@ -308,10 +315,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Envoie le message à l'API et récupère la réponse
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Envoi du message: $content")
+                Log.d(TAG, "Envoi du message: $content, avec image: ${imageUri != null}")
 
-                // Appel API avec GET (passage du texte en query parameter)
-                val httpResponse = apiService.sendMessage(content)
+                val httpResponse = if (imageUri != null) {
+                    // Convertir l'image en Base64 et envoyer avec le message
+                    val base64Image = withContext(Dispatchers.IO) {
+                        convertImageToBase64(imageUri)
+                    }
+                    Log.d(TAG, "Image convertie en Base64, taille: ${base64Image?.length ?: 0} caractères")
+                    
+                    if (base64Image != null) {
+                        val request = com.max.aiassistant.data.api.ImageMessageRequest(
+                            text = content.ifBlank { "Analyse cette image" },
+                            image = base64Image
+                        )
+                        apiService.sendMessageWithImage(request)
+                    } else {
+                        // Si la conversion échoue, envoyer uniquement le texte
+                        Log.w(TAG, "Impossible de convertir l'image, envoi du texte uniquement")
+                        apiService.sendMessage(content)
+                    }
+                } else {
+                    // Appel API avec GET (passage du texte en query parameter)
+                    apiService.sendMessage(content)
+                }
 
                 // Vérifie que la requête a réussi
                 if (!httpResponse.isSuccessful) {
@@ -363,6 +390,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // Désactive l'indicateur de chargement
                 _isWaitingForAiResponse.value = false
             }
+        }
+    }
+    
+    /**
+     * Convertit une image URI en chaîne Base64
+     */
+    private fun convertImageToBase64(uri: Uri): String? {
+        return try {
+            val context = getApplication<Application>()
+            val inputStream = context.contentResolver.openInputStream(uri)
+            val bytes = inputStream?.readBytes()
+            inputStream?.close()
+            
+            bytes?.let {
+                Base64.encodeToString(it, Base64.NO_WRAP)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Erreur lors de la conversion de l'image en Base64", e)
+            null
         }
     }
 

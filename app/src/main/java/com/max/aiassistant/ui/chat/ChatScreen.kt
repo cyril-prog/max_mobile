@@ -1,8 +1,15 @@
 package com.max.aiassistant.ui.chat
 
+import android.Manifest
+import android.content.Context
+import android.net.Uri
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
@@ -18,6 +25,10 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,16 +36,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.core.content.FileProvider
+import coil.compose.AsyncImage
 import com.max.aiassistant.model.Message
 import com.max.aiassistant.ui.common.MiniFluidOrb
 import com.max.aiassistant.ui.theme.*
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * ÉCRAN CENTRAL : Messenger
@@ -42,21 +58,55 @@ import kotlinx.coroutines.launch
  * Interface de chat avec Max
  * - Barre de titre avec logo et nom "Max"
  * - Zone de messages scrollable
- * - Barre d'entrée avec champ texte et bouton micro
+ * - Barre d'entrée avec champ texte, bouton image et bouton envoi
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     messages: List<Message>,
     isWaitingForAiResponse: Boolean,
-    onSendMessage: (String) -> Unit,
+    onSendMessage: (String, Uri?) -> Unit,
     onVoiceInput: () -> Unit,
     onNavigateToHome: () -> Unit,
     initialText: String = "",
     onInitialTextConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var messageText by remember { mutableStateOf("") }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var showImagePickerDialog by remember { mutableStateOf(false) }
+    
+    // URI temporaire pour la photo prise avec la caméra
+    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+    
+    // Launcher pour sélectionner une image depuis la galerie
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { selectedImageUri = it }
+    }
+    
+    // Launcher pour prendre une photo avec la caméra
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        if (success) {
+            selectedImageUri = tempCameraUri
+        }
+    }
+    
+    // Launcher pour demander la permission caméra
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            // Permission accordée, on peut lancer la caméra
+            val uri = createImageUri(context)
+            tempCameraUri = uri
+            cameraLauncher.launch(uri)
+        }
+    }
     
     // Gère le texte partagé depuis une autre application
     LaunchedEffect(initialText) {
@@ -135,10 +185,14 @@ fun ChatScreen(
         MessageInputBar(
             value = messageText,
             onValueChange = { messageText = it },
+            selectedImageUri = selectedImageUri,
+            onRemoveImage = { selectedImageUri = null },
+            onAddImageClick = { showImagePickerDialog = true },
             onSend = {
-                if (messageText.isNotBlank()) {
-                    onSendMessage(messageText)
+                if (messageText.isNotBlank() || selectedImageUri != null) {
+                    onSendMessage(messageText, selectedImageUri)
                     messageText = ""
+                    selectedImageUri = null
                 }
             },
             modifier = Modifier
@@ -146,11 +200,27 @@ fun ChatScreen(
                 .windowInsetsPadding(WindowInsets.ime)
         )
     }
+    
+    // Dialog pour choisir entre galerie et caméra
+    if (showImagePickerDialog) {
+        ImagePickerDialog(
+            onDismiss = { showImagePickerDialog = false },
+            onGalleryClick = {
+                showImagePickerDialog = false
+                galleryLauncher.launch("image/*")
+            },
+            onCameraClick = {
+                showImagePickerDialog = false
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        )
+    }
 }
 
 /**
  * Bulle de message
  * S'aligne à gauche pour l'utilisateur, à droite pour Max
+ * Peut contenir une image et/ou du texte
  */
 @Composable
 fun MessageBubble(message: Message) {
@@ -181,26 +251,52 @@ fun MessageBubble(message: Message) {
                     shape = bubbleShape
                 )
         ) {
-            Text(
-                text = message.content,
+            Column(
                 modifier = Modifier.padding(
-                    horizontal = 16.dp,
-                    vertical = 12.dp
-                ),
-                style = MaterialTheme.typography.bodyLarge,
-                color = TextPrimary
-            )
+                    horizontal = 8.dp,
+                    vertical = 8.dp
+                )
+            ) {
+                // Affiche l'image si présente
+                message.imageUri?.let { uri ->
+                    AsyncImage(
+                        model = uri,
+                        contentDescription = "Image attachée",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Fit
+                    )
+                    if (message.content.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+                
+                // Affiche le texte si présent
+                if (message.content.isNotBlank()) {
+                    Text(
+                        text = message.content,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = TextPrimary
+                    )
+                }
+            }
         }
     }
 }
 
 /**
- * Barre d'entrée de message avec champ texte et bouton envoi
+ * Barre d'entrée de message avec champ texte, bouton image et bouton envoi
  */
 @Composable
 fun MessageInputBar(
     value: String,
     onValueChange: (String) -> Unit,
+    selectedImageUri: Uri?,
+    onRemoveImage: () -> Unit,
+    onAddImageClick: () -> Unit,
     onSend: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -209,66 +305,236 @@ fun MessageInputBar(
         color = DarkSurface,
         tonalElevation = 4.dp
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.fillMaxWidth()
         ) {
-            // Champ de texte
-            TextField(
-                value = value,
-                onValueChange = onValueChange,
-                modifier = Modifier.weight(1f),
-                placeholder = {
-                    Text(
-                        text = "Message",
-                        color = TextSecondary
-                    )
-                },
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = DarkSurface,
-                    unfocusedContainerColor = DarkSurface,
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary,
-                    cursorColor = AccentBlue,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    disabledIndicatorColor = Color.Transparent
-                ),
-                shape = RoundedCornerShape(24.dp),
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyLarge,
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences,
-                    imeAction = ImeAction.Send
-                ),
-                keyboardActions = KeyboardActions(
-                    onSend = { onSend() }
-                )
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Bouton d'envoi (toujours visible, désactivé si le champ est vide)
-            val isEnabled = value.isNotBlank()
-            IconButton(
-                onClick = { if (isEnabled) onSend() },
+            // Prévisualisation de l'image sélectionnée
+            selectedImageUri?.let { uri ->
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = DarkSurfaceVariant,
+                        modifier = Modifier.size(80.dp)
+                    ) {
+                        AsyncImage(
+                            model = uri,
+                            contentDescription = "Image sélectionnée",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    
+                    // Bouton de suppression
+                    IconButton(
+                        onClick = onRemoveImage,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .align(Alignment.TopEnd)
+                            .offset(x = 8.dp, y = (-8).dp)
+                            .background(
+                                color = Color.Red.copy(alpha = 0.9f),
+                                shape = CircleShape
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Supprimer l'image",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+            
+            Row(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (isEnabled) AccentBlue else DarkSurfaceVariant
-                    )
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Send,
-                    contentDescription = "Envoyer le message",
-                    tint = if (isEnabled) Color.White else TextSecondary
+                // Bouton d'ajout d'image
+                IconButton(
+                    onClick = onAddImageClick,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(DarkSurfaceVariant)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AddPhotoAlternate,
+                        contentDescription = "Ajouter une image",
+                        tint = AccentBlue
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                // Champ de texte
+                TextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    modifier = Modifier.weight(1f),
+                    placeholder = {
+                        Text(
+                            text = "Message",
+                            color = TextSecondary
+                        )
+                    },
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = DarkSurface,
+                        unfocusedContainerColor = DarkSurface,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        cursorColor = AccentBlue,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        disabledIndicatorColor = Color.Transparent
+                    ),
+                    shape = RoundedCornerShape(24.dp),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Send
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onSend = { onSend() }
+                    )
                 )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Bouton d'envoi (activé si texte ou image présent)
+                val isEnabled = value.isNotBlank() || selectedImageUri != null
+                IconButton(
+                    onClick = { if (isEnabled) onSend() },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isEnabled) AccentBlue else DarkSurfaceVariant
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Envoyer le message",
+                        tint = if (isEnabled) Color.White else TextSecondary
+                    )
+                }
             }
         }
     }
+}
+
+/**
+ * Dialog pour choisir entre galerie et caméra
+ */
+@Composable
+fun ImagePickerDialog(
+    onDismiss: () -> Unit,
+    onGalleryClick: () -> Unit,
+    onCameraClick: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DarkSurface,
+        title = {
+            Text(
+                text = "Ajouter une image",
+                color = TextPrimary,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Option Galerie
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onGalleryClick() },
+                    shape = RoundedCornerShape(12.dp),
+                    color = DarkSurfaceVariant
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhotoLibrary,
+                            contentDescription = null,
+                            tint = AccentBlue,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = "Choisir depuis la galerie",
+                            color = TextPrimary,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+                
+                // Option Caméra
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onCameraClick() },
+                    shape = RoundedCornerShape(12.dp),
+                    color = DarkSurfaceVariant
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = null,
+                            tint = AccentBlue,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = "Prendre une photo",
+                            color = TextPrimary,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler", color = TextSecondary)
+            }
+        }
+    )
+}
+
+/**
+ * Crée un URI temporaire pour stocker la photo prise avec la caméra
+ */
+fun createImageUri(context: Context): Uri {
+    val directory = File(context.cacheDir, "images")
+    directory.mkdirs()
+    val file = File(directory, "temp_camera_image_${System.currentTimeMillis()}.jpg")
+    return FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        file
+    )
 }
 
 /**
