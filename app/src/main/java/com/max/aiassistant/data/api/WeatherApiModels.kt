@@ -50,6 +50,10 @@ data class CurrentUnits(
     val grassPollen: String? = null,
     @SerializedName("birch_pollen")
     val birchPollen: String? = null,
+    @SerializedName("alder_pollen")
+    val alderPollen: String? = null,
+    @SerializedName("olive_pollen")
+    val olivePollen: String? = null,
     @SerializedName("mugwort_pollen")
     val mugwortPollen: String? = null,
     @SerializedName("ragweed_pollen")
@@ -74,6 +78,10 @@ data class CurrentWeather(
     val grassPollen: Double? = null,
     @SerializedName("birch_pollen")
     val birchPollen: Double? = null,
+    @SerializedName("alder_pollen")
+    val alderPollen: Double? = null,
+    @SerializedName("olive_pollen")
+    val olivePollen: Double? = null,
     @SerializedName("mugwort_pollen")
     val mugwortPollen: Double? = null,
     @SerializedName("ragweed_pollen")
@@ -88,7 +96,9 @@ data class HourlyUnits(
     @SerializedName("temperature_2m")
     val temperature2m: String,
     @SerializedName("precipitation_probability")
-    val precipitationProbability: String
+    val precipitationProbability: String,
+    @SerializedName("weather_code")
+    val weatherCode: String
 )
 
 /**
@@ -99,7 +109,9 @@ data class HourlyWeather(
     @SerializedName("temperature_2m")
     val temperature2m: List<Double>,
     @SerializedName("precipitation_probability")
-    val precipitationProbability: List<Int>
+    val precipitationProbability: List<Int>,
+    @SerializedName("weather_code")
+    val weatherCode: List<Int>
 )
 
 /**
@@ -144,7 +156,10 @@ data class WeatherData(
     val dailyForecasts: List<DailyForecast>,
     val grassPollen: Double?,
     val birchPollen: Double?,
-    val weedPollen: Double? // Combinaison de mugwort et ragweed
+    val alderPollen: Double?,
+    val olivePollen: Double?,
+    val mugwortPollen: Double?,
+    val ragweedPollen: Double?
 )
 
 /**
@@ -153,7 +168,8 @@ data class WeatherData(
 data class HourlyForecast(
     val hour: String,          // Format: "14:00"
     val temperature: Double,   // Température en °C
-    val precipitationProb: Int // Probabilité de précipitation (0-100%)
+    val precipitationProb: Int, // Probabilité de précipitation (0-100%)
+    val weatherCode: Int       // Code météo WMO
 )
 
 /**
@@ -172,14 +188,33 @@ data class DailyForecast(
  * Convertit la réponse API en modèle simplifié pour l'app
  */
 fun WeatherApiResponse.toWeatherData(): WeatherData {
-    // Récupère uniquement les 24 prochaines heures
-    val next24Hours = hourly.time.take(24).mapIndexed { index, timeString ->
-        HourlyForecast(
-            hour = formatHour(timeString),
-            temperature = hourly.temperature2m.getOrNull(index) ?: 0.0,
-            precipitationProb = hourly.precipitationProbability.getOrNull(index) ?: 0
-        )
-    }
+    // Obtenir l'heure actuelle
+    val currentCalendar = java.util.Calendar.getInstance()
+    val currentHour = currentCalendar.get(java.util.Calendar.HOUR_OF_DAY)
+
+    // Trouver l'index de la première heure >= à l'heure actuelle
+    val startIndex = hourly.time.indexOfFirst { timeString ->
+        try {
+            val hour = timeString.split("T")[1].split(":")[0].toInt()
+            hour >= currentHour
+        } catch (e: Exception) {
+            false
+        }
+    }.takeIf { it >= 0 } ?: 0
+
+    // Récupère les 24 prochaines heures à partir de l'heure actuelle
+    val next24Hours = hourly.time
+        .drop(startIndex)
+        .take(24)
+        .mapIndexed { relativeIndex, timeString ->
+            val absoluteIndex = startIndex + relativeIndex
+            HourlyForecast(
+                hour = formatHour(timeString),
+                temperature = hourly.temperature2m.getOrNull(absoluteIndex) ?: 0.0,
+                precipitationProb = hourly.precipitationProbability.getOrNull(absoluteIndex) ?: 0,
+                weatherCode = hourly.weatherCode.getOrNull(absoluteIndex) ?: 0
+            )
+        }
 
     // Récupère les prévisions quotidiennes (si disponibles)
     val dailyForecastsList = if (daily != null) {
@@ -206,7 +241,10 @@ fun WeatherApiResponse.toWeatherData(): WeatherData {
         dailyForecasts = dailyForecastsList,
         grassPollen = current.grassPollen,
         birchPollen = current.birchPollen,
-        weedPollen = maxOf(current.mugwortPollen ?: 0.0, current.ragweedPollen ?: 0.0)
+        alderPollen = current.alderPollen,
+        olivePollen = current.olivePollen,
+        mugwortPollen = current.mugwortPollen,
+        ragweedPollen = current.ragweedPollen
     )
 }
 

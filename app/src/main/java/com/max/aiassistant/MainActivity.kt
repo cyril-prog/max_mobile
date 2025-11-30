@@ -32,6 +32,7 @@ import com.max.aiassistant.ui.theme.MaxTheme
 import com.max.aiassistant.ui.voice.VoiceScreen
 import com.max.aiassistant.ui.voice.FluidOrbVisualizer
 import com.max.aiassistant.ui.weather.WeatherScreen
+import com.max.aiassistant.ui.weather.RadarScreen
 import com.max.aiassistant.viewmodel.MainViewModel
 import kotlin.math.sqrt
 
@@ -96,11 +97,13 @@ class MainActivity : ComponentActivity() {
                 val cityName by viewModel.cityName.collectAsState()
                 val citySearchResults by viewModel.citySearchResults.collectAsState()
                 val showAllergies by viewModel.showAllergies.collectAsState()
+                val cityLatitude by viewModel.cityLatitude.collectAsState()
+                val cityLongitude by viewModel.cityLongitude.collectAsState()
 
-                // État du pager (5 pages, commence à la page 0 = Voice)
+                // État du pager (6 pages, commence à la page 0 = Voice)
                 val pagerState = rememberPagerState(
                     initialPage = 0, // Démarre sur VoiceScreen (écran principal)
-                    pageCount = { 5 }
+                    pageCount = { 6 }
                 )
 
                 // Scope pour les animations de navigation
@@ -241,6 +244,11 @@ class MainActivity : ComponentActivity() {
                                     // Déclenche l'animation de transition vers l'écran principal
                                     targetPage = 0
                                     isTransitioning = true
+                                },
+                                onRadarClick = {
+                                    // Navigue vers l'écran radar (page 5)
+                                    targetPage = 5
+                                    isTransitioning = true
                                 }
                             )
                         }
@@ -258,6 +266,20 @@ class MainActivity : ComponentActivity() {
                                 onNavigateBack = {
                                     // Déclenche l'animation de transition vers l'écran principal
                                     targetPage = 0
+                                    isTransitioning = true
+                                }
+                            )
+                        }
+
+                        // PAGE 5 : Écran Radar Météo
+                        5 -> {
+                            RadarScreen(
+                                cityName = cityName,
+                                latitude = cityLatitude,
+                                longitude = cityLongitude,
+                                onNavigateBack = {
+                                    // Retour à l'écran météo (page 3)
+                                    targetPage = 3
                                     isTransitioning = true
                                 }
                             )
