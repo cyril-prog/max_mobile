@@ -137,11 +137,10 @@ fun WeatherScreen(
                     Column(
                         modifier = modifier
                             .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
                             .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Carte de température actuelle
+                        // Carte de température actuelle - FIXE
                         CurrentWeatherCard(
                             weatherData = weatherData,
                             cityName = cityName,
@@ -149,17 +148,17 @@ fun WeatherScreen(
                             onRadarClick = onRadarClick
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                        // Carte des allergies (pollens) - affichée selon les préférences
+                        // Carte des allergies (pollens) - FIXE - affichée selon les préférences
                         if (showAllergies) {
                             AllergyCard(weatherData = weatherData)
-                            Spacer(modifier = Modifier.height(24.dp))
-                        } else {
                             Spacer(modifier = Modifier.height(8.dp))
+                        } else {
+                            Spacer(modifier = Modifier.height(0.dp))
                         }
 
-                        // Onglets pour choisir entre heure par heure et jour par jour
+                        // Onglets pour choisir entre heure par heure et jour par jour - FIXE
                         var selectedTabIndex by remember { mutableStateOf(0) }
                         val tabs = listOf("Heure par heure", "Jour par jour")
 
@@ -186,26 +185,30 @@ fun WeatherScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Affichage selon l'onglet sélectionné
+                        // Affichage selon l'onglet sélectionné - SCROLLABLE
                         when (selectedTabIndex) {
                             0 -> {
                                 // Liste verticale des prévisions horaires (24 prochaines heures)
-                                Column(
+                                LazyColumn(
                                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f)
                                 ) {
-                                    weatherData.hourlyForecasts.forEach { forecast ->
+                                    items(weatherData.hourlyForecasts) { forecast ->
                                         HourlyForecastCardHorizontal(forecast = forecast)
                                     }
                                 }
                             }
                             1 -> {
                                 // Liste verticale des prévisions quotidiennes
-                                Column(
+                                LazyColumn(
                                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f)
                                 ) {
-                                    weatherData.dailyForecasts.forEach { forecast ->
+                                    items(weatherData.dailyForecasts) { forecast ->
                                         DailyForecastCard(forecast = forecast)
                                     }
                                 }
@@ -290,7 +293,7 @@ fun CurrentWeatherCard(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .background(
                     brush = Brush.linearGradient(
                         colors = listOf(startColor, endColor),
