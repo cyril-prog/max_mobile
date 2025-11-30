@@ -17,11 +17,8 @@ import java.util.concurrent.TimeUnit
  */
 interface MaxApiService {
 
-    @GET("webhook/max_mobile")
-    suspend fun sendMessage(@Query("text") text: String): Response<ResponseBody>
-    
-    @POST("webhook/max_mobile_image")
-    suspend fun sendMessageWithImage(@Body request: ImageMessageRequest): Response<ResponseBody>
+    @POST("webhook/max_mobile")
+    suspend fun sendMessage(@Body request: ChatMessageRequest): Response<ResponseBody>
 
     @GET("webhook/get_tasks")
     suspend fun getTasks(): TasksApiResponse
@@ -80,11 +77,11 @@ interface MaxApiService {
 }
 
 /**
- * Requête pour envoyer un message avec une image
+ * Requête pour envoyer un message au chat
  * @param text Le texte du message
- * @param image L'image encodée en Base64
+ * @param image L'image encodée en Base64 (optionnel, null si pas d'image)
  */
-data class ImageMessageRequest(
+data class ChatMessageRequest(
     val text: String,
-    val image: String
+    val image: String? = null
 )

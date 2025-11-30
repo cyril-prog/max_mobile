@@ -317,28 +317,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 Log.d(TAG, "Envoi du message: $content, avec image: ${imageUri != null}")
 
-                val httpResponse = if (imageUri != null) {
-                    // Convertir l'image en Base64 et envoyer avec le message
-                    val base64Image = withContext(Dispatchers.IO) {
+                // Prépare la requête avec ou sans image
+                val base64Image = if (imageUri != null) {
+                    withContext(Dispatchers.IO) {
                         convertImageToBase64(imageUri)
+                    }.also { 
+                        Log.d(TAG, "Image convertie en Base64, taille: ${it?.length ?: 0} caractères")
                     }
-                    Log.d(TAG, "Image convertie en Base64, taille: ${base64Image?.length ?: 0} caractères")
-                    
-                    if (base64Image != null) {
-                        val request = com.max.aiassistant.data.api.ImageMessageRequest(
-                            text = content.ifBlank { "Analyse cette image" },
-                            image = base64Image
-                        )
-                        apiService.sendMessageWithImage(request)
-                    } else {
-                        // Si la conversion échoue, envoyer uniquement le texte
-                        Log.w(TAG, "Impossible de convertir l'image, envoi du texte uniquement")
-                        apiService.sendMessage(content)
-                    }
-                } else {
-                    // Appel API avec GET (passage du texte en query parameter)
-                    apiService.sendMessage(content)
-                }
+                } else null
+                
+                val request = com.max.aiassistant.data.api.ChatMessageRequest(
+                    text = content.ifBlank { if (base64Image != null) "Analyse cette image" else "" },
+                    image = base64Image
+                )
+                
+                val httpResponse = apiService.sendMessage(request)
 
                 // Vérifie que la requête a réussi
                 if (!httpResponse.isSuccessful) {
