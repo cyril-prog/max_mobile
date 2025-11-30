@@ -1,5 +1,6 @@
 package com.max.aiassistant
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -54,11 +55,17 @@ class MainActivity : ComponentActivity() {
 
     // Gestionnaire de permissions
     private lateinit var permissionHelper: PermissionHelper
+    
+    // État pour le texte partagé (accessible depuis onNewIntent)
+    private val _sharedText = mutableStateOf<String?>(null)
 
     @OptIn(ExperimentalFoundationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        // Gère le texte partagé depuis une autre application
+        _sharedText.value = handleShareIntent(intent)
 
         // Initialise le gestionnaire de permissions
         permissionHelper = PermissionHelper(
@@ -81,6 +88,9 @@ class MainActivity : ComponentActivity() {
             MaxTheme {
                 // ViewModel partagé par tous les écrans
                 val viewModel: MainViewModel = viewModel()
+                
+                // État pour le texte partagé depuis une autre application
+                val sharedText by _sharedText
 
                 // Collecte de l'état réactif depuis le ViewModel
                 val messages by viewModel.messages.collectAsState()
@@ -100,14 +110,21 @@ class MainActivity : ComponentActivity() {
                 val cityLatitude by viewModel.cityLatitude.collectAsState()
                 val cityLongitude by viewModel.cityLongitude.collectAsState()
 
-                // État du pager (6 pages, commence à la page 0 = Voice)
+                // État du pager (6 pages)
                 val pagerState = rememberPagerState(
-                    initialPage = 0, // Démarre sur VoiceScreen (écran principal)
+                    initialPage = 0,
                     pageCount = { 6 }
                 )
 
                 // Scope pour les animations de navigation
                 val coroutineScope = rememberCoroutineScope()
+                
+                // Si du texte a été partagé, naviguer vers le chat
+                LaunchedEffect(sharedText) {
+                    if (!sharedText.isNullOrEmpty()) {
+                        pagerState.scrollToPage(1) // Naviguer vers ChatScreen
+                    }
+                }
 
                 // État pour l'animation de transition futuriste
                 var isTransitioning by remember { mutableStateOf(false) }
@@ -201,7 +218,9 @@ class MainActivity : ComponentActivity() {
                                     // Déclenche l'animation de transition vers l'écran principal
                                     targetPage = 0
                                     isTransitioning = true
-                                }
+                                },
+                                initialText = sharedText ?: "",
+                                onInitialTextConsumed = { _sharedText.value = null }
                             )
                         }
 
@@ -342,6 +361,35 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+    
+    /**
+     * Appelé quand l'activité reçoit un nouvel intent (app déjà ouverte)
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        android.util.Log.d("ShareIntent", "onNewIntent called")
+        val newSharedText = handleShareIntent(intent)
+        if (newSharedText != null) {
+            _sharedText.value = newSharedText
+        }
+    }
+    
+    /**
+     * Extrait le texte partagé depuis un Intent ACTION_SEND
+     */
+    private fun handleShareIntent(intent: Intent?): String? {
+        android.util.Log.d("ShareIntent", "Action: ${intent?.action}, Type: ${intent?.type}")
+        
+        if (intent?.action == Intent.ACTION_SEND) {
+            val type = intent.type ?: ""
+            if (type.startsWith("text/")) {
+                val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
+                android.util.Log.d("ShareIntent", "Shared text: $sharedText")
+                return sharedText
+            }
+        }
+        return null
     }
 }
 

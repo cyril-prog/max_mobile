@@ -47,3 +47,12 @@ enum class TaskPriority {
     P4,    // Basse - Jaune
     P5     // Très basse - Vert
 }
+
+/**
+ * Représente une sous-tâche
+ */
+data class SubTask(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val text: String,
+    val isCompleted: Boolean = false
+)

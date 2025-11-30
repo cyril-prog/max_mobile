@@ -30,7 +30,7 @@ val UserMessageBg = Color(0xFF3D3D3D)            // Fond message utilisateur (gr
 val MaxMessageBg = Color(0xFF1E3A5F)             // Fond message Max (bleu profond élégant)
 
 // Couleurs de statut des tâches
-val UrgentRed = Color(0xFFBDBDBD)                // Rouge vif pour urgent
+val UrgentRed = Color(0xFFFF3B30)                // Rouge vif pour urgent (P1)
 val NormalOrange = Color(0xFFFF9500)             // Orange pour normal
 val CompletedGreen = Color(0xFF34C759)           // Vert pour complété
 

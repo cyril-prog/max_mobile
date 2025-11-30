@@ -52,9 +52,19 @@ fun ChatScreen(
     onSendMessage: (String) -> Unit,
     onVoiceInput: () -> Unit,
     onNavigateToHome: () -> Unit,
+    initialText: String = "",
+    onInitialTextConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var messageText by remember { mutableStateOf("") }
+    
+    // Gère le texte partagé depuis une autre application
+    LaunchedEffect(initialText) {
+        if (initialText.isNotEmpty()) {
+            messageText = initialText
+            onInitialTextConsumed()
+        }
+    }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 

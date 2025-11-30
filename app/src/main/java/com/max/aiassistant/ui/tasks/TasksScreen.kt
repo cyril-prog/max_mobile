@@ -36,12 +36,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import com.max.aiassistant.model.*
 import com.max.aiassistant.ui.common.MiniFluidOrb
 import com.max.aiassistant.ui.theme.*
@@ -925,7 +928,7 @@ fun CreateTaskDialog(
     }
     
     // État local de la tâche en création
-    var title by remember { mutableStateOf("Votre titre") }
+    var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var status by remember { mutableStateOf(TaskStatus.TODO) }
@@ -933,6 +936,8 @@ fun CreateTaskDialog(
     var category by remember { mutableStateOf("Aucune") }
     var deadlineDate by remember { mutableStateOf(defaultDeadline) }
     var estimatedDuration by remember { mutableStateOf("1 heure") }
+    var subTasks by remember { mutableStateOf(listOf<SubTask>()) }
+    var newSubTaskText by remember { mutableStateOf("") }
     
     var selectedTab by remember { mutableStateOf(0) }
     var showStatusDialog by remember { mutableStateOf(false) }
@@ -950,6 +955,7 @@ fun CreateTaskDialog(
     val titleFocusRequester = remember { FocusRequester() }
     val descriptionFocusRequester = remember { FocusRequester() }
     val noteFocusRequester = remember { FocusRequester() }
+    val subTaskFocusRequester = remember { FocusRequester() }
     
     LaunchedEffect(isEditingTitle) {
         if (isEditingTitle) titleFocusRequester.requestFocus()
@@ -1041,6 +1047,14 @@ fun CreateTaskDialog(
                                 .weight(1f)
                                 .padding(end = 8.dp)
                                 .focusRequester(titleFocusRequester),
+                            placeholder = {
+                                Text(
+                                    "Titre de la tâche",
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            },
                             textStyle = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -1065,8 +1079,8 @@ fun CreateTaskDialog(
                         )
                     } else {
                         Text(
-                            text = title,
-                            color = if (title == "Votre titre") Color.White.copy(alpha = 0.5f) else Color.White,
+                            text = if (title.isEmpty()) "Titre de la tâche" else title,
+                            color = if (title.isEmpty()) Color.White.copy(alpha = 0.5f) else Color.White,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier
@@ -1120,7 +1134,7 @@ fun CreateTaskDialog(
                         )
                 )
 
-                // Onglets Description / Notes (toujours affichés en mode création)
+                // Onglets Description / Notes / Sous-tâches
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1141,13 +1155,13 @@ fun CreateTaskDialog(
                     ) {
                         Text(
                             text = "Description",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodySmall,
                             color = if (selectedTab == 0) Color.White else Color.White.copy(alpha = 0.6f),
                             fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal
                         )
                     }
                     
-                    // Onglet Notes
+                    // Onglet Sous-tâches
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -1157,11 +1171,42 @@ fun CreateTaskDialog(
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "Sous-tâches",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (selectedTab == 1) Color.White else Color.White.copy(alpha = 0.6f),
+                                fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal
+                            )
+                            if (subTasks.isNotEmpty()) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "(${subTasks.count { it.isCompleted }}/${subTasks.size})",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (selectedTab == 1) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.5f)
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Onglet Notes
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (selectedTab == 2) AccentBlue else Color.Transparent)
+                            .clickable { selectedTab = 2 }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
                             text = "Notes",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (selectedTab == 1) Color.White else Color.White.copy(alpha = 0.6f),
-                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (selectedTab == 2) Color.White else Color.White.copy(alpha = 0.6f),
+                            fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal
                         )
                     }
                 }
@@ -1222,6 +1267,106 @@ fun CreateTaskDialog(
                             }
                         }
                         1 -> {
+                            // Onglet Sous-tâches
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Liste des sous-tâches
+                                if (subTasks.isEmpty()) {
+                                    Text(
+                                        text = "Aucune sous-tâche",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                    )
+                                } else {
+                                    subTasks.forEachIndexed { index, subTask ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable {
+                                                    subTasks = subTasks.mapIndexed { i, st ->
+                                                        if (i == index) st.copy(isCompleted = !st.isCompleted) else st
+                                                    }
+                                                }
+                                                .padding(vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = if (subTask.isCompleted) 
+                                                    Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
+                                                contentDescription = if (subTask.isCompleted) "Terminée" else "À faire",
+                                                tint = if (subTask.isCompleted) AccentBlue else Color.White.copy(alpha = 0.6f),
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Text(
+                                                text = subTask.text,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = if (subTask.isCompleted) Color.White.copy(alpha = 0.5f) else Color.White,
+                                                textDecoration = if (subTask.isCompleted) androidx.compose.ui.text.style.TextDecoration.LineThrough else androidx.compose.ui.text.style.TextDecoration.None,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            IconButton(
+                                                onClick = {
+                                                    subTasks = subTasks.filterIndexed { i, _ -> i != index }
+                                                },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "Supprimer",
+                                                    tint = Color.White.copy(alpha = 0.5f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // Ajouter une sous-tâche
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    OutlinedTextField(
+                                        value = newSubTaskText,
+                                        onValueChange = { newSubTaskText = it },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .focusRequester(subTaskFocusRequester),
+                                        placeholder = { Text("Nouvelle sous-tâche...", color = Color.White.copy(alpha = 0.5f)) },
+                                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = Color.White),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = AccentBlue,
+                                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                                            cursorColor = AccentBlue
+                                        ),
+                                        shape = RoundedCornerShape(8.dp),
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    IconButton(
+                                        onClick = {
+                                            if (newSubTaskText.isNotBlank()) {
+                                                subTasks = subTasks + SubTask(text = newSubTaskText.trim())
+                                                newSubTaskText = ""
+                                            }
+                                        },
+                                        enabled = newSubTaskText.isNotBlank()
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "Ajouter",
+                                            tint = if (newSubTaskText.isNotBlank()) AccentBlue else Color.White.copy(alpha = 0.3f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        2 -> {
                             if (isEditingNote) {
                                 Column {
                                     OutlinedTextField(
@@ -1273,14 +1418,13 @@ fun CreateTaskDialog(
                 // Bouton Créer
                 Button(
                     onClick = {
-                        val finalTitle = if (title == "Votre titre") "" else title
                         val finalCategory = if (category == "Aucune") "" else category
-                        if (finalTitle.isNotBlank()) {
-                            onCreateTask(finalTitle, description, priority, finalCategory, deadlineDate)
+                        if (title.isNotBlank()) {
+                            onCreateTask(title, description, priority, finalCategory, deadlineDate)
                             onDismiss()
                         }
                     },
-                    enabled = title.isNotBlank() && title != "Votre titre",
+                    enabled = title.isNotBlank(),
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = AccentBlue,
@@ -2853,6 +2997,11 @@ fun TaskDetailsDialog(
     var showDeadlineDialog by remember { mutableStateOf(false) }
     var showCategoryDialog by remember { mutableStateOf(false) }
     
+    // États pour les sous-tâches
+    var subTasks by remember { mutableStateOf(listOf<SubTask>()) }
+    var newSubTaskText by remember { mutableStateOf("") }
+    val subTaskFocusRequester = remember { FocusRequester() }
+    
     // États pour l'édition inline
     var isEditingTitle by remember { mutableStateOf(false) }
     var editedTitle by remember(task.title) { mutableStateOf(task.title) }
@@ -3126,12 +3275,13 @@ fun TaskDetailsDialog(
                             )
                     )
 
-                    // Onglets Description / Notes (toujours affichés pour permettre l'ajout)
+                    // Onglets Description / Notes / Sous-tâches
                     ModernTaskContentTabSelector(
                         selectedIndex = selectedTab,
                         onTabSelected = { selectedTab = it },
                         hasDescription = task.description.isNotEmpty(),
-                        hasNote = task.note.isNotEmpty()
+                        hasNote = task.note.isNotEmpty(),
+                        showSubTasks = true
                     )
 
                     // Contenu avec fond subtil
@@ -3275,6 +3425,143 @@ fun TaskDetailsDialog(
                                             .fillMaxWidth()
                                             .clickable { isEditingNote = true }
                                     )
+                                }
+                            }
+                            2 -> {
+                                // Sous-tâches
+                                Column(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    // Champ d'ajout de sous-tâche
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = newSubTaskText,
+                                            onValueChange = { newSubTaskText = it },
+                                            modifier = Modifier.weight(1f),
+                                            placeholder = {
+                                                Text(
+                                                    "Nouvelle sous-tâche...",
+                                                    color = Color.White.copy(alpha = 0.5f)
+                                                )
+                                            },
+                                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                                color = Color.White
+                                            ),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = AccentBlue,
+                                                unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                                                cursorColor = AccentBlue
+                                            ),
+                                            shape = RoundedCornerShape(8.dp),
+                                            singleLine = true,
+                                            keyboardOptions = KeyboardOptions(
+                                                capitalization = KeyboardCapitalization.Sentences
+                                            )
+                                        )
+                                        IconButton(
+                                            onClick = {
+                                                if (newSubTaskText.isNotBlank()) {
+                                                    subTasks = subTasks + SubTask(text = newSubTaskText.trim())
+                                                    newSubTaskText = ""
+                                                }
+                                            },
+                                            enabled = newSubTaskText.isNotBlank()
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Add,
+                                                contentDescription = "Ajouter",
+                                                tint = if (newSubTaskText.isNotBlank()) AccentBlue else Color.White.copy(alpha = 0.3f)
+                                            )
+                                        }
+                                    }
+
+                                    if (subTasks.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        
+                                        // Liste des sous-tâches
+                                        val subTasksScrollState = rememberScrollState()
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(max = 200.dp)
+                                                .verticalScroll(subTasksScrollState),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            subTasks.forEachIndexed { index, subTask ->
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(Color.White.copy(alpha = 0.05f))
+                                                        .clickable {
+                                                            subTasks = subTasks.toMutableList().apply {
+                                                                this[index] = subTask.copy(isCompleted = !subTask.isCompleted)
+                                                            }
+                                                        }
+                                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Checkbox(
+                                                        checked = subTask.isCompleted,
+                                                        onCheckedChange = { checked ->
+                                                            subTasks = subTasks.toMutableList().apply {
+                                                                this[index] = subTask.copy(isCompleted = checked)
+                                                            }
+                                                        },
+                                                        colors = CheckboxDefaults.colors(
+                                                            checkedColor = AccentBlue,
+                                                            uncheckedColor = Color.White.copy(alpha = 0.5f),
+                                                            checkmarkColor = Color.White
+                                                        )
+                                                    )
+                                                    Text(
+                                                        text = subTask.text,
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = if (subTask.isCompleted) Color.White.copy(alpha = 0.5f) else Color.White,
+                                                        textDecoration = if (subTask.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
+                                                        modifier = Modifier.weight(1f)
+                                                    )
+                                                    IconButton(
+                                                        onClick = {
+                                                            subTasks = subTasks.toMutableList().apply {
+                                                                removeAt(index)
+                                                            }
+                                                        },
+                                                        modifier = Modifier.size(32.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Close,
+                                                            contentDescription = "Supprimer",
+                                                            tint = Color.White.copy(alpha = 0.5f),
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        
+                                        // Compteur
+                                        val completedCount = subTasks.count { it.isCompleted }
+                                        Text(
+                                            text = "$completedCount/${subTasks.size} terminées",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color.White.copy(alpha = 0.5f),
+                                            modifier = Modifier.padding(top = 8.dp)
+                                        )
+                                    } else {
+                                        // Message si aucune sous-tâche
+                                        Text(
+                                            text = "Aucune sous-tâche",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color.White.copy(alpha = 0.5f),
+                                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                            modifier = Modifier.padding(top = 12.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -3470,7 +3757,8 @@ fun ModernTaskContentTabSelector(
     selectedIndex: Int,
     onTabSelected: (Int) -> Unit,
     hasDescription: Boolean,
-    hasNote: Boolean
+    hasNote: Boolean,
+    showSubTasks: Boolean = false
 ) {
     Row(
         modifier = Modifier
@@ -3494,6 +3782,15 @@ fun ModernTaskContentTabSelector(
             onClick = { onTabSelected(1) },
             modifier = Modifier.weight(1f)
         )
+        
+        if (showSubTasks) {
+            ModernTabItem(
+                text = "Sous-tâches",
+                isSelected = selectedIndex == 2,
+                onClick = { onTabSelected(2) },
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 
