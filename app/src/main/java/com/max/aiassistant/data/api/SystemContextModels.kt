@@ -110,13 +110,11 @@ data class ConversationMessageContent(
 /**
  * Réponse de l'API /webhook/get_memory
  * Retourne la mémoire long terme de l'utilisateur
+ * Format: [{id: 1, content: {...}}]
  */
-data class MemoryApiResponse(
-    val text: MemoryData
-)
-
-data class MemoryData(
-    val data: List<SystemMemory>
+data class MemoryItem(
+    val id: Int,
+    val content: SystemMemory
 )
 
 /**

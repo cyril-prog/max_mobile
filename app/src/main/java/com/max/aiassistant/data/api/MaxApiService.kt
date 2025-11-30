@@ -33,10 +33,16 @@ interface MaxApiService {
     suspend fun saveConversation(@Body payload: List<MessageData>): Response<ResponseBody>
 
     @GET("webhook/get_memory")
-    suspend fun getMemory(): MemoryApiResponse
+    suspend fun getMemory(): List<MemoryItem>
 
     @GET("webhook/del_task")
     suspend fun deleteTask(@Query("id") taskId: String): Response<ResponseBody>
+
+    @POST("webhook/upd_task")
+    suspend fun updateTask(@Body task: TaskUpdateRequest): Response<ResponseBody>
+
+    @POST("webhook/create_task")
+    suspend fun createTask(@Body task: TaskCreateRequest): Response<ResponseBody>
 
     companion object {
         private const val BASE_URL = "https://n8n.srv1086212.hstgr.cloud/"

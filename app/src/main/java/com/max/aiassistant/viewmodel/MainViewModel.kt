@@ -12,6 +12,7 @@ import com.max.aiassistant.data.api.MessageData
 import com.max.aiassistant.data.api.parseWebhookResponse
 import com.max.aiassistant.data.api.toTask
 import com.max.aiassistant.data.api.toEvent
+import com.max.aiassistant.data.api.toUpdateRequest
 import com.max.aiassistant.data.api.toWeatherData
 import com.max.aiassistant.data.realtime.RealtimeApiService
 import com.max.aiassistant.data.realtime.RealtimeAudioManager
@@ -82,8 +83,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (tasks.isNotEmpty()) {
                     builder.append("\n\n=== TÂCHES EN COURS (${tasks.size}) ===\n")
                     tasks.forEach { task ->
-                        builder.append("- [${task.statut}] ${task.titre}")
-                        if (task.priorite.isNotEmpty() && task.priorite.lowercase() != "normale") {
+                        builder.append("- [${task.statut ?: "À faire"}] ${task.titre}")
+                        if (!task.priorite.isNullOrEmpty() && task.priorite.lowercase() != "normale") {
                             builder.append(" (${task.priorite})")
                         }
                         if (task.dateLimite.isNotEmpty()) {
@@ -152,10 +153,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // 4. Récupération de la mémoire long terme
             try {
                 Log.d(TAG, "Récupération de la mémoire long terme...")
-                val memoryResponse = apiService.getMemory()
+                val memoryList = apiService.getMemory()
 
-                if (memoryResponse.text.data.isNotEmpty()) {
-                    val memory = memoryResponse.text.data[0]
+                if (memoryList.isNotEmpty()) {
+                    val memory = memoryList[0].content
                     builder.append("\n=== CONTEXTE UTILISATEUR (MÉMOIRE) ===\n")
 
                     if (memory.interets != null) {
@@ -398,6 +399,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Met à jour le statut d'une tâche
+     * Note: Le statut n'est pas synchronisé via upd_task car non inclus dans les champs
      */
     fun updateTaskStatus(taskId: String, newStatus: TaskStatus) {
         _tasks.value = _tasks.value.map { task ->
@@ -420,6 +422,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 task
             }
         }
+        syncTaskToApi(taskId)
     }
 
     /**
@@ -433,6 +436,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 task
             }
         }
+        syncTaskToApi(taskId)
     }
 
     /**
@@ -451,6 +455,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 task
             }
         }
+        syncTaskToApi(taskId)
     }
 
     /**
@@ -464,6 +469,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 task
             }
         }
+        syncTaskToApi(taskId)
     }
 
     /**
@@ -477,6 +483,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 task
             }
         }
+        syncTaskToApi(taskId)
     }
 
     /**
@@ -490,6 +497,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 task
             }
         }
+        syncTaskToApi(taskId)
     }
 
     /**
@@ -501,6 +509,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 task.copy(note = newNote)
             } else {
                 task
+            }
+        }
+        syncTaskToApi(taskId)
+    }
+
+    /**
+     * Synchronise une tâche avec l'API après modification
+     */
+    private fun syncTaskToApi(taskId: String) {
+        val task = _tasks.value.find { it.id == taskId }
+        if (task == null) {
+            Log.e(TAG, "syncTaskToApi: Tâche $taskId non trouvée")
+            return
+        }
+        
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Synchronisation de la tâche $taskId avec l'API...")
+                val request = task.toUpdateRequest()
+                Log.d(TAG, "Requête: id=${request.id}, titre=${request.titre}, categorie=${request.categorie}, priorite=${request.priorite}")
+                val response = apiService.updateTask(request)
+                
+                if (response.isSuccessful) {
+                    Log.d(TAG, "Tâche synchronisée avec succès")
+                } else {
+                    Log.e(TAG, "Erreur lors de la synchronisation: ${response.code()} - ${response.errorBody()?.string()}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors de la synchronisation de la tâche", e)
             }
         }
     }
@@ -525,6 +562,54 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Erreur lors de la suppression de la tâche", e)
+            }
+        }
+    }
+
+    /**
+     * Crée une nouvelle tâche via l'API et rafraîchit la liste
+     */
+    fun createTask(
+        titre: String,
+        categorie: String,
+        description: String = "",
+        note: String = "",
+        priorite: TaskPriority = TaskPriority.P3,
+        dateLimite: String = "",
+        dureeEstimee: String = ""
+    ) {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Création de la tâche: $titre...")
+
+                val request = com.max.aiassistant.data.api.TaskCreateRequest(
+                    titre = titre,
+                    statut = "À faire",
+                    categorie = categorie,
+                    description = description,
+                    note = note,
+                    priorite = when (priorite) {
+                        TaskPriority.P1 -> "P1"
+                        TaskPriority.P2 -> "P2"
+                        TaskPriority.P3 -> "P3"
+                        TaskPriority.P4 -> "P4"
+                        TaskPriority.P5 -> "P5"
+                    },
+                    dateLimite = dateLimite,
+                    dureeEstimee = dureeEstimee
+                )
+
+                val response = apiService.createTask(request)
+
+                if (response.isSuccessful) {
+                    Log.d(TAG, "Tâche créée avec succès, rafraîchissement de la liste...")
+                    // Rafraîchir la liste des tâches pour récupérer la nouvelle tâche avec son ID
+                    refreshTasks()
+                } else {
+                    Log.e(TAG, "Erreur lors de la création de la tâche: ${response.code()} - ${response.errorBody()?.string()}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors de la création de la tâche", e)
             }
         }
     }

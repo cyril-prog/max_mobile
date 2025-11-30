@@ -5,8 +5,9 @@ package com.max.aiassistant.model
  *
  * @property id Identifiant unique
  * @property title Titre de l'événement
- * @property startTime Heure de début (format "HH:MM AM/PM")
- * @property endTime Heure de fin (format "HH:MM AM/PM")
+ * @property date Date de l'événement (format "Lun 30 novembre")
+ * @property startTime Heure de début (format "HH:MM")
+ * @property endTime Heure de fin (format "HH:MM")
  * @property description Description optionnelle
  * @property location Lieu de l'événement
  * @property source Source de l'événement (ex: "Google Calendar", "Outlook")
@@ -14,6 +15,7 @@ package com.max.aiassistant.model
 data class Event(
     val id: String,
     val title: String,
+    val date: String = "",
     val startTime: String,
     val endTime: String,
     val description: String = "",

@@ -241,6 +241,15 @@ class MainActivity : ComponentActivity() {
                                 onTaskDelete = { taskId ->
                                     viewModel.deleteTask(taskId)
                                 },
+                                onTaskCreate = { titre, categorie, description, priorite, dateLimite ->
+                                    viewModel.createTask(
+                                        titre = titre,
+                                        categorie = categorie,
+                                        description = description,
+                                        priorite = priorite,
+                                        dateLimite = dateLimite
+                                    )
+                                },
                                 onNavigateToHome = {
                                     // Déclenche l'animation de transition vers l'écran principal
                                     targetPage = 0

@@ -30,8 +30,8 @@ data class TaskApiData(
     val titre: String,
     val description: String,
     val note: String,
-    val statut: String,
-    val priorite: String,
+    val statut: String?,
+    val priorite: String?,
     @SerializedName("date_limite")
     val dateLimite: String,
     @SerializedName("date_fin")
@@ -47,6 +47,60 @@ data class TaskApiData(
 )
 
 /**
+ * Requête pour la mise à jour d'une tâche (POST /webhook/upd_task)
+ */
+data class TaskUpdateRequest(
+    val id: String,
+    val titre: String,
+    val categorie: String,
+    val description: String,
+    val note: String,
+    val priorite: String,
+    @SerializedName("date_limite")
+    val dateLimite: String,
+    @SerializedName("duree_estimee")
+    val dureeEstimee: String
+)
+
+/**
+ * Requête pour la création d'une tâche (POST /webhook/create_task)
+ */
+data class TaskCreateRequest(
+    val titre: String,
+    val statut: String,
+    val categorie: String,
+    val description: String,
+    val note: String,
+    val priorite: String,
+    @SerializedName("date_limite")
+    val dateLimite: String,
+    @SerializedName("duree_estimee")
+    val dureeEstimee: String
+)
+
+/**
+ * Crée une TaskUpdateRequest à partir d'un objet Task
+ */
+fun Task.toUpdateRequest(): TaskUpdateRequest {
+    return TaskUpdateRequest(
+        id = id,
+        titre = title,
+        categorie = category,
+        description = description,
+        note = note,
+        priorite = when (priority) {
+            TaskPriority.P1 -> "P1"
+            TaskPriority.P2 -> "P2"
+            TaskPriority.P3 -> "P3"
+            TaskPriority.P4 -> "P4"
+            TaskPriority.P5 -> "P5"
+        },
+        dateLimite = deadlineDate,
+        dureeEstimee = estimatedDuration
+    )
+}
+
+/**
  * Convertit une TaskApiData en Task pour l'affichage dans l'app
  */
 fun TaskApiData.toTask(): Task {
@@ -56,13 +110,13 @@ fun TaskApiData.toTask(): Task {
         title = titre,
         description = description,
         note = note,
-        status = when (statut.lowercase()) {
+        status = when (statut?.lowercase()) {
             "à faire" -> TaskStatus.TODO
             "en cours" -> TaskStatus.IN_PROGRESS
             "terminé", "terminée" -> TaskStatus.COMPLETED
             else -> TaskStatus.TODO
         },
-        priority = when (priorite.lowercase()) {
+        priority = when (priorite?.lowercase()) {
             "p1", "haute", "urgente" -> TaskPriority.P1
             "p2" -> TaskPriority.P2
             "p4" -> TaskPriority.P4
@@ -168,6 +222,13 @@ data class EventDateTime(
  * Convertit un EventApiData en Event pour l'affichage dans l'app
  */
 fun EventApiData.toEvent(): com.max.aiassistant.model.Event {
+    // Extrait la date depuis dateTime ou date
+    val dateDisplay = when {
+        start.dateTime != null -> formatEventDate(start.dateTime)
+        start.date != null -> formatEventDateOnly(start.date)
+        else -> ""
+    }
+
     // Gère les événements avec heure (dateTime) et sans heure (date uniquement)
     val startTimeDisplay = when {
         start.dateTime != null -> formatEventTime(start.dateTime)
@@ -177,13 +238,14 @@ fun EventApiData.toEvent(): com.max.aiassistant.model.Event {
 
     val endTimeDisplay = when {
         end.dateTime != null -> formatEventTime(end.dateTime)
-        end.date != null -> "Toute la journée"
+        end.date != null -> ""
         else -> "Heure inconnue"
     }
 
     return com.max.aiassistant.model.Event(
         id = id,
         title = summary,
+        date = dateDisplay,
         startTime = startTimeDisplay,
         endTime = endTimeDisplay,
         description = description ?: "",
@@ -193,27 +255,64 @@ fun EventApiData.toEvent(): com.max.aiassistant.model.Event {
 }
 
 /**
- * Formate une date/heure ISO en format d'affichage simplifié
+ * Formate une date/heure ISO en format d'affichage simplifié (24h)
  * Ex: "2025-11-26T12:00:00+01:00" -> "12:00"
  */
 private fun formatEventTime(isoDateTime: String): String {
     try {
         // Parse ISO datetime (ex: "2025-11-26T12:00:00+01:00")
         val timePart = isoDateTime.split("T")[1].split("+")[0].split("-")[0]
-        val hours = timePart.split(":")[0].toInt()
+        val hours = timePart.split(":")[0]
         val minutes = timePart.split(":")[1]
-
-        // Convertir en format 12h avec AM/PM
-        val period = if (hours >= 12) "PM" else "AM"
-        val displayHours = when {
-            hours == 0 -> 12
-            hours > 12 -> hours - 12
-            else -> hours
-        }
-
-        return "$displayHours:$minutes $period"
+        return "$hours:$minutes"
     } catch (e: Exception) {
         return isoDateTime.take(5) // Fallback basique
+    }
+}
+
+/**
+ * Formate une date/heure ISO en format de date français
+ * Ex: "2025-11-26T12:00:00+01:00" -> "Mer. 26 novembre"
+ */
+private fun formatEventDate(isoDateTime: String): String {
+    try {
+        val datePart = isoDateTime.split("T")[0]
+        return formatEventDateOnly(datePart)
+    } catch (e: Exception) {
+        return ""
+    }
+}
+
+/**
+ * Formate une date ISO en format français
+ * Ex: "2025-11-26" -> "Mer. 26 novembre"
+ */
+private fun formatEventDateOnly(isoDate: String): String {
+    try {
+        val parts = isoDate.split("-")
+        val year = parts[0].toInt()
+        val month = parts[1].toInt()
+        val day = parts[2].toInt()
+        
+        val monthNames = listOf(
+            "janvier", "février", "mars", "avril", "mai", "juin",
+            "juillet", "août", "septembre", "octobre", "novembre", "décembre"
+        )
+        
+        // Calcul du jour de la semaine (algorithme de Zeller simplifié)
+        val dayNames = listOf("Dim.", "Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam.")
+        val adjustedMonth = if (month < 3) month + 12 else month
+        val adjustedYear = if (month < 3) year - 1 else year
+        val q = day
+        val m = adjustedMonth
+        val k = adjustedYear % 100
+        val j = adjustedYear / 100
+        val h = (q + (13 * (m + 1)) / 5 + k + k / 4 + j / 4 - 2 * j) % 7
+        val dayOfWeek = ((h + 6) % 7)
+        
+        return "${dayNames[dayOfWeek]} $day ${monthNames[month - 1]}"
+    } catch (e: Exception) {
+        return isoDate
     }
 }
 

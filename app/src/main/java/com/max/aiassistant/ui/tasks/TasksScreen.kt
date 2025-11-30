@@ -74,6 +74,7 @@ fun TasksScreen(
     onTaskDescriptionChange: (String, String) -> Unit,
     onTaskNoteChange: (String, String) -> Unit,
     onTaskDelete: (String) -> Unit,
+    onTaskCreate: (titre: String, categorie: String, description: String, priorite: TaskPriority, dateLimite: String) -> Unit,
     onNavigateToHome: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -88,15 +89,19 @@ fun TasksScreen(
     var filterPriority by remember { mutableStateOf<TaskPriority?>(null) }
     var filterDeadlineDate by remember { mutableStateOf<String?>(null) } // Date ISO ou null
     
+    // État pour le tri
+    var showSortDialog by remember { mutableStateOf(false) }
+    var sortOrder by remember { mutableStateOf<String?>("priority") } // "priority" ou "deadline" ou null (défaut: priority)
+    
     // État pour le dialog de création
     var showCreateTaskDialog by remember { mutableStateOf(false) }
     
     // Récupérer la tâche sélectionnée depuis la liste actuelle
     val selectedTask = selectedTaskId?.let { id -> tasks.find { it.id == id } }
     
-    // Appliquer les filtres sur les tâches
-    val filteredTasks = remember(tasks, filterCategory, filterPriority, filterDeadlineDate) {
-        tasks.filter { task ->
+    // Appliquer les filtres et le tri sur les tâches
+    val filteredTasks = remember(tasks, filterCategory, filterPriority, filterDeadlineDate, sortOrder) {
+        val filtered = tasks.filter { task ->
             val categoryMatch = filterCategory == null || task.category == filterCategory
             val priorityMatch = filterPriority == null || task.priority == filterPriority
             val deadlineMatch = if (filterDeadlineDate == null) {
@@ -114,6 +119,13 @@ fun TasksScreen(
                 }
             }
             categoryMatch && priorityMatch && deadlineMatch
+        }
+        
+        // Appliquer le tri
+        when (sortOrder) {
+            "priority" -> filtered.sortedBy { it.priority.ordinal }
+            "deadline" -> filtered.sortedBy { it.deadlineDate.ifEmpty { "9999-12-31" } }
+            else -> filtered
         }
     }
     
@@ -171,7 +183,9 @@ fun TasksScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 TaskActionBar(
                     hasActiveFilters = filterCategory != null || filterPriority != null || filterDeadlineDate != null,
+                    currentSortOrder = sortOrder,
                     onFilterClick = { showFilterDialog = true },
+                    onSortClick = { showSortDialog = true },
                     onCreateClick = { showCreateTaskDialog = true }
                 )
             }
@@ -222,13 +236,22 @@ fun TasksScreen(
         )
     }
     
+    // Dialog de tri
+    if (showSortDialog) {
+        TaskSortDialog(
+            currentSortOrder = sortOrder,
+            onSortSelected = { sortOrder = it },
+            onDismiss = { showSortDialog = false }
+        )
+    }
+    
     // Dialog de création de tâche
     if (showCreateTaskDialog) {
         CreateTaskDialog(
             categories = categories,
             onDismiss = { showCreateTaskDialog = false },
             onCreateTask = { title, description, priority, category, deadline ->
-                // TODO: Appeler l'API pour créer la tâche
+                onTaskCreate(title, category, description, priority, deadline)
                 showCreateTaskDialog = false
             }
         )
@@ -311,17 +334,19 @@ fun TabSelector(
 }
 
 /**
- * Barre d'actions pour les tâches (filtre + création)
+ * Barre d'actions pour les tâches (filtre + tri + création)
  */
 @Composable
 fun TaskActionBar(
     hasActiveFilters: Boolean,
+    currentSortOrder: String?,
     onFilterClick: () -> Unit,
+    onSortClick: () -> Unit,
     onCreateClick: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Bouton Filtre
         OutlinedButton(
@@ -334,17 +359,38 @@ fun TaskActionBar(
                 1.dp,
                 if (hasActiveFilters) AccentBlue else Color.White.copy(alpha = 0.3f)
             ),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.FilterList,
                 contentDescription = null,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(16.dp)
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = if (hasActiveFilters) "Filtres actifs" else "Filtrer",
-                style = MaterialTheme.typography.bodyMedium
+                text = "Filtre",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        
+        // Bouton Trier
+        OutlinedButton(
+            onClick = onSortClick,
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = if (currentSortOrder != null) AccentBlue else Color.White.copy(alpha = 0.7f)
+            ),
+            border = BorderStroke(
+                1.dp,
+                if (currentSortOrder != null) AccentBlue else Color.White.copy(alpha = 0.3f)
+            ),
+            shape = RoundedCornerShape(12.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = "Trier",
+                style = MaterialTheme.typography.bodySmall
             )
         }
         
@@ -355,20 +401,133 @@ fun TaskActionBar(
             colors = ButtonDefaults.buttonColors(
                 containerColor = AccentBlue
             ),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = null,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(16.dp)
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = "Nouvelle tâche",
-                style = MaterialTheme.typography.bodyMedium
+                text = "Créer",
+                style = MaterialTheme.typography.bodySmall
             )
         }
     }
+}
+
+/**
+ * Dialog de tri des tâches
+ */
+@Composable
+fun TaskSortDialog(
+    currentSortOrder: String?,
+    onSortSelected: (String?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF2C2C2E),
+        title = {
+            Text(
+                text = "Trier les tâches",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Option: Par priorité
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onSortSelected(if (currentSortOrder == "priority") null else "priority")
+                            onDismiss()
+                        },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (currentSortOrder == "priority") AccentBlue.copy(alpha = 0.3f) else Color(0xFF1A1A1C)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Flag,
+                                contentDescription = null,
+                                tint = if (currentSortOrder == "priority") AccentBlue else Color.White.copy(alpha = 0.7f)
+                            )
+                            Text(
+                                text = "Par priorité",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                        if (currentSortOrder == "priority") {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = AccentBlue
+                            )
+                        }
+                    }
+                }
+                
+                // Option: Par date d'échéance
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onSortSelected(if (currentSortOrder == "deadline") null else "deadline")
+                            onDismiss()
+                        },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (currentSortOrder == "deadline") AccentBlue.copy(alpha = 0.3f) else Color(0xFF1A1A1C)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DateRange,
+                                contentDescription = null,
+                                tint = if (currentSortOrder == "deadline") AccentBlue else Color.White.copy(alpha = 0.7f)
+                            )
+                            Text(
+                                text = "Par date d'échéance",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                        if (currentSortOrder == "deadline") {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = AccentBlue
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Fermer", color = Color.White.copy(alpha = 0.7f))
+            }
+        }
+    )
 }
 
 /**
@@ -743,7 +902,8 @@ fun TaskFilterDialog(
 }
 
 /**
- * Dialog de création de tâche
+ * Dialog de création de tâche - Utilise le même style que TaskDetailsDialog
+ * avec une tâche temporaire modifiable
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -752,243 +912,534 @@ fun CreateTaskDialog(
     onDismiss: () -> Unit,
     onCreateTask: (title: String, description: String, priority: TaskPriority, category: String, deadline: String) -> Unit
 ) {
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var selectedPriority by remember { mutableStateOf(TaskPriority.P3) }
-    var selectedCategory by remember { mutableStateOf("") }
-    var showDatePicker by remember { mutableStateOf(false) }
-    var selectedDeadline by remember { mutableStateOf("") }
-    
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = System.currentTimeMillis()
-    )
-    
-    if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let { millis ->
-                            val calendar = java.util.Calendar.getInstance().apply {
-                                timeInMillis = millis
-                            }
-                            val year = calendar.get(java.util.Calendar.YEAR)
-                            val month = calendar.get(java.util.Calendar.MONTH) + 1
-                            val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
-                            selectedDeadline = String.format("%04d-%02d-%02d", year, month, day)
-                        }
-                        showDatePicker = false
-                    }
-                ) {
-                    Text("Valider", color = AccentBlue)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Annuler", color = Color.White.copy(alpha = 0.7f))
-                }
-            },
-            colors = DatePickerDefaults.colors(containerColor = Color(0xFF2C2C2E))
-        ) {
-            DatePicker(
-                state = datePickerState,
-                showModeToggle = false,
-                colors = DatePickerDefaults.colors(
-                    containerColor = Color(0xFF2C2C2E),
-                    titleContentColor = Color.White,
-                    headlineContentColor = Color.White,
-                    weekdayContentColor = Color.White.copy(alpha = 0.7f),
-                    subheadContentColor = Color.White.copy(alpha = 0.7f),
-                    yearContentColor = Color.White,
-                    currentYearContentColor = AccentBlue,
-                    selectedYearContentColor = Color.White,
-                    selectedYearContainerColor = AccentBlue,
-                    dayContentColor = Color.White,
-                    selectedDayContentColor = Color.White,
-                    selectedDayContainerColor = AccentBlue,
-                    todayContentColor = AccentBlue,
-                    todayDateBorderColor = AccentBlue,
-                    navigationContentColor = Color.White
-                )
-            )
+    // Calculer la date par défaut (aujourd'hui + 7 jours)
+    val defaultDeadline = remember {
+        val calendar = java.util.Calendar.getInstance().apply {
+            add(java.util.Calendar.DAY_OF_YEAR, 7)
         }
+        String.format("%04d-%02d-%02d", 
+            calendar.get(java.util.Calendar.YEAR),
+            calendar.get(java.util.Calendar.MONTH) + 1,
+            calendar.get(java.util.Calendar.DAY_OF_MONTH)
+        )
+    }
+    
+    // État local de la tâche en création
+    var title by remember { mutableStateOf("Votre titre") }
+    var description by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf(TaskStatus.TODO) }
+    var priority by remember { mutableStateOf(TaskPriority.P3) }
+    var category by remember { mutableStateOf("Aucune") }
+    var deadlineDate by remember { mutableStateOf(defaultDeadline) }
+    var estimatedDuration by remember { mutableStateOf("1 heure") }
+    
+    var selectedTab by remember { mutableStateOf(0) }
+    var showStatusDialog by remember { mutableStateOf(false) }
+    var showPriorityDialog by remember { mutableStateOf(false) }
+    var showDurationDialog by remember { mutableStateOf(false) }
+    var showDeadlineDialog by remember { mutableStateOf(false) }
+    var showCategoryDialog by remember { mutableStateOf(false) }
+    
+    // États pour l'édition inline
+    var isEditingTitle by remember { mutableStateOf(false) }
+    var isEditingDescription by remember { mutableStateOf(false) }
+    var isEditingNote by remember { mutableStateOf(false) }
+    
+    // FocusRequesters
+    val titleFocusRequester = remember { FocusRequester() }
+    val descriptionFocusRequester = remember { FocusRequester() }
+    val noteFocusRequester = remember { FocusRequester() }
+    
+    LaunchedEffect(isEditingTitle) {
+        if (isEditingTitle) titleFocusRequester.requestFocus()
+    }
+    LaunchedEffect(isEditingDescription) {
+        if (isEditingDescription) descriptionFocusRequester.requestFocus()
+    }
+    LaunchedEffect(isEditingNote) {
+        if (isEditingNote) noteFocusRequester.requestFocus()
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Color(0xFF2C2C2E),
-        title = {
-            Text(
-                text = "Nouvelle tâche",
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
+    // Dialogs de sélection
+    if (showStatusDialog) {
+        StatusSelectionDialog(
+            currentStatus = status,
+            onDismiss = { showStatusDialog = false },
+            onStatusSelected = { status = it; showStatusDialog = false }
+        )
+    }
+    
+    if (showPriorityDialog) {
+        PrioritySelectionDialog(
+            currentPriority = priority,
+            onDismiss = { showPriorityDialog = false },
+            onPrioritySelected = { priority = it; showPriorityDialog = false }
+        )
+    }
+    
+    if (showDurationDialog) {
+        DurationInputDialog(
+            currentDuration = estimatedDuration,
+            onDismiss = { showDurationDialog = false },
+            onDurationChanged = { estimatedDuration = it; showDurationDialog = false }
+        )
+    }
+    
+    if (showDeadlineDialog) {
+        DeadlineDatePickerDialog(
+            currentDeadlineDate = deadlineDate,
+            onDismiss = { showDeadlineDialog = false },
+            onDateSelected = { deadlineDate = it; showDeadlineDialog = false }
+        )
+    }
+    
+    if (showCategoryDialog) {
+        CategorySelectionDialog(
+            currentCategory = category,
+            categories = categories,
+            onDismiss = { showCategoryDialog = false },
+            onCategorySelected = { category = it; showCategoryDialog = false }
+        )
+    }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = { /* Ne pas fermer en cliquant à l'extérieur */ },
+        properties = androidx.compose.ui.window.DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .clip(RoundedCornerShape(24.dp))
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF1C1C1E),
+                            Color(0xFF2C2C2E)
+                        )
+                    )
+                )
+        ) {
             Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.verticalScroll(rememberScrollState())
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Titre
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Titre *") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentBlue,
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                        focusedLabelColor = AccentBlue,
-                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    )
-                )
-                
-                // Description
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Description") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    maxLines = 4,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentBlue,
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                        focusedLabelColor = AccentBlue,
-                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    )
-                )
-                
-                // Priorité
-                Text(
-                    text = "Priorité",
-                    color = Color.White.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.labelMedium
-                )
+                // En-tête avec titre éditable et bouton fermer
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
                 ) {
-                    TaskPriority.values().forEach { priority ->
-                        val priorityText = when (priority) {
-                            TaskPriority.P1 -> "P1"
-                            TaskPriority.P2 -> "P2"
-                            TaskPriority.P3 -> "P3"
-                            TaskPriority.P4 -> "P4"
-                            TaskPriority.P5 -> "P5"
-                        }
-                        val priorityColor = when (priority) {
-                            TaskPriority.P1 -> UrgentRed
-                            TaskPriority.P2 -> Color(0xFFFF6B35)
-                            TaskPriority.P3 -> NormalOrange
-                            TaskPriority.P4 -> Color(0xFFFFB84D)
-                            TaskPriority.P5 -> CompletedGreen
-                        }
-                        FilterChip(
-                            selected = selectedPriority == priority,
-                            onClick = { selectedPriority = priority },
-                            label = { Text(priorityText, fontSize = 12.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = priorityColor,
-                                selectedLabelColor = Color.White,
-                                containerColor = Color(0xFF1C1C1E),
-                                labelColor = Color.White.copy(alpha = 0.7f)
+                    if (isEditingTitle) {
+                        OutlinedTextField(
+                            value = title,
+                            onValueChange = { title = it },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp)
+                                .focusRequester(titleFocusRequester),
+                            textStyle = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
                             ),
-                            modifier = Modifier.height(32.dp)
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AccentBlue,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                                cursorColor = AccentBlue
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            singleLine = false,
+                            maxLines = 3,
+                            trailingIcon = {
+                                IconButton(onClick = { isEditingTitle = false }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Valider",
+                                        tint = AccentBlue
+                                    )
+                                }
+                            }
+                        )
+                    } else {
+                        Text(
+                            text = title,
+                            color = if (title == "Votre titre") Color.White.copy(alpha = 0.5f) else Color.White,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { isEditingTitle = true }
+                                .padding(end = 8.dp, top = 4.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Fermer",
+                            tint = Color(0xFFC62828),
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
-                
-                // Catégorie
-                if (categories.isNotEmpty()) {
-                    Text(
-                        text = "Catégorie",
-                        color = Color.White.copy(alpha = 0.7f),
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(categories) { category ->
-                            FilterChip(
-                                selected = selectedCategory == category,
-                                onClick = {
-                                    selectedCategory = if (selectedCategory == category) "" else category
-                                },
-                                label = { Text(category) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AccentBlue,
-                                    selectedLabelColor = Color.White,
-                                    containerColor = Color(0xFF1C1C1E),
-                                    labelColor = Color.White.copy(alpha = 0.7f)
+
+                // Métadonnées avec badges (comme TaskDetailsDialog)
+                CreateTaskMetadata(
+                    status = status,
+                    priority = priority,
+                    estimatedDuration = estimatedDuration,
+                    deadlineDate = deadlineDate,
+                    category = category,
+                    onStatusClick = { showStatusDialog = true },
+                    onPriorityClick = { showPriorityDialog = true },
+                    onDurationClick = { showDurationDialog = true },
+                    onDeadlineClick = { showDeadlineDialog = true },
+                    onCategoryClick = { showCategoryDialog = true }
+                )
+
+                // Séparateur
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.White.copy(alpha = 0.1f),
+                                    Color.Transparent
                                 )
                             )
+                        )
+                )
+
+                // Onglets Description / Notes (toujours affichés en mode création)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF1A1A1C))
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // Onglet Description
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (selectedTab == 0) AccentBlue else Color.Transparent)
+                            .clickable { selectedTab = 0 }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Description",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (selectedTab == 0) Color.White else Color.White.copy(alpha = 0.6f),
+                            fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                    
+                    // Onglet Notes
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (selectedTab == 1) AccentBlue else Color.Transparent)
+                            .clickable { selectedTab = 1 }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Notes",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (selectedTab == 1) Color.White else Color.White.copy(alpha = 0.6f),
+                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+
+                // Contenu Description/Notes
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF1A1A1C))
+                        .padding(12.dp)
+                ) {
+                    when (selectedTab) {
+                        0 -> {
+                            if (isEditingDescription) {
+                                Column {
+                                    OutlinedTextField(
+                                        value = description,
+                                        onValueChange = { description = it },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .focusRequester(descriptionFocusRequester),
+                                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                            color = Color.White.copy(alpha = 0.9f),
+                                            lineHeight = 22.sp
+                                        ),
+                                        placeholder = { Text("Ajouter une description...", color = Color.White.copy(alpha = 0.5f)) },
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = AccentBlue,
+                                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                                            cursorColor = AccentBlue
+                                        ),
+                                        shape = RoundedCornerShape(8.dp),
+                                        minLines = 3,
+                                        maxLines = 6
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        horizontalArrangement = Arrangement.End,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        TextButton(onClick = { isEditingDescription = false }) {
+                                            Text("Valider", color = AccentBlue, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            } else {
+                                Text(
+                                    text = if (description.isNotEmpty()) description else "Appuyez pour ajouter une description...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (description.isNotEmpty()) Color.White.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.5f),
+                                    lineHeight = 22.sp,
+                                    fontStyle = if (description.isEmpty()) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { isEditingDescription = true }
+                                )
+                            }
+                        }
+                        1 -> {
+                            if (isEditingNote) {
+                                Column {
+                                    OutlinedTextField(
+                                        value = note,
+                                        onValueChange = { note = it },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .focusRequester(noteFocusRequester),
+                                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                            color = Color.White.copy(alpha = 0.9f),
+                                            lineHeight = 22.sp
+                                        ),
+                                        placeholder = { Text("Ajouter une note...", color = Color.White.copy(alpha = 0.5f)) },
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = AccentBlue,
+                                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                                            cursorColor = AccentBlue
+                                        ),
+                                        shape = RoundedCornerShape(8.dp),
+                                        minLines = 3,
+                                        maxLines = 6
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        horizontalArrangement = Arrangement.End,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        TextButton(onClick = { isEditingNote = false }) {
+                                            Text("Valider", color = AccentBlue, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            } else {
+                                Text(
+                                    text = if (note.isNotEmpty()) note else "Appuyez pour ajouter une note...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (note.isNotEmpty()) Color.White.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.5f),
+                                    lineHeight = 22.sp,
+                                    fontStyle = if (note.isEmpty()) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { isEditingNote = true }
+                                )
+                            }
                         }
                     }
                 }
-                
-                // Date d'échéance
-                Text(
-                    text = "Date d'échéance",
-                    color = Color.White.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.labelMedium
-                )
-                OutlinedButton(
-                    onClick = { showDatePicker = true },
+
+                // Bouton Créer
+                Button(
+                    onClick = {
+                        val finalTitle = if (title == "Votre titre") "" else title
+                        val finalCategory = if (category == "Aucune") "" else category
+                        if (finalTitle.isNotBlank()) {
+                            onCreateTask(finalTitle, description, priority, finalCategory, deadlineDate)
+                            onDismiss()
+                        }
+                    },
+                    enabled = title.isNotBlank() && title != "Votre titre",
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.White
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentBlue,
+                        disabledContainerColor = AccentBlue.copy(alpha = 0.3f)
                     ),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.DateRange,
+                        imageVector = Icons.Default.Add,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (selectedDeadline.isEmpty()) "Sélectionner une date" else {
-                            // Formater la date pour l'affichage
-                            try {
-                                val parts = selectedDeadline.split("-")
-                                "${parts[2]}/${parts[1]}/${parts[0]}"
-                            } catch (e: Exception) {
-                                selectedDeadline
-                            }
-                        }
-                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Créer la tâche", fontWeight = FontWeight.Bold)
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (title.isNotBlank()) {
-                        onCreateTask(title, description, selectedPriority, selectedCategory, selectedDeadline)
-                    }
-                },
-                enabled = title.isNotBlank()
+        }
+    }
+}
+
+/**
+ * Métadonnées pour le dialog de création (identique à ModernCompactMetadata)
+ */
+@Composable
+fun CreateTaskMetadata(
+    status: TaskStatus,
+    priority: TaskPriority,
+    estimatedDuration: String,
+    deadlineDate: String,
+    category: String,
+    onStatusClick: () -> Unit,
+    onPriorityClick: () -> Unit,
+    onDurationClick: () -> Unit,
+    onDeadlineClick: () -> Unit,
+    onCategoryClick: () -> Unit
+) {
+    val statusText = when (status) {
+        TaskStatus.TODO -> "À faire"
+        TaskStatus.IN_PROGRESS -> "En cours"
+        TaskStatus.COMPLETED -> "Terminé"
+    }
+    val statusColor = when (status) {
+        TaskStatus.COMPLETED -> CompletedGreen
+        TaskStatus.IN_PROGRESS -> AccentBlue
+        else -> NormalOrange  // Jaune/Orange pour "À faire"
+    }
+    
+    val priorityText = when (priority) {
+        TaskPriority.P1 -> "P1"
+        TaskPriority.P2 -> "P2"
+        TaskPriority.P3 -> "P3"
+        TaskPriority.P4 -> "P4"
+        TaskPriority.P5 -> "P5"
+    }
+    val priorityColor = when (priority) {
+        TaskPriority.P1 -> UrgentRed
+        TaskPriority.P2 -> Color(0xFFFF6B35)  // Orange foncé
+        TaskPriority.P3 -> NormalOrange
+        TaskPriority.P4 -> Color(0xFFFFB84D)  // Jaune
+        TaskPriority.P5 -> CompletedGreen
+    }
+    
+    // Formatter la deadline pour affichage (comme dans ModernCompactMetadata)
+    val formattedDeadline = remember(deadlineDate) {
+        com.max.aiassistant.data.api.formatDeadline(deadlineDate)
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // Première ligne : Statut, Priorité, Deadline
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Badge de statut (cliquable)
+            Box(modifier = Modifier.clickable { onStatusClick() }) {
+                ModernBadge(text = statusText, color = statusColor)
+            }
+
+            // Badge de priorité (cliquable)
+            Box(modifier = Modifier.clickable { onPriorityClick() }) {
+                ModernBadge(text = priorityText, color = priorityColor)
+            }
+
+            // Deadline (cliquable)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { onDeadlineClick() }
+                    .padding(4.dp)
             ) {
+                Icon(
+                    imageVector = Icons.Default.Schedule,
+                    contentDescription = null,
+                    tint = AccentBlue.copy(alpha = 0.7f),
+                    modifier = Modifier.size(14.dp)
+                )
                 Text(
-                    "Créer",
-                    color = if (title.isNotBlank()) AccentBlue else Color.White.copy(alpha = 0.3f),
-                    fontWeight = FontWeight.Bold
+                    text = formattedDeadline,
+                    color = AccentBlue.copy(alpha = 0.9f),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium
                 )
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Annuler", color = Color.White.copy(alpha = 0.7f))
+        }
+
+        // Deuxième ligne : Catégorie et Durée
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Catégorie (cliquable)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { onCategoryClick() }
+                    .padding(4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Category,
+                    contentDescription = null,
+                    tint = AccentBlue.copy(alpha = 0.7f),
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = category,
+                    color = if (category != "Aucune") Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.5f),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            // Durée (cliquable)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { onDurationClick() }
+                    .padding(4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    tint = AccentBlue.copy(alpha = 0.7f),
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = estimatedDuration,
+                    color = AccentBlue.copy(alpha = 0.9f),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
-    )
+    }
 }
 
 /**
@@ -1932,18 +2383,29 @@ fun TaskDetailsDialog(
                 )
             },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         showDeleteConfirmation = false
                         onDelete()
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = UrgentRed
+                    ),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Supprimer", color = UrgentRed, fontWeight = FontWeight.Bold)
+                    Text("Supprimer", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirmation = false }) {
-                    Text("Annuler", color = Color.White.copy(alpha = 0.7f))
+                OutlinedButton(
+                    onClick = { showDeleteConfirmation = false },
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color.White
+                    ),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Annuler", color = Color.White.copy(alpha = 0.8f))
                 }
             }
         )
@@ -2498,23 +2960,20 @@ fun ModernTaskContentTabSelector(
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        if (hasDescription) {
-            ModernTabItem(
-                text = "Description",
-                isSelected = selectedIndex == 0,
-                onClick = { onTabSelected(0) },
-                modifier = Modifier.weight(1f)
-            )
-        }
+        // Toujours afficher les deux onglets pour permettre l'ajout de contenu
+        ModernTabItem(
+            text = "Description",
+            isSelected = selectedIndex == 0,
+            onClick = { onTabSelected(0) },
+            modifier = Modifier.weight(1f)
+        )
 
-        if (hasNote) {
-            ModernTabItem(
-                text = "Notes",
-                isSelected = selectedIndex == 1 || (!hasDescription && selectedIndex == 0),
-                onClick = { onTabSelected(1) },
-                modifier = Modifier.weight(1f)
-            )
-        }
+        ModernTabItem(
+            text = "Notes",
+            isSelected = selectedIndex == 1,
+            onClick = { onTabSelected(1) },
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
@@ -2749,16 +3208,24 @@ fun EventItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "${event.startTime} • ${event.endTime}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
-            )
-            Spacer(modifier = Modifier.height(4.dp))
+            // Titre en gras en première ligne
             Text(
                 text = event.title,
                 style = MaterialTheme.typography.titleSmall,
-                color = TextPrimary
+                color = TextPrimary,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            // Date et heures en seconde ligne
+            val timeInfo = if (event.startTime == "Toute la journée") {
+                if (event.date.isNotEmpty()) "${event.date} • Toute la journée" else "Toute la journée"
+            } else {
+                if (event.date.isNotEmpty()) "${event.date} • ${event.startTime} - ${event.endTime}" else "${event.startTime} - ${event.endTime}"
+            }
+            Text(
+                text = timeInfo,
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary
             )
         }
 
