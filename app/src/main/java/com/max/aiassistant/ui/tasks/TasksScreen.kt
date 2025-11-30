@@ -301,7 +301,7 @@ fun TasksScreen(
 }
 
 /**
- * Sélecteur d'onglets (Tâches / Événements)
+ * Sélecteur d'onglets (Tâches / Planning)
  * Style similaire à l'écran météo avec TabRow Material3
  */
 @Composable
@@ -309,7 +309,7 @@ fun TabSelector(
     selectedIndex: Int,
     onTabSelected: (Int) -> Unit
 ) {
-    val tabs = listOf("Tâches", "Événements")
+    val tabs = listOf("Tâches", "Planning")
     
     TabRow(
         selectedTabIndex = selectedIndex,
@@ -1507,7 +1507,14 @@ fun TasksContent(
 }
 
 /**
- * Contenu de l'onglet Agenda
+ * Enum pour les différentes vues du planning
+ */
+enum class PlanningViewType {
+    WEEK, MONTH
+}
+
+/**
+ * Contenu de l'onglet Planning (anciennement Agenda)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1518,50 +1525,49 @@ fun AgendaContent(
     modifier: Modifier = Modifier
 ) {
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
+    var currentView by remember { mutableStateOf(PlanningViewType.WEEK) }
+    // Offset pour la navigation (0 = semaine/mois actuel, -1 = précédent, +1 = suivant)
+    var weekOffset by remember { mutableStateOf(0) }
+    var monthOffset by remember { mutableStateOf(0) }
     val pullRefreshState = rememberPullToRefreshState()
-    PullToRefreshBox(
-        state = pullRefreshState,
-        isRefreshing = isRefreshing,
-        onRefresh = onRefresh,
-        modifier = modifier.fillMaxSize()
-    ) {
-        // Liste des événements
-        if (events.isEmpty() && !isRefreshing) {
-            // État vide
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.CalendarToday,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = TextSecondary
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Aucun événement",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = TextSecondary
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Glissez vers le bas pour actualiser",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary.copy(alpha = 0.6f)
+    
+    Column(modifier = modifier.fillMaxSize()) {
+        // Sélecteur de vue
+        PlanningViewSelector(
+            currentView = currentView,
+            onViewSelected = { 
+                currentView = it
+                // Reset offset quand on change de vue
+                weekOffset = 0
+                monthOffset = 0
+            }
+        )
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        PullToRefreshBox(
+            state = pullRefreshState,
+            isRefreshing = isRefreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            when (currentView) {
+                PlanningViewType.WEEK -> {
+                    PlanningWeekView(
+                        events = events,
+                        weekOffset = weekOffset,
+                        onPreviousWeek = { weekOffset-- },
+                        onNextWeek = { weekOffset++ },
+                        onEventClick = { selectedEvent = it }
                     )
                 }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(events, key = { it.id }) { event ->
-                    EventItem(
-                        event = event,
-                        onClick = { selectedEvent = event }
+                PlanningViewType.MONTH -> {
+                    PlanningMonthView(
+                        events = events,
+                        monthOffset = monthOffset,
+                        onPreviousMonth = { monthOffset-- },
+                        onNextMonth = { monthOffset++ },
+                        onEventClick = { selectedEvent = it }
                     )
                 }
             }
@@ -1575,6 +1581,520 @@ fun AgendaContent(
             onDismiss = { selectedEvent = null }
         )
     }
+}
+
+/**
+ * Sélecteur de vue pour le planning (Semaine, Mois)
+ */
+@Composable
+fun PlanningViewSelector(
+    currentView: PlanningViewType,
+    onViewSelected: (PlanningViewType) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(DarkSurface)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        PlanningViewTab(
+            text = "Semaine",
+            icon = Icons.Default.ViewWeek,
+            isSelected = currentView == PlanningViewType.WEEK,
+            onClick = { onViewSelected(PlanningViewType.WEEK) },
+            modifier = Modifier.weight(1f)
+        )
+        PlanningViewTab(
+            text = "Mois",
+            icon = Icons.Default.CalendarMonth,
+            isSelected = currentView == PlanningViewType.MONTH,
+            onClick = { onViewSelected(PlanningViewType.MONTH) },
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+/**
+ * Tab individuel du sélecteur de vue
+ */
+@Composable
+fun PlanningViewTab(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isSelected) AccentBlue else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = if (isSelected) Color.White else Color.White.copy(alpha = 0.6f)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.6f),
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+            )
+        }
+    }
+}
+
+/**
+ * Vue Semaine - Affiche les 7 jours avec les événements et navigation
+ */
+@Composable
+fun PlanningWeekView(
+    events: List<Event>,
+    weekOffset: Int,
+    onPreviousWeek: () -> Unit,
+    onNextWeek: () -> Unit,
+    onEventClick: (Event) -> Unit
+) {
+    val baseCalendar = Calendar.getInstance()
+    baseCalendar.add(Calendar.WEEK_OF_YEAR, weekOffset)
+    
+    // Génère les 7 jours de la semaine
+    val weekDays = (0..6).map { offset ->
+        val day = baseCalendar.clone() as Calendar
+        day.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+        day.add(Calendar.DAY_OF_MONTH, offset)
+        day
+    }
+    
+    // Titre de la période
+    val firstDay = weekDays.first()
+    val lastDay = weekDays.last()
+    val periodTitle = if (firstDay.get(Calendar.MONTH) == lastDay.get(Calendar.MONTH)) {
+        "${firstDay.get(Calendar.DAY_OF_MONTH)} - ${lastDay.get(Calendar.DAY_OF_MONTH)} ${SimpleDateFormat("MMMM yyyy", Locale.FRENCH).format(lastDay.time).replaceFirstChar { it.uppercase() }}"
+    } else {
+        "${firstDay.get(Calendar.DAY_OF_MONTH)} ${SimpleDateFormat("MMM", Locale.FRENCH).format(firstDay.time)} - ${lastDay.get(Calendar.DAY_OF_MONTH)} ${SimpleDateFormat("MMM yyyy", Locale.FRENCH).format(lastDay.time)}"
+    }
+    
+    Column(modifier = Modifier.fillMaxSize()) {
+        // En-tête avec navigation
+        PlanningNavigationHeader(
+            title = periodTitle,
+            onPrevious = onPreviousWeek,
+            onNext = onNextWeek,
+            showTodayButton = weekOffset != 0,
+            onToday = { /* Reset via parent */ }
+        )
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(weekDays) { day ->
+                val dayEvents = getEventsForDay(events, day)
+                WeekDayCard(
+                    calendar = day,
+                    isToday = isSameDay(day, Calendar.getInstance()),
+                    events = dayEvents,
+                    onEventClick = onEventClick
+                )
+            }
+        }
+    }
+}
+
+/**
+ * En-tête de navigation pour les vues planning
+ */
+@Composable
+fun PlanningNavigationHeader(
+    title: String,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    showTodayButton: Boolean = false,
+    onToday: () -> Unit = {}
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(DarkSurface)
+            .padding(8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Bouton précédent
+        IconButton(
+            onClick = onPrevious,
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.ChevronLeft,
+                contentDescription = "Précédent",
+                tint = AccentBlue
+            )
+        }
+        
+        // Titre de la période
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = TextPrimary,
+            fontWeight = FontWeight.Bold
+        )
+        
+        // Bouton suivant
+        IconButton(
+            onClick = onNext,
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "Suivant",
+                tint = AccentBlue
+            )
+        }
+    }
+}
+
+/**
+ * Carte d'un jour dans la vue semaine
+ */
+@Composable
+fun WeekDayCard(
+    calendar: Calendar,
+    isToday: Boolean,
+    events: List<Event>,
+    onEventClick: (Event) -> Unit
+) {
+    val dayName = SimpleDateFormat("EEEE", Locale.FRENCH).format(calendar.time)
+        .replaceFirstChar { it.uppercase() }
+    val dayNumber = calendar.get(Calendar.DAY_OF_MONTH)
+    val monthName = SimpleDateFormat("MMMM", Locale.FRENCH).format(calendar.time)
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isToday) AccentBlue.copy(alpha = 0.15f) else DarkSurface)
+            .padding(12.dp)
+    ) {
+        // En-tête du jour
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = dayName,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (isToday) AccentBlue else TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "$dayNumber $monthName",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+            }
+            if (isToday) {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = AccentBlue
+                ) {
+                    Text(
+                        text = "Aujourd'hui",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        // Événements du jour
+        if (events.isEmpty()) {
+            Text(
+                text = "Aucun événement",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary.copy(alpha = 0.6f),
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+            )
+        } else {
+            events.forEach { event ->
+                WeekEventItem(
+                    event = event,
+                    onClick = { onEventClick(event) }
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+        }
+    }
+}
+
+/**
+ * Item d'événement compact pour la vue semaine
+ */
+@Composable
+fun WeekEventItem(
+    event: Event,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(DarkSurfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Indicateur de couleur
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(32.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(AccentBlue)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = event.title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextPrimary,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = if (event.startTime == "Toute la journée") "Toute la journée" else "${event.startTime} - ${event.endTime}",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+        }
+    }
+}
+
+/**
+ * Vue Mois - Affiche le calendrier du mois avec navigation
+ */
+@Composable
+fun PlanningMonthView(
+    events: List<Event>,
+    monthOffset: Int,
+    onPreviousMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+    onEventClick: (Event) -> Unit
+) {
+    val calendar = Calendar.getInstance()
+    calendar.add(Calendar.MONTH, monthOffset)
+    val displayMonth = calendar.get(Calendar.MONTH)
+    val displayYear = calendar.get(Calendar.YEAR)
+    
+    // Jour actuel (pour highlight)
+    val todayCal = Calendar.getInstance()
+    val isCurrentMonth = todayCal.get(Calendar.MONTH) == displayMonth && todayCal.get(Calendar.YEAR) == displayYear
+    val today = if (isCurrentMonth) todayCal.get(Calendar.DAY_OF_MONTH) else -1
+    
+    // Premier jour du mois
+    calendar.set(Calendar.DAY_OF_MONTH, 1)
+    val firstDayOfWeek = (calendar.get(Calendar.DAY_OF_WEEK) + 5) % 7 // Lundi = 0
+    val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+    
+    val monthName = SimpleDateFormat("MMMM yyyy", Locale.FRENCH).format(calendar.time)
+        .replaceFirstChar { it.uppercase() }
+    
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // En-tête avec navigation
+        PlanningNavigationHeader(
+            title = monthName,
+            onPrevious = onPreviousMonth,
+            onNext = onNextMonth
+        )
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Jours de la semaine
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            listOf("Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim").forEach { dayName ->
+                Text(
+                    text = dayName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary,
+                    modifier = Modifier.weight(1f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        // Grille du calendrier
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            val totalCells = firstDayOfWeek + daysInMonth
+            val weeks = (totalCells + 6) / 7
+            
+            items(weeks) { week ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    for (dayOfWeek in 0..6) {
+                        val cellIndex = week * 7 + dayOfWeek
+                        val dayNumber = cellIndex - firstDayOfWeek + 1
+                        
+                        if (dayNumber in 1..daysInMonth) {
+                            val dayCal = Calendar.getInstance()
+                            dayCal.set(displayYear, displayMonth, dayNumber)
+                            val dayEvents = getEventsForDay(events, dayCal)
+                            
+                            MonthDayCell(
+                                dayNumber = dayNumber,
+                                isToday = dayNumber == today,
+                                events = dayEvents,
+                                onEventClick = onEventClick,
+                                modifier = Modifier.weight(1f)
+                            )
+                        } else {
+                            // Case vide
+                            Box(modifier = Modifier.weight(1f).height(80.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Cellule d'un jour dans la vue mois
+ */
+@Composable
+fun MonthDayCell(
+    dayNumber: Int,
+    isToday: Boolean,
+    events: List<Event>,
+    onEventClick: (Event) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .height(80.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isToday) AccentBlue.copy(alpha = 0.2f) else DarkSurface)
+            .padding(4.dp)
+    ) {
+        // Numéro du jour
+        Text(
+            text = dayNumber.toString(),
+            style = MaterialTheme.typography.labelMedium,
+            color = if (isToday) AccentBlue else TextPrimary,
+            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+        
+        Spacer(modifier = Modifier.height(2.dp))
+        
+        // Événements (max 2 + indicateur "+" si plus)
+        events.take(2).forEach { event ->
+            Text(
+                text = event.title,
+                style = MaterialTheme.typography.labelSmall,
+                color = AccentBlue,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 9.sp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(AccentBlue.copy(alpha = 0.2f))
+                    .clickable { onEventClick(event) }
+                    .padding(horizontal = 2.dp, vertical = 1.dp)
+            )
+            Spacer(modifier = Modifier.height(1.dp))
+        }
+        
+        if (events.size > 2) {
+            Text(
+                text = "+${events.size - 2}",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary,
+                fontSize = 8.sp
+            )
+        }
+    }
+}
+
+/**
+ * Vérifie si deux Calendar représentent le même jour
+ */
+private fun isSameDay(cal1: Calendar, cal2: Calendar): Boolean {
+    return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
+            cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
+}
+
+/**
+ * Récupère les événements pour un jour donné
+ */
+private fun getEventsForDay(events: List<Event>, calendar: Calendar): List<Event> {
+    val dayOfMonth = calendar.get(Calendar.DAY_OF_MONTH)
+    val month = calendar.get(Calendar.MONTH) + 1
+    val year = calendar.get(Calendar.YEAR)
+    
+    return events.filter { event ->
+        // Parse la date de l'événement (format "Dim. 30 novembre" ou similaire)
+        try {
+            val dateParts = event.date.split(" ")
+            if (dateParts.size >= 3) {
+                val eventDay = dateParts[1].toIntOrNull() ?: return@filter false
+                val eventMonth = getMonthNumber(dateParts[2])
+                // On suppose l'année courante si non spécifiée
+                eventDay == dayOfMonth && eventMonth == month
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+}
+
+/**
+ * Convertit le nom du mois en numéro (1-12)
+ */
+private fun getMonthNumber(monthName: String): Int {
+    val months = mapOf(
+        "janvier" to 1, "février" to 2, "mars" to 3, "avril" to 4,
+        "mai" to 5, "juin" to 6, "juillet" to 7, "août" to 8,
+        "septembre" to 9, "octobre" to 10, "novembre" to 11, "décembre" to 12
+    )
+    return months[monthName.lowercase()] ?: 0
 }
 
 /**

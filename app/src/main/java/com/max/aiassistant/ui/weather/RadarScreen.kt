@@ -47,7 +47,7 @@ fun RadarScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF0A84FF)
+                    containerColor = DarkBackground
                 )
             )
         },
