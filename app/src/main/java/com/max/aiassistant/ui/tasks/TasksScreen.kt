@@ -3,6 +3,7 @@ package com.max.aiassistant.ui.tasks
 import android.os.Build
 import android.text.Html
 import android.widget.TextView
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,8 +13,10 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -60,12 +63,57 @@ fun TasksScreen(
     onRefresh: () -> Unit,
     onRefreshEvents: () -> Unit,
     onTaskStatusChange: (String, TaskStatus) -> Unit,
+    onTaskPriorityChange: (String, TaskPriority) -> Unit,
+    onTaskDurationChange: (String, String) -> Unit,
+    onTaskDeadlineChange: (String, String) -> Unit,
     onTaskDelete: (String) -> Unit,
     onNavigateToHome: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedTask by remember { mutableStateOf<Task?>(null) }
+    // Stocker l'ID de la tâche sélectionnée au lieu de la tâche elle-même
+    // pour que le dialog se mette à jour quand la liste tasks change
+    var selectedTaskId by remember { mutableStateOf<String?>(null) }
     var selectedTabIndex by remember { mutableStateOf(0) }
+    
+    // États pour les filtres
+    var showFilterDialog by remember { mutableStateOf(false) }
+    var filterCategory by remember { mutableStateOf<String?>(null) }
+    var filterPriority by remember { mutableStateOf<TaskPriority?>(null) }
+    var filterDeadlineDate by remember { mutableStateOf<String?>(null) } // Date ISO ou null
+    
+    // État pour le dialog de création
+    var showCreateTaskDialog by remember { mutableStateOf(false) }
+    
+    // Récupérer la tâche sélectionnée depuis la liste actuelle
+    val selectedTask = selectedTaskId?.let { id -> tasks.find { it.id == id } }
+    
+    // Appliquer les filtres sur les tâches
+    val filteredTasks = remember(tasks, filterCategory, filterPriority, filterDeadlineDate) {
+        tasks.filter { task ->
+            val categoryMatch = filterCategory == null || task.category == filterCategory
+            val priorityMatch = filterPriority == null || task.priority == filterPriority
+            val deadlineMatch = if (filterDeadlineDate == null) {
+                true
+            } else {
+                // Comparer les dates : afficher les tâches dont la deadline <= filterDeadlineDate
+                try {
+                    if (task.deadlineDate.isEmpty()) {
+                        false // Pas de deadline = ne pas afficher si on filtre par date
+                    } else {
+                        task.deadlineDate <= filterDeadlineDate!!
+                    }
+                } catch (e: Exception) {
+                    true
+                }
+            }
+            categoryMatch && priorityMatch && deadlineMatch
+        }
+    }
+    
+    // Extraire les catégories uniques des tâches
+    val categories = remember(tasks) {
+        tasks.map { it.category }.filter { it.isNotEmpty() }.distinct().sorted()
+    }
 
     Column(
         modifier = modifier
@@ -110,6 +158,16 @@ fun TasksScreen(
                 selectedIndex = selectedTabIndex,
                 onTabSelected = { selectedTabIndex = it }
             )
+            
+            // Barre de filtres et création (visible uniquement pour l'onglet Tâches)
+            if (selectedTabIndex == 0) {
+                Spacer(modifier = Modifier.height(12.dp))
+                TaskActionBar(
+                    hasActiveFilters = filterCategory != null || filterPriority != null || filterDeadlineDate != null,
+                    onFilterClick = { showFilterDialog = true },
+                    onCreateClick = { showCreateTaskDialog = true }
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -122,10 +180,10 @@ fun TasksScreen(
         ) {
             when (selectedTabIndex) {
                 0 -> TasksContent(
-                    tasks = tasks,
+                    tasks = filteredTasks,
                     isRefreshing = isRefreshing,
                     onRefresh = onRefresh,
-                    onTaskClick = { selectedTask = it },
+                    onTaskClick = { selectedTaskId = it.id },
                     modifier = Modifier.fillMaxSize()
                 )
                 1 -> AgendaContent(
@@ -137,85 +195,760 @@ fun TasksScreen(
             }
         }
     }
+    
+    // Dialog de filtre
+    if (showFilterDialog) {
+        TaskFilterDialog(
+            categories = categories,
+            selectedCategory = filterCategory,
+            selectedPriority = filterPriority,
+            selectedDeadlineDate = filterDeadlineDate,
+            onCategorySelected = { filterCategory = it },
+            onPrioritySelected = { filterPriority = it },
+            onDeadlineDateSelected = { filterDeadlineDate = it },
+            onClearFilters = {
+                filterCategory = null
+                filterPriority = null
+                filterDeadlineDate = null
+            },
+            onDismiss = { showFilterDialog = false }
+        )
+    }
+    
+    // Dialog de création de tâche
+    if (showCreateTaskDialog) {
+        CreateTaskDialog(
+            categories = categories,
+            onDismiss = { showCreateTaskDialog = false },
+            onCreateTask = { title, description, priority, category, deadline ->
+                // TODO: Appeler l'API pour créer la tâche
+                showCreateTaskDialog = false
+            }
+        )
+    }
 
     // Dialog des détails de la tâche
     selectedTask?.let { task ->
         TaskDetailsDialog(
             task = task,
-            onDismiss = { selectedTask = null },
+            onDismiss = { selectedTaskId = null },
             onStatusChange = { newStatus ->
                 onTaskStatusChange(task.id, newStatus)
-                selectedTask = null
+                // Ne pas fermer le dialog pour permettre plusieurs modifications
+            },
+            onPriorityChange = { newPriority ->
+                onTaskPriorityChange(task.id, newPriority)
+                // Ne pas fermer le dialog pour permettre plusieurs modifications
+            },
+            onDurationChange = { newDuration ->
+                onTaskDurationChange(task.id, newDuration)
+                // Ne pas fermer le dialog pour permettre plusieurs modifications
+            },
+            onDeadlineChange = { newDeadlineDate ->
+                onTaskDeadlineChange(task.id, newDeadlineDate)
+                // Ne pas fermer le dialog pour permettre plusieurs modifications
             },
             onDelete = {
                 onTaskDelete(task.id)
-                selectedTask = null
+                selectedTaskId = null
             }
         )
     }
 }
 
 /**
- * Sélecteur d'onglets moderne (Tâches / Événements)
- * Avec indicateur bleu sur l'onglet actif
+ * Sélecteur d'onglets (Tâches / Événements)
+ * Style similaire à l'écran météo avec TabRow Material3
  */
 @Composable
 fun TabSelector(
     selectedIndex: Int,
     onTabSelected: (Int) -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(DarkSurface, RoundedCornerShape(12.dp))
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    val tabs = listOf("Tâches", "Événements")
+    
+    TabRow(
+        selectedTabIndex = selectedIndex,
+        containerColor = DarkBackground,
+        contentColor = AccentBlue,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        // Onglet Tâches
-        TabItem(
-            text = "Tâches",
-            isSelected = selectedIndex == 0,
-            onClick = { onTabSelected(0) },
-            modifier = Modifier.weight(1f)
-        )
-
-        // Onglet Événements
-        TabItem(
-            text = "Événements",
-            isSelected = selectedIndex == 1,
-            onClick = { onTabSelected(1) },
-            modifier = Modifier.weight(1f)
-        )
+        tabs.forEachIndexed { index, title ->
+            Tab(
+                selected = selectedIndex == index,
+                onClick = { onTabSelected(index) },
+                text = {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = if (selectedIndex == index) AccentBlue else Color.White.copy(alpha = 0.6f)
+                    )
+                }
+            )
+        }
     }
 }
 
 /**
- * Item d'onglet individuel
+ * Barre d'actions pour les tâches (filtre + création)
  */
 @Composable
-fun TabItem(
-    text: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+fun TaskActionBar(
+    hasActiveFilters: Boolean,
+    onFilterClick: () -> Unit,
+    onCreateClick: () -> Unit
 ) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isSelected) AccentBlue else Color.Transparent
-            )
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
-        contentAlignment = Alignment.Center
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (isSelected) Color.White else TextSecondary,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-        )
+        // Bouton Filtre
+        OutlinedButton(
+            onClick = onFilterClick,
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = if (hasActiveFilters) AccentBlue else Color.White.copy(alpha = 0.7f)
+            ),
+            border = BorderStroke(
+                1.dp,
+                if (hasActiveFilters) AccentBlue else Color.White.copy(alpha = 0.3f)
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.FilterList,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (hasActiveFilters) "Filtres actifs" else "Filtrer",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        
+        // Bouton Créer
+        Button(
+            onClick = onCreateClick,
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AccentBlue
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Nouvelle tâche",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
     }
+}
+
+/**
+ * Dialog de filtrage des tâches
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun TaskFilterDialog(
+    categories: List<String>,
+    selectedCategory: String?,
+    selectedPriority: TaskPriority?,
+    selectedDeadlineDate: String?,
+    onCategorySelected: (String?) -> Unit,
+    onPrioritySelected: (TaskPriority?) -> Unit,
+    onDeadlineDateSelected: (String?) -> Unit,
+    onClearFilters: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var showDatePicker by remember { mutableStateOf(false) }
+    
+    // DatePicker state
+    val initialDateMillis = remember(selectedDeadlineDate) {
+        if (selectedDeadlineDate != null) {
+            try {
+                val parts = selectedDeadlineDate.split("-")
+                java.util.Calendar.getInstance().apply {
+                    set(parts[0].toInt(), parts[1].toInt() - 1, parts[2].toInt(), 12, 0, 0)
+                }.timeInMillis
+            } catch (e: Exception) {
+                System.currentTimeMillis()
+            }
+        } else {
+            System.currentTimeMillis()
+        }
+    }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialDateMillis)
+    
+    // DatePicker dialog
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val calendar = java.util.Calendar.getInstance().apply {
+                                timeInMillis = millis
+                            }
+                            val year = calendar.get(java.util.Calendar.YEAR)
+                            val month = calendar.get(java.util.Calendar.MONTH) + 1
+                            val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
+                            onDeadlineDateSelected(String.format("%04d-%02d-%02d", year, month, day))
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("Valider", color = AccentBlue)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Annuler", color = Color.White.copy(alpha = 0.7f))
+                }
+            },
+            colors = DatePickerDefaults.colors(containerColor = Color(0xFF2C2C2E))
+        ) {
+            DatePicker(
+                state = datePickerState,
+                showModeToggle = false,
+                colors = DatePickerDefaults.colors(
+                    containerColor = Color(0xFF2C2C2E),
+                    titleContentColor = Color.White,
+                    headlineContentColor = Color.White,
+                    weekdayContentColor = Color.White.copy(alpha = 0.7f),
+                    subheadContentColor = Color.White.copy(alpha = 0.7f),
+                    yearContentColor = Color.White,
+                    currentYearContentColor = AccentBlue,
+                    selectedYearContentColor = Color.White,
+                    selectedYearContainerColor = AccentBlue,
+                    dayContentColor = Color.White,
+                    selectedDayContentColor = Color.White,
+                    selectedDayContainerColor = AccentBlue,
+                    todayContentColor = AccentBlue,
+                    todayDateBorderColor = AccentBlue,
+                    navigationContentColor = Color.White
+                )
+            )
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF2C2C2E),
+        title = {
+            Text(
+                text = "Filtrer les tâches",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState())
+            ) {
+                // Filtre par catégorie
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Catégorie",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    
+                    // Grille de chips pour les catégories
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Option "Toutes"
+                        FilterChip(
+                            selected = selectedCategory == null,
+                            onClick = { onCategorySelected(null) },
+                            label = { Text("Toutes") },
+                            leadingIcon = if (selectedCategory == null) {
+                                {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            } else null,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = AccentBlue,
+                                selectedLabelColor = Color.White,
+                                selectedLeadingIconColor = Color.White,
+                                containerColor = Color(0xFF1C1C1E),
+                                labelColor = Color.White.copy(alpha = 0.7f)
+                            )
+                        )
+                        
+                        // Catégories existantes
+                        categories.forEach { category ->
+                            FilterChip(
+                                selected = selectedCategory == category,
+                                onClick = {
+                                    onCategorySelected(if (selectedCategory == category) null else category)
+                                },
+                                label = { Text(category) },
+                                leadingIcon = if (selectedCategory == category) {
+                                    {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                } else null,
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = AccentBlue,
+                                    selectedLabelColor = Color.White,
+                                    selectedLeadingIconColor = Color.White,
+                                    containerColor = Color(0xFF1C1C1E),
+                                    labelColor = Color.White.copy(alpha = 0.7f)
+                                )
+                            )
+                        }
+                    }
+                }
+                
+                Divider(color = Color.White.copy(alpha = 0.1f))
+                
+                // Filtre par priorité
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Priorité",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Option "Toutes"
+                        FilterChip(
+                            selected = selectedPriority == null,
+                            onClick = { onPrioritySelected(null) },
+                            label = { Text("Toutes") },
+                            leadingIcon = if (selectedPriority == null) {
+                                {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            } else null,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = AccentBlue,
+                                selectedLabelColor = Color.White,
+                                selectedLeadingIconColor = Color.White,
+                                containerColor = Color(0xFF1C1C1E),
+                                labelColor = Color.White.copy(alpha = 0.7f)
+                            )
+                        )
+                        
+                        TaskPriority.values().forEach { priority ->
+                            val priorityText = when (priority) {
+                                TaskPriority.P1 -> "P1 - Urgente"
+                                TaskPriority.P2 -> "P2 - Haute"
+                                TaskPriority.P3 -> "P3 - Moyenne"
+                                TaskPriority.P4 -> "P4 - Basse"
+                                TaskPriority.P5 -> "P5 - Faible"
+                            }
+                            val priorityColor = when (priority) {
+                                TaskPriority.P1 -> UrgentRed
+                                TaskPriority.P2 -> Color(0xFFFF6B35)
+                                TaskPriority.P3 -> NormalOrange
+                                TaskPriority.P4 -> Color(0xFFFFB84D)
+                                TaskPriority.P5 -> CompletedGreen
+                            }
+                            FilterChip(
+                                selected = selectedPriority == priority,
+                                onClick = {
+                                    onPrioritySelected(if (selectedPriority == priority) null else priority)
+                                },
+                                label = { Text(priorityText) },
+                                leadingIcon = if (selectedPriority == priority) {
+                                    {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                } else null,
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = priorityColor,
+                                    selectedLabelColor = Color.White,
+                                    selectedLeadingIconColor = Color.White,
+                                    containerColor = Color(0xFF1C1C1E),
+                                    labelColor = Color.White.copy(alpha = 0.7f)
+                                )
+                            )
+                        }
+                    }
+                }
+                
+                Divider(color = Color.White.copy(alpha = 0.1f))
+                
+                // Filtre par échéance (sélection de date)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Échéance jusqu'au",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    
+                    Text(
+                        text = "Affiche les tâches dont la date limite est antérieure ou égale à la date sélectionnée",
+                        color = Color.White.copy(alpha = 0.5f),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(
+                            onClick = { showDatePicker = true },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = if (selectedDeadlineDate != null) AccentBlue else Color.White.copy(alpha = 0.7f)
+                            ),
+                            border = BorderStroke(
+                                1.dp,
+                                if (selectedDeadlineDate != null) AccentBlue else Color.White.copy(alpha = 0.3f)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DateRange,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (selectedDeadlineDate == null) {
+                                    "Toutes les dates"
+                                } else {
+                                    try {
+                                        val parts = selectedDeadlineDate.split("-")
+                                        "${parts[2]}/${parts[1]}/${parts[0]}"
+                                    } catch (e: Exception) {
+                                        selectedDeadlineDate
+                                    }
+                                }
+                            )
+                        }
+                        
+                        // Bouton pour effacer la date
+                        if (selectedDeadlineDate != null) {
+                            IconButton(
+                                onClick = { onDeadlineDateSelected(null) },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Effacer",
+                                    tint = Color.White.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Bouton Réinitialiser
+                TextButton(
+                    onClick = onClearFilters,
+                    enabled = selectedCategory != null || selectedPriority != null || selectedDeadlineDate != null
+                ) {
+                    Text(
+                        "Réinitialiser",
+                        color = if (selectedCategory != null || selectedPriority != null || selectedDeadlineDate != null)
+                            Color.White.copy(alpha = 0.7f)
+                        else
+                            Color.White.copy(alpha = 0.3f)
+                    )
+                }
+                
+                // Bouton Appliquer
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Appliquer", fontWeight = FontWeight.Bold)
+                }
+            }
+        },
+        dismissButton = {}
+    )
+}
+
+/**
+ * Dialog de création de tâche
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CreateTaskDialog(
+    categories: List<String>,
+    onDismiss: () -> Unit,
+    onCreateTask: (title: String, description: String, priority: TaskPriority, category: String, deadline: String) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var selectedPriority by remember { mutableStateOf(TaskPriority.P3) }
+    var selectedCategory by remember { mutableStateOf("") }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var selectedDeadline by remember { mutableStateOf("") }
+    
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = System.currentTimeMillis()
+    )
+    
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val calendar = java.util.Calendar.getInstance().apply {
+                                timeInMillis = millis
+                            }
+                            val year = calendar.get(java.util.Calendar.YEAR)
+                            val month = calendar.get(java.util.Calendar.MONTH) + 1
+                            val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
+                            selectedDeadline = String.format("%04d-%02d-%02d", year, month, day)
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("Valider", color = AccentBlue)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Annuler", color = Color.White.copy(alpha = 0.7f))
+                }
+            },
+            colors = DatePickerDefaults.colors(containerColor = Color(0xFF2C2C2E))
+        ) {
+            DatePicker(
+                state = datePickerState,
+                showModeToggle = false,
+                colors = DatePickerDefaults.colors(
+                    containerColor = Color(0xFF2C2C2E),
+                    titleContentColor = Color.White,
+                    headlineContentColor = Color.White,
+                    weekdayContentColor = Color.White.copy(alpha = 0.7f),
+                    subheadContentColor = Color.White.copy(alpha = 0.7f),
+                    yearContentColor = Color.White,
+                    currentYearContentColor = AccentBlue,
+                    selectedYearContentColor = Color.White,
+                    selectedYearContainerColor = AccentBlue,
+                    dayContentColor = Color.White,
+                    selectedDayContentColor = Color.White,
+                    selectedDayContainerColor = AccentBlue,
+                    todayContentColor = AccentBlue,
+                    todayDateBorderColor = AccentBlue,
+                    navigationContentColor = Color.White
+                )
+            )
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF2C2C2E),
+        title = {
+            Text(
+                text = "Nouvelle tâche",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState())
+            ) {
+                // Titre
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Titre *") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentBlue,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                        focusedLabelColor = AccentBlue,
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
+                )
+                
+                // Description
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 4,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentBlue,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                        focusedLabelColor = AccentBlue,
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
+                )
+                
+                // Priorité
+                Text(
+                    text = "Priorité",
+                    color = Color.White.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.labelMedium
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TaskPriority.values().forEach { priority ->
+                        val priorityText = when (priority) {
+                            TaskPriority.P1 -> "P1"
+                            TaskPriority.P2 -> "P2"
+                            TaskPriority.P3 -> "P3"
+                            TaskPriority.P4 -> "P4"
+                            TaskPriority.P5 -> "P5"
+                        }
+                        val priorityColor = when (priority) {
+                            TaskPriority.P1 -> UrgentRed
+                            TaskPriority.P2 -> Color(0xFFFF6B35)
+                            TaskPriority.P3 -> NormalOrange
+                            TaskPriority.P4 -> Color(0xFFFFB84D)
+                            TaskPriority.P5 -> CompletedGreen
+                        }
+                        FilterChip(
+                            selected = selectedPriority == priority,
+                            onClick = { selectedPriority = priority },
+                            label = { Text(priorityText, fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = priorityColor,
+                                selectedLabelColor = Color.White,
+                                containerColor = Color(0xFF1C1C1E),
+                                labelColor = Color.White.copy(alpha = 0.7f)
+                            ),
+                            modifier = Modifier.height(32.dp)
+                        )
+                    }
+                }
+                
+                // Catégorie
+                if (categories.isNotEmpty()) {
+                    Text(
+                        text = "Catégorie",
+                        color = Color.White.copy(alpha = 0.7f),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(categories) { category ->
+                            FilterChip(
+                                selected = selectedCategory == category,
+                                onClick = {
+                                    selectedCategory = if (selectedCategory == category) "" else category
+                                },
+                                label = { Text(category) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = AccentBlue,
+                                    selectedLabelColor = Color.White,
+                                    containerColor = Color(0xFF1C1C1E),
+                                    labelColor = Color.White.copy(alpha = 0.7f)
+                                )
+                            )
+                        }
+                    }
+                }
+                
+                // Date d'échéance
+                Text(
+                    text = "Date d'échéance",
+                    color = Color.White.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.labelMedium
+                )
+                OutlinedButton(
+                    onClick = { showDatePicker = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color.White
+                    ),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (selectedDeadline.isEmpty()) "Sélectionner une date" else {
+                            // Formater la date pour l'affichage
+                            try {
+                                val parts = selectedDeadline.split("-")
+                                "${parts[2]}/${parts[1]}/${parts[0]}"
+                            } catch (e: Exception) {
+                                selectedDeadline
+                            }
+                        }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (title.isNotBlank()) {
+                        onCreateTask(title, description, selectedPriority, selectedCategory, selectedDeadline)
+                    }
+                },
+                enabled = title.isNotBlank()
+            ) {
+                Text(
+                    "Créer",
+                    color = if (title.isNotBlank()) AccentBlue else Color.White.copy(alpha = 0.3f),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler", color = Color.White.copy(alpha = 0.7f))
+            }
+        }
+    )
 }
 
 /**
@@ -491,7 +1224,7 @@ fun TaskItemCompact(
         val (badgeColor, badgeIcon) = when {
             task.status == TaskStatus.COMPLETED -> CompletedGreen to Icons.Default.CheckCircle
             task.status == TaskStatus.IN_PROGRESS -> AccentBlue to Icons.Default.Refresh
-            task.priority == TaskPriority.URGENT -> UrgentRed to Icons.Default.PriorityHigh
+            task.priority == TaskPriority.P1 -> UrgentRed to Icons.Default.PriorityHigh
             else -> NormalOrange to Icons.Default.Circle
         }
 
@@ -513,17 +1246,385 @@ fun TaskItemCompact(
 }
 
 /**
+ * Dialog de sélection du statut
+ */
+@Composable
+fun StatusSelectionDialog(
+    currentStatus: TaskStatus,
+    onDismiss: () -> Unit,
+    onStatusSelected: (TaskStatus) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF2C2C2E),
+        title = {
+            Text(
+                text = "Changer le statut",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TaskStatus.values().forEach { status ->
+                    val statusText = when (status) {
+                        TaskStatus.TODO -> "À faire"
+                        TaskStatus.IN_PROGRESS -> "En cours"
+                        TaskStatus.COMPLETED -> "Terminé"
+                    }
+                    val statusColor = when (status) {
+                        TaskStatus.COMPLETED -> CompletedGreen
+                        TaskStatus.IN_PROGRESS -> AccentBlue
+                        else -> NormalOrange
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onStatusSelected(status)
+                                onDismiss()
+                            },
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (status == currentStatus) statusColor.copy(alpha = 0.3f) else Color(0xFF1C1C1E)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = statusText,
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (status == currentStatus) FontWeight.Bold else FontWeight.Normal
+                            )
+                            if (status == currentStatus) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = statusColor,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler", color = Color.White.copy(alpha = 0.7f))
+            }
+        }
+    )
+}
+
+/**
+ * Dialog de sélection de la priorité
+ */
+@Composable
+fun PrioritySelectionDialog(
+    currentPriority: TaskPriority,
+    onDismiss: () -> Unit,
+    onPrioritySelected: (TaskPriority) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF2C2C2E),
+        title = {
+            Text(
+                text = "Changer la priorité",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TaskPriority.values().forEach { priority ->
+                    val priorityText = when (priority) {
+                        TaskPriority.P1 -> "P1"
+                        TaskPriority.P2 -> "P2"
+                        TaskPriority.P3 -> "P3"
+                        TaskPriority.P4 -> "P4"
+                        TaskPriority.P5 -> "P5"
+                    }
+                    val priorityColor = when (priority) {
+                        TaskPriority.P1 -> UrgentRed
+                        TaskPriority.P2 -> Color(0xFFFF6B35)
+                        TaskPriority.P3 -> NormalOrange
+                        TaskPriority.P4 -> Color(0xFFFFB84D)
+                        TaskPriority.P5 -> CompletedGreen
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onPrioritySelected(priority)
+                                onDismiss()
+                            },
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (priority == currentPriority) priorityColor.copy(alpha = 0.3f) else Color(0xFF1C1C1E)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = priorityText,
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (priority == currentPriority) FontWeight.Bold else FontWeight.Normal
+                            )
+                            if (priority == currentPriority) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = priorityColor,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler", color = Color.White.copy(alpha = 0.7f))
+            }
+        }
+    )
+}
+
+/**
+ * Dialog de saisie de la durée estimée
+ */
+@Composable
+fun DurationInputDialog(
+    currentDuration: String,
+    onDismiss: () -> Unit,
+    onDurationChanged: (String) -> Unit
+) {
+    var hours by remember { mutableStateOf("") }
+    var minutes by remember { mutableStateOf("") }
+    var selectedUnit by remember { mutableStateOf(0) } // 0 = heures, 1 = minutes
+
+    // Parse la durée actuelle pour pré-remplir les champs
+    LaunchedEffect(currentDuration) {
+        val regex = """(\d+)\s*(h|heure|heures|m|min|minute|minutes)""".toRegex(RegexOption.IGNORE_CASE)
+        val match = regex.find(currentDuration)
+        if (match != null) {
+            val value = match.groupValues[1]
+            val unit = match.groupValues[2].lowercase()
+            if (unit.startsWith("h")) {
+                hours = value
+                selectedUnit = 0
+            } else {
+                minutes = value
+                selectedUnit = 1
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF2C2C2E),
+        title = {
+            Text(
+                text = "Durée estimée",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                // Sélecteur d'unité
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF1C1C1E), RoundedCornerShape(8.dp))
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    listOf("Heures" to 0, "Minutes" to 1).forEach { (label, index) ->
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (selectedUnit == index) AccentBlue else Color.Transparent)
+                                .clickable { selectedUnit = index }
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (selectedUnit == index) Color.White else Color.White.copy(alpha = 0.6f),
+                                fontWeight = if (selectedUnit == index) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+
+                // Champ de saisie
+                OutlinedTextField(
+                    value = if (selectedUnit == 0) hours else minutes,
+                    onValueChange = { value ->
+                        // N'autoriser que les chiffres
+                        if (value.all { it.isDigit() }) {
+                            if (selectedUnit == 0) {
+                                hours = value
+                            } else {
+                                minutes = value
+                            }
+                        }
+                    },
+                    label = { Text(if (selectedUnit == 0) "Nombre d'heures" else "Nombre de minutes") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentBlue,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                        focusedLabelColor = AccentBlue,
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val value = if (selectedUnit == 0) hours else minutes
+                    if (value.isNotEmpty()) {
+                        val duration = if (selectedUnit == 0) "${value}h" else "${value}min"
+                        onDurationChanged(duration)
+                    }
+                    onDismiss()
+                }
+            ) {
+                Text("Valider", color = AccentBlue, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler", color = Color.White.copy(alpha = 0.7f))
+            }
+        }
+    )
+}
+
+/**
+ * Dialog de sélection de date d'échéance
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DeadlineDatePickerDialog(
+    currentDeadlineDate: String,
+    onDismiss: () -> Unit,
+    onDateSelected: (String) -> Unit
+) {
+    // Parser la date actuelle pour initialiser le DatePicker
+    val initialDateMillis = remember(currentDeadlineDate) {
+        try {
+            if (currentDeadlineDate.isNotEmpty()) {
+                val parts = currentDeadlineDate.split("-")
+                val year = parts[0].toInt()
+                val month = parts[1].toInt()
+                val day = parts[2].toInt()
+                java.util.Calendar.getInstance().apply {
+                    set(year, month - 1, day, 12, 0, 0)
+                    set(java.util.Calendar.MILLISECOND, 0)
+                }.timeInMillis
+            } else {
+                System.currentTimeMillis()
+            }
+        } catch (e: Exception) {
+            System.currentTimeMillis()
+        }
+    }
+
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = initialDateMillis
+    )
+
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val calendar = java.util.Calendar.getInstance().apply {
+                            timeInMillis = millis
+                        }
+                        val year = calendar.get(java.util.Calendar.YEAR)
+                        val month = calendar.get(java.util.Calendar.MONTH) + 1
+                        val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
+                        val isoDate = String.format("%04d-%02d-%02d", year, month, day)
+                        onDateSelected(isoDate)
+                    }
+                    onDismiss()
+                }
+            ) {
+                Text("Valider", color = AccentBlue, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler", color = Color.White.copy(alpha = 0.7f))
+            }
+        },
+        colors = DatePickerDefaults.colors(
+            containerColor = Color(0xFF2C2C2E)
+        )
+    ) {
+        DatePicker(
+            state = datePickerState,
+            showModeToggle = false,
+            colors = DatePickerDefaults.colors(
+                containerColor = Color(0xFF2C2C2E),
+                titleContentColor = Color.White,
+                headlineContentColor = Color.White,
+                weekdayContentColor = Color.White.copy(alpha = 0.7f),
+                subheadContentColor = Color.White.copy(alpha = 0.7f),
+                yearContentColor = Color.White,
+                currentYearContentColor = AccentBlue,
+                selectedYearContentColor = Color.White,
+                selectedYearContainerColor = AccentBlue,
+                dayContentColor = Color.White,
+                selectedDayContentColor = Color.White,
+                selectedDayContainerColor = AccentBlue,
+                todayContentColor = AccentBlue,
+                todayDateBorderColor = AccentBlue,
+                navigationContentColor = Color.White
+            )
+        )
+    }
+}
+
+/**
  * Dialog affichant tous les détails d'une tâche (version moderne)
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskDetailsDialog(
     task: Task,
     onDismiss: () -> Unit,
     onStatusChange: (TaskStatus) -> Unit,
+    onPriorityChange: (TaskPriority) -> Unit,
+    onDurationChange: (String) -> Unit,
+    onDeadlineChange: (String) -> Unit,
     onDelete: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var showStatusDialog by remember { mutableStateOf(false) }
+    var showPriorityDialog by remember { mutableStateOf(false) }
+    var showDurationDialog by remember { mutableStateOf(false) }
+    var showDeadlineDialog by remember { mutableStateOf(false) }
 
     // Dialog de confirmation de suppression
     if (showDeleteConfirmation) {
@@ -558,6 +1659,51 @@ fun TaskDetailsDialog(
                 TextButton(onClick = { showDeleteConfirmation = false }) {
                     Text("Annuler", color = Color.White.copy(alpha = 0.7f))
                 }
+            }
+        )
+    }
+
+    // Dialogs de modification
+    if (showStatusDialog) {
+        StatusSelectionDialog(
+            currentStatus = task.status,
+            onDismiss = { showStatusDialog = false },
+            onStatusSelected = { newStatus ->
+                onStatusChange(newStatus)
+                showStatusDialog = false
+            }
+        )
+    }
+
+    if (showPriorityDialog) {
+        PrioritySelectionDialog(
+            currentPriority = task.priority,
+            onDismiss = { showPriorityDialog = false },
+            onPrioritySelected = { newPriority ->
+                onPriorityChange(newPriority)
+                showPriorityDialog = false
+            }
+        )
+    }
+
+    if (showDurationDialog) {
+        DurationInputDialog(
+            currentDuration = task.estimatedDuration,
+            onDismiss = { showDurationDialog = false },
+            onDurationChanged = { newDuration ->
+                onDurationChange(newDuration)
+                showDurationDialog = false
+            }
+        )
+    }
+
+    if (showDeadlineDialog) {
+        DeadlineDatePickerDialog(
+            currentDeadlineDate = task.deadlineDate,
+            onDismiss = { showDeadlineDialog = false },
+            onDateSelected = { newDate ->
+                onDeadlineChange(newDate)
+                showDeadlineDialog = false
             }
         )
     }
@@ -633,19 +1779,14 @@ fun TaskDetailsDialog(
                         }
                     }
 
-                    // Métadonnées avec badges modernes (clickable pour changer le statut)
-                    Box(
-                        modifier = Modifier.clickable {
-                            val newStatus = when (task.status) {
-                                TaskStatus.TODO -> TaskStatus.IN_PROGRESS
-                                TaskStatus.IN_PROGRESS -> TaskStatus.COMPLETED
-                                TaskStatus.COMPLETED -> TaskStatus.TODO
-                            }
-                            onStatusChange(newStatus)
-                        }
-                    ) {
-                        ModernCompactMetadata(task = task)
-                    }
+                    // Métadonnées avec badges modernes (clickable pour changer statut, priorité, durée, date)
+                    ModernCompactMetadata(
+                        task = task,
+                        onStatusClick = { showStatusDialog = true },
+                        onPriorityClick = { showPriorityDialog = true },
+                        onDurationClick = { showDurationDialog = true },
+                        onDeadlineClick = { showDeadlineDialog = true }
+                    )
 
                     // Séparateur élégant
                     Box(
@@ -752,10 +1893,16 @@ fun ModernButton(
 }
 
 /**
- * Métadonnées modernes avec badges colorés
+ * Métadonnées modernes avec badges colorés (cliquables)
  */
 @Composable
-fun ModernCompactMetadata(task: Task) {
+fun ModernCompactMetadata(
+    task: Task,
+    onStatusClick: () -> Unit = {},
+    onPriorityClick: () -> Unit = {},
+    onDurationClick: () -> Unit = {},
+    onDeadlineClick: () -> Unit = {}
+) {
     val statusText = when (task.status) {
         TaskStatus.TODO -> "À faire"
         TaskStatus.IN_PROGRESS -> "En cours"
@@ -768,14 +1915,18 @@ fun ModernCompactMetadata(task: Task) {
     }
 
     val priorityText = when (task.priority) {
-        TaskPriority.URGENT -> "Haute"
-        TaskPriority.NORMAL -> "Normale"
-        TaskPriority.LOW -> "Basse"
+        TaskPriority.P1 -> "P1"
+        TaskPriority.P2 -> "P2"
+        TaskPriority.P3 -> "P3"
+        TaskPriority.P4 -> "P4"
+        TaskPriority.P5 -> "P5"
     }
     val priorityColor = when (task.priority) {
-        TaskPriority.URGENT -> UrgentRed
-        TaskPriority.NORMAL -> NormalOrange
-        TaskPriority.LOW -> CompletedGreen
+        TaskPriority.P1 -> UrgentRed
+        TaskPriority.P2 -> Color(0xFFFF6B35)  // Orange foncé
+        TaskPriority.P3 -> NormalOrange
+        TaskPriority.P4 -> Color(0xFFFFB84D)  // Jaune
+        TaskPriority.P5 -> CompletedGreen
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -784,27 +1935,36 @@ fun ModernCompactMetadata(task: Task) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Badge de statut
-            ModernBadge(text = statusText, color = statusColor)
+            // Badge de statut (cliquable)
+            Box(modifier = Modifier.clickable { onStatusClick() }) {
+                ModernBadge(text = statusText, color = statusColor)
+            }
 
-            // Badge de priorité
-            ModernBadge(text = priorityText, color = priorityColor)
+            // Badge de priorité (cliquable)
+            Box(modifier = Modifier.clickable { onPriorityClick() }) {
+                ModernBadge(text = priorityText, color = priorityColor)
+            }
 
-            // Deadline
+            // Deadline (cliquable pour modifier la date)
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { onDeadlineClick() }
+                    .padding(4.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Schedule,
                     contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.6f),
+                    tint = AccentBlue.copy(alpha = 0.7f),
                     modifier = Modifier.size(14.dp)
                 )
                 Text(
                     text = task.deadline,
-                    color = Color.White.copy(alpha = 0.8f),
-                    style = MaterialTheme.typography.bodySmall
+                    color = AccentBlue.copy(alpha = 0.9f),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -838,7 +1998,8 @@ fun ModernCompactMetadata(task: Task) {
                 if (task.estimatedDuration.isNotEmpty()) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { onDurationClick() }
                     ) {
                         Icon(
                             imageVector = Icons.Default.Timer,
@@ -964,14 +2125,18 @@ fun CompactMetadata(task: Task) {
     }
 
     val priorityText = when (task.priority) {
-        TaskPriority.URGENT -> "Haute"
-        TaskPriority.NORMAL -> "Normale"
-        TaskPriority.LOW -> "Basse"
+        TaskPriority.P1 -> "P1"
+        TaskPriority.P2 -> "P2"
+        TaskPriority.P3 -> "P3"
+        TaskPriority.P4 -> "P4"
+        TaskPriority.P5 -> "P5"
     }
     val priorityColor = when (task.priority) {
-        TaskPriority.URGENT -> UrgentRed
-        TaskPriority.NORMAL -> NormalOrange
-        TaskPriority.LOW -> CompletedGreen
+        TaskPriority.P1 -> UrgentRed
+        TaskPriority.P2 -> Color(0xFFFF6B35)  // Orange foncé
+        TaskPriority.P3 -> NormalOrange
+        TaskPriority.P4 -> Color(0xFFFFB84D)  // Jaune
+        TaskPriority.P5 -> CompletedGreen
     }
 
     // Construction de la chaîne de métadonnées

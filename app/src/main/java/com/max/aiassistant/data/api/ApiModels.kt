@@ -50,6 +50,7 @@ data class TaskApiData(
  * Convertit une TaskApiData en Task pour l'affichage dans l'app
  */
 fun TaskApiData.toTask(): Task {
+    val isoDate = dateLimite.split("T")[0]  // Extraire la date sans l'heure
     return Task(
         id = id.toString(),
         title = titre,
@@ -62,11 +63,14 @@ fun TaskApiData.toTask(): Task {
             else -> TaskStatus.TODO
         },
         priority = when (priorite.lowercase()) {
-            "haute", "urgente" -> TaskPriority.URGENT
-            "basse", "faible" -> TaskPriority.LOW
-            else -> TaskPriority.NORMAL
+            "p1", "haute", "urgente" -> TaskPriority.P1
+            "p2" -> TaskPriority.P2
+            "p4" -> TaskPriority.P4
+            "p5", "basse", "faible" -> TaskPriority.P5
+            else -> TaskPriority.P3  // Default P3 (moyenne)
         },
         deadline = formatDeadline(dateLimite),
+        deadlineDate = isoDate,
         category = categorie,
         estimatedDuration = dureeEstimee
     )
@@ -74,20 +78,28 @@ fun TaskApiData.toTask(): Task {
 
 /**
  * Formate la date limite pour un affichage simplifié
+ * @param isoDate Date au format ISO (ex: "2025-11-23" ou "2025-11-23T20:00:00")
+ * @return Texte formaté (ex: "Aujourd'hui", "Demain", "Dans 3 jours", "23/11/2025")
  */
-private fun formatDeadline(isoDate: String): String {
+fun formatDeadline(isoDate: String): String {
     if (isoDate.isEmpty()) return "Aucune échéance"
 
-    // Parse ISO date (ex: "2025-11-23T20:00:00")
+    // Parse ISO date (ex: "2025-11-23T20:00:00" ou "2025-11-23")
     try {
         val parts = isoDate.split("T")[0].split("-")
         val year = parts[0].toInt()
         val month = parts[1].toInt()
         val day = parts[2].toInt()
 
-        val today = java.util.Calendar.getInstance()
+        val today = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
         val deadline = java.util.Calendar.getInstance().apply {
-            set(year, month - 1, day)
+            set(year, month - 1, day, 0, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
         }
 
         val diffDays = ((deadline.timeInMillis - today.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
@@ -101,6 +113,22 @@ private fun formatDeadline(isoDate: String): String {
         }
     } catch (e: Exception) {
         return isoDate.split("T")[0]
+    }
+}
+
+/**
+ * Formate une date ISO en format lisible (JJ/MM/AAAA)
+ */
+fun formatDateDisplay(isoDate: String): String {
+    if (isoDate.isEmpty()) return ""
+    try {
+        val parts = isoDate.split("T")[0].split("-")
+        val year = parts[0].toInt()
+        val month = parts[1].toInt()
+        val day = parts[2].toInt()
+        return "$day/${String.format("%02d", month)}/$year"
+    } catch (e: Exception) {
+        return isoDate
     }
 }
 

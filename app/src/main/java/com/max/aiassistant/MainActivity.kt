@@ -217,6 +217,15 @@ class MainActivity : ComponentActivity() {
                                 onTaskStatusChange = { taskId, newStatus ->
                                     viewModel.updateTaskStatus(taskId, newStatus)
                                 },
+                                onTaskPriorityChange = { taskId, newPriority ->
+                                    viewModel.updateTaskPriority(taskId, newPriority)
+                                },
+                                onTaskDurationChange = { taskId, newDuration ->
+                                    viewModel.updateTaskDuration(taskId, newDuration)
+                                },
+                                onTaskDeadlineChange = { taskId, newDeadlineDate ->
+                                    viewModel.updateTaskDeadline(taskId, newDeadlineDate)
+                                },
                                 onTaskDelete = { taskId ->
                                     viewModel.deleteTask(taskId)
                                 },

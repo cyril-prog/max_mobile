@@ -10,6 +10,7 @@ package com.max.aiassistant.model
  * @property status Statut actuel (TODO, IN_PROGRESS, COMPLETED)
  * @property priority Niveau de priorité (URGENT, NORMAL, LOW)
  * @property deadline Deadline (format texte simplifié, ex: "Today", "Tomorrow")
+ * @property deadlineDate Date ISO de l'échéance (ex: "2025-11-30")
  * @property category Catégorie de la tâche (ex: "Travail", "Personnel")
  * @property estimatedDuration Durée estimée pour compléter la tâche
  */
@@ -21,6 +22,7 @@ data class Task(
     val status: TaskStatus,
     val priority: TaskPriority,
     val deadline: String,
+    val deadlineDate: String = "",
     val category: String = "",
     val estimatedDuration: String = ""
 )
@@ -39,7 +41,9 @@ enum class TaskStatus {
  * Détermine la couleur affichée dans l'interface
  */
 enum class TaskPriority {
-    URGENT,    // Rouge
-    NORMAL,    // Orange
-    LOW        // Utilisé pour les tâches complétées (vert)
+    P1,    // Priorité la plus haute - Rouge
+    P2,    // Haute - Orange foncé
+    P3,    // Moyenne - Orange
+    P4,    // Basse - Jaune
+    P5     // Très basse - Vert
 }

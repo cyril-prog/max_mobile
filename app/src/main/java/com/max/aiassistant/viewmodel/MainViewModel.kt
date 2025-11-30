@@ -410,6 +410,50 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Met à jour la priorité d'une tâche
+     */
+    fun updateTaskPriority(taskId: String, newPriority: TaskPriority) {
+        _tasks.value = _tasks.value.map { task ->
+            if (task.id == taskId) {
+                task.copy(priority = newPriority)
+            } else {
+                task
+            }
+        }
+    }
+
+    /**
+     * Met à jour la durée estimée d'une tâche
+     */
+    fun updateTaskDuration(taskId: String, newDuration: String) {
+        _tasks.value = _tasks.value.map { task ->
+            if (task.id == taskId) {
+                task.copy(estimatedDuration = newDuration)
+            } else {
+                task
+            }
+        }
+    }
+
+    /**
+     * Met à jour la date d'échéance d'une tâche
+     * @param taskId ID de la tâche
+     * @param newDeadlineDate Date au format ISO (ex: "2025-12-15")
+     */
+    fun updateTaskDeadline(taskId: String, newDeadlineDate: String) {
+        _tasks.value = _tasks.value.map { task ->
+            if (task.id == taskId) {
+                task.copy(
+                    deadlineDate = newDeadlineDate,
+                    deadline = com.max.aiassistant.data.api.formatDeadline(newDeadlineDate)
+                )
+            } else {
+                task
+            }
+        }
+    }
+
+    /**
      * Supprime une tâche via l'API et met à jour la liste locale
      */
     fun deleteTask(taskId: String) {
