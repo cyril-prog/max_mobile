@@ -183,7 +183,7 @@ private fun NotesScreenContent(
                 style = MaterialTheme.typography.headlineMedium,
                 color = TextPrimary,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
+                modifier = Modifier.padding(horizontal = 20.dp)
             )
 
             if (notes.isEmpty()) {

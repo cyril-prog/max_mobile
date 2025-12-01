@@ -80,8 +80,8 @@ private fun PlanningScreenContent(
             .background(DarkBackground)
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
-        // Espace en haut
-        Spacer(modifier = Modifier.height(32.dp))
+        // Espace en haut (aligné avec l'écran Tâches)
+        Spacer(modifier = Modifier.height(48.dp))
 
         // En-tête avec titre
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
