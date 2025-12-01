@@ -28,6 +28,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.max.aiassistant.model.TaskStatus
 import com.max.aiassistant.ui.chat.ChatScreen
 import com.max.aiassistant.ui.notes.NotesScreen
+import com.max.aiassistant.ui.planning.PlanningScreen
 import com.max.aiassistant.ui.tasks.TasksScreen
 import com.max.aiassistant.ui.theme.MaxTheme
 import com.max.aiassistant.ui.voice.VoiceScreen
@@ -42,12 +43,14 @@ import kotlin.math.sqrt
  *
  * Single-Activity architecture avec Jetpack Compose
  *
- * Gère la navigation entre 5 écrans via HorizontalPager :
+ * Gère la navigation entre 7 écrans via HorizontalPager :
  * - Page 0 : VoiceScreen (Voice to Voice) - ÉCRAN PAR DÉFAUT
  * - Page 1 : ChatScreen (Messenger)
- * - Page 2 : TasksScreen (Tâches & Planning)
- * - Page 3 : WeatherScreen (Météo)
- * - Page 4 : NotesScreen (Prise de notes)
+ * - Page 2 : TasksScreen (Tâches)
+ * - Page 3 : PlanningScreen (Planning/Agenda)
+ * - Page 4 : WeatherScreen (Météo)
+ * - Page 5 : NotesScreen (Prise de notes)
+ * - Page 6 : RadarScreen (Radar météo)
  *
  * L'utilisateur peut naviguer entre les pages via les boutons de navigation
  */
@@ -110,10 +113,10 @@ class MainActivity : ComponentActivity() {
                 val cityLatitude by viewModel.cityLatitude.collectAsState()
                 val cityLongitude by viewModel.cityLongitude.collectAsState()
 
-                // État du pager (6 pages)
+                // État du pager (7 pages)
                 val pagerState = rememberPagerState(
                     initialPage = 0,
-                    pageCount = { 6 }
+                    pageCount = { 7 }
                 )
 
                 // Scope pour les animations de navigation
@@ -179,23 +182,23 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onNavigateToChat = {
-                                    // Déclenche l'animation de transition futuriste vers le chat
                                     targetPage = 1
                                     isTransitioning = true
                                 },
                                 onNavigateToTasks = {
-                                    // Déclenche l'animation de transition vers les tâches
                                     targetPage = 2
                                     isTransitioning = true
                                 },
-                                onNavigateToWeather = {
-                                    // Déclenche l'animation de transition vers la météo
+                                onNavigateToPlanning = {
                                     targetPage = 3
                                     isTransitioning = true
                                 },
-                                onNavigateToNotes = {
-                                    // Déclenche l'animation de transition vers les notes
+                                onNavigateToWeather = {
                                     targetPage = 4
+                                    isTransitioning = true
+                                },
+                                onNavigateToNotes = {
+                                    targetPage = 5
                                     isTransitioning = true
                                 }
                             )
@@ -210,12 +213,10 @@ class MainActivity : ComponentActivity() {
                                     viewModel.sendMessage(message, imageUri)
                                 },
                                 onVoiceInput = {
-                                    // Déclenche l'animation de transition vers l'écran principal
                                     targetPage = 0
                                     isTransitioning = true
                                 },
                                 onNavigateToHome = {
-                                    // Déclenche l'animation de transition vers l'écran principal
                                     targetPage = 0
                                     isTransitioning = true
                                 },
@@ -223,12 +224,16 @@ class MainActivity : ComponentActivity() {
                                     targetPage = 2
                                     isTransitioning = true
                                 },
-                                onNavigateToWeather = {
+                                onNavigateToPlanning = {
                                     targetPage = 3
                                     isTransitioning = true
                                 },
-                                onNavigateToNotes = {
+                                onNavigateToWeather = {
                                     targetPage = 4
+                                    isTransitioning = true
+                                },
+                                onNavigateToNotes = {
+                                    targetPage = 5
                                     isTransitioning = true
                                 },
                                 initialText = sharedText ?: "",
@@ -236,15 +241,12 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // PAGE 2 : Écran Tâches & Planning
+                        // PAGE 2 : Écran Tâches
                         2 -> {
                             TasksScreen(
                                 tasks = tasks,
-                                events = events,
                                 isRefreshing = isLoadingTasks,
-                                isRefreshingEvents = isLoadingEvents,
                                 onRefresh = { viewModel.refreshTasks() },
-                                onRefreshEvents = { viewModel.refreshCalendarEvents() },
                                 onTaskStatusChange = { taskId, newStatus ->
                                     viewModel.updateTaskStatus(taskId, newStatus)
                                 },
@@ -272,17 +274,17 @@ class MainActivity : ComponentActivity() {
                                 onTaskDelete = { taskId ->
                                     viewModel.deleteTask(taskId)
                                 },
-                                onTaskCreate = { titre, categorie, description, priorite, dateLimite ->
+                                onTaskCreate = { titre, categorie, description, priorite, dateLimite, dureeEstimee ->
                                     viewModel.createTask(
                                         titre = titre,
                                         categorie = categorie,
                                         description = description,
                                         priorite = priorite,
-                                        dateLimite = dateLimite
+                                        dateLimite = dateLimite,
+                                        dureeEstimee = dureeEstimee
                                     )
                                 },
                                 onNavigateToHome = {
-                                    // Déclenche l'animation de transition vers l'écran principal
                                     targetPage = 0
                                     isTransitioning = true
                                 },
@@ -290,19 +292,52 @@ class MainActivity : ComponentActivity() {
                                     targetPage = 1
                                     isTransitioning = true
                                 },
-                                onNavigateToWeather = {
+                                onNavigateToPlanning = {
                                     targetPage = 3
                                     isTransitioning = true
                                 },
-                                onNavigateToNotes = {
+                                onNavigateToWeather = {
                                     targetPage = 4
+                                    isTransitioning = true
+                                },
+                                onNavigateToNotes = {
+                                    targetPage = 5
                                     isTransitioning = true
                                 }
                             )
                         }
 
-                        // PAGE 3 : Écran Météo
+                        // PAGE 3 : Écran Planning
                         3 -> {
+                            PlanningScreen(
+                                events = events,
+                                isRefreshing = isLoadingEvents,
+                                onRefresh = { viewModel.refreshCalendarEvents() },
+                                onNavigateToHome = {
+                                    targetPage = 0
+                                    isTransitioning = true
+                                },
+                                onNavigateToChat = {
+                                    targetPage = 1
+                                    isTransitioning = true
+                                },
+                                onNavigateToTasks = {
+                                    targetPage = 2
+                                    isTransitioning = true
+                                },
+                                onNavigateToWeather = {
+                                    targetPage = 4
+                                    isTransitioning = true
+                                },
+                                onNavigateToNotes = {
+                                    targetPage = 5
+                                    isTransitioning = true
+                                }
+                            )
+                        }
+
+                        // PAGE 4 : Écran Météo
+                        4 -> {
                             WeatherScreen(
                                 weatherData = weatherData,
                                 cityName = cityName,
@@ -314,13 +349,11 @@ class MainActivity : ComponentActivity() {
                                 onSelectCity = { city -> viewModel.selectCity(city) },
                                 onSetShowAllergies = { show -> viewModel.setShowAllergies(show) },
                                 onNavigateBack = {
-                                    // Déclenche l'animation de transition vers l'écran principal
                                     targetPage = 0
                                     isTransitioning = true
                                 },
                                 onRadarClick = {
-                                    // Navigue vers l'écran radar (page 5)
-                                    targetPage = 5
+                                    targetPage = 6
                                     isTransitioning = true
                                 },
                                 onNavigateToChat = {
@@ -331,15 +364,19 @@ class MainActivity : ComponentActivity() {
                                     targetPage = 2
                                     isTransitioning = true
                                 },
+                                onNavigateToPlanning = {
+                                    targetPage = 3
+                                    isTransitioning = true
+                                },
                                 onNavigateToNotes = {
-                                    targetPage = 4
+                                    targetPage = 5
                                     isTransitioning = true
                                 }
                             )
                         }
 
-                        // PAGE 4 : Écran Notes
-                        4 -> {
+                        // PAGE 5 : Écran Notes
+                        5 -> {
                             NotesScreen(
                                 notes = notes,
                                 onAddNote = { title, content ->
@@ -352,7 +389,6 @@ class MainActivity : ComponentActivity() {
                                     viewModel.deleteNote(noteId)
                                 },
                                 onNavigateBack = {
-                                    // Déclenche l'animation de transition vers l'écran principal
                                     targetPage = 0
                                     isTransitioning = true
                                 },
@@ -364,22 +400,25 @@ class MainActivity : ComponentActivity() {
                                     targetPage = 2
                                     isTransitioning = true
                                 },
-                                onNavigateToWeather = {
+                                onNavigateToPlanning = {
                                     targetPage = 3
+                                    isTransitioning = true
+                                },
+                                onNavigateToWeather = {
+                                    targetPage = 4
                                     isTransitioning = true
                                 }
                             )
                         }
 
-                        // PAGE 5 : Écran Radar Météo
-                        5 -> {
+                        // PAGE 6 : Écran Radar Météo
+                        6 -> {
                             RadarScreen(
                                 cityName = cityName,
                                 latitude = cityLatitude,
                                 longitude = cityLongitude,
                                 onNavigateBack = {
-                                    // Retour à l'écran météo (page 3)
-                                    targetPage = 3
+                                    targetPage = 4
                                     isTransitioning = true
                                 }
                             )

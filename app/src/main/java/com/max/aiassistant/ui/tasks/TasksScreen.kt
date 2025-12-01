@@ -19,6 +19,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material.icons.outlined.HourglassBottom
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,9 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import com.max.aiassistant.model.*
 import com.max.aiassistant.ui.common.MiniFluidOrb
@@ -55,23 +55,19 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * ÉCRAN GAUCHE : Tâches & Planning
+ * ÉCRAN : Tâches
  *
  * Affiche :
- * - Mini calendrier de la semaine en haut (toujours visible)
- * - Onglets pour basculer entre Tâches et Agenda
- * - Contenu selon l'onglet sélectionné
+ * - Liste des tâches avec filtres et tri
+ * - Création de nouvelles tâches
  * - Sidebar de navigation accessible par swipe vers la gauche depuis le bord droit
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksScreen(
     tasks: List<Task>,
-    events: List<Event>,
     isRefreshing: Boolean,
-    isRefreshingEvents: Boolean,
     onRefresh: () -> Unit,
-    onRefreshEvents: () -> Unit,
     onTaskStatusChange: (String, TaskStatus) -> Unit,
     onTaskPriorityChange: (String, TaskPriority) -> Unit,
     onTaskDurationChange: (String, String) -> Unit,
@@ -81,9 +77,10 @@ fun TasksScreen(
     onTaskDescriptionChange: (String, String) -> Unit,
     onTaskNoteChange: (String, String) -> Unit,
     onTaskDelete: (String) -> Unit,
-    onTaskCreate: (titre: String, categorie: String, description: String, priorite: TaskPriority, dateLimite: String) -> Unit,
+    onTaskCreate: (titre: String, categorie: String, description: String, priorite: TaskPriority, dateLimite: String, dureeEstimee: String) -> Unit,
     onNavigateToHome: () -> Unit,
     onNavigateToChat: () -> Unit = {},
+    onNavigateToPlanning: () -> Unit = {},
     onNavigateToWeather: () -> Unit = {},
     onNavigateToNotes: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -97,6 +94,7 @@ fun TasksScreen(
                 NavigationScreen.VOICE -> onNavigateToHome()
                 NavigationScreen.CHAT -> onNavigateToChat()
                 NavigationScreen.TASKS -> { /* Déjà sur cet écran */ }
+                NavigationScreen.PLANNING -> onNavigateToPlanning()
                 NavigationScreen.WEATHER -> onNavigateToWeather()
                 NavigationScreen.NOTES -> onNavigateToNotes()
             }
@@ -105,11 +103,8 @@ fun TasksScreen(
     ) {
         TasksScreenContent(
             tasks = tasks,
-            events = events,
             isRefreshing = isRefreshing,
-            isRefreshingEvents = isRefreshingEvents,
             onRefresh = onRefresh,
-            onRefreshEvents = onRefreshEvents,
             onTaskStatusChange = onTaskStatusChange,
             onTaskPriorityChange = onTaskPriorityChange,
             onTaskDurationChange = onTaskDurationChange,
@@ -120,7 +115,6 @@ fun TasksScreen(
             onTaskNoteChange = onTaskNoteChange,
             onTaskDelete = onTaskDelete,
             onTaskCreate = onTaskCreate,
-            onNavigateToHome = onNavigateToHome,
             modifier = modifier
         )
     }
@@ -133,11 +127,8 @@ fun TasksScreen(
 @Composable
 private fun TasksScreenContent(
     tasks: List<Task>,
-    events: List<Event>,
     isRefreshing: Boolean,
-    isRefreshingEvents: Boolean,
     onRefresh: () -> Unit,
-    onRefreshEvents: () -> Unit,
     onTaskStatusChange: (String, TaskStatus) -> Unit,
     onTaskPriorityChange: (String, TaskPriority) -> Unit,
     onTaskDurationChange: (String, String) -> Unit,
@@ -147,14 +138,12 @@ private fun TasksScreenContent(
     onTaskDescriptionChange: (String, String) -> Unit,
     onTaskNoteChange: (String, String) -> Unit,
     onTaskDelete: (String) -> Unit,
-    onTaskCreate: (titre: String, categorie: String, description: String, priorite: TaskPriority, dateLimite: String) -> Unit,
-    onNavigateToHome: () -> Unit,
+    onTaskCreate: (titre: String, categorie: String, description: String, priorite: TaskPriority, dateLimite: String, dureeEstimee: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Stocker l'ID de la tâche sélectionnée au lieu de la tâche elle-même
     // pour que le dialog se mette à jour quand la liste tasks change
     var selectedTaskId by remember { mutableStateOf<String?>(null) }
-    var selectedTabIndex by remember { mutableStateOf(0) }
     
     // États pour les filtres
     var showFilterDialog by remember { mutableStateOf(false) }
@@ -212,81 +201,47 @@ private fun TasksScreenContent(
             .fillMaxSize()
             .background(DarkBackground)
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .pointerInput(onNavigateToHome) {
-                var cumulativeDrag = 0f
-                var swipeTriggered = false
-                detectHorizontalDragGestures(
-                    onHorizontalDrag = { _, dragAmount ->
-                        if (dragAmount > 0f) {
-                            cumulativeDrag += dragAmount
-                            if (!swipeTriggered && cumulativeDrag >= 80f) {
-                                swipeTriggered = true
-                                onNavigateToHome()
-                            }
-                        }
-                    },
-                    onDragEnd = {
-                        cumulativeDrag = 0f
-                        swipeTriggered = false
-                    },
-                    onDragCancel = {
-                        cumulativeDrag = 0f
-                        swipeTriggered = false
-                    }
-                )
-            }
     ) {
         // Espace en haut pour éviter que le calendrier soit coupé
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Mini calendrier de la semaine (toujours visible)
+        // En-tête avec titre et barre d'actions
         Column(modifier = Modifier.padding(16.dp)) {
-            WeekCalendar()
+            Text(
+                text = "Tâches",
+                style = MaterialTheme.typography.headlineMedium,
+                color = TextPrimary,
+                fontWeight = FontWeight.Bold
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Sélecteur d'onglets (Tâches / Événements)
-            TabSelector(
-                selectedIndex = selectedTabIndex,
-                onTabSelected = { selectedTabIndex = it }
+            // Barre de filtres et création
+            TaskActionBar(
+                hasActiveFilters = filterCategory != null || filterPriority != null || filterDeadlineDate != null,
+                currentSortOrder = sortOrder,
+                onFilterClick = { showFilterDialog = true },
+                onSortClick = { showSortDialog = true },
+                onCreateClick = { showCreateTaskDialog = true }
             )
-            
-            // Barre de filtres et création (visible uniquement pour l'onglet Tâches)
-            if (selectedTabIndex == 0) {
-                Spacer(modifier = Modifier.height(12.dp))
-                TaskActionBar(
-                    hasActiveFilters = filterCategory != null || filterPriority != null || filterDeadlineDate != null,
-                    currentSortOrder = sortOrder,
-                    onFilterClick = { showFilterDialog = true },
-                    onSortClick = { showSortDialog = true },
-                    onCreateClick = { showCreateTaskDialog = true }
-                )
-            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Contenu selon l'onglet sélectionné
+        // Liste des tâches
         Box(
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 16.dp)
         ) {
-            when (selectedTabIndex) {
-                0 -> TasksContent(
-                    tasks = filteredTasks,
-                    isRefreshing = isRefreshing,
-                    onRefresh = onRefresh,
-                    onTaskClick = { selectedTaskId = it.id },
-                    modifier = Modifier.fillMaxSize()
-                )
-                1 -> AgendaContent(
-                    events = events,
-                    isRefreshing = isRefreshingEvents,
-                    onRefresh = onRefreshEvents,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
+            TasksContent(
+                tasks = filteredTasks,
+                isRefreshing = isRefreshing,
+                onRefresh = onRefresh,
+                onTaskClick = { selectedTaskId = it.id },
+                onTaskStatusChange = onTaskStatusChange,
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
     
@@ -323,8 +278,8 @@ private fun TasksScreenContent(
         CreateTaskDialog(
             categories = categories,
             onDismiss = { showCreateTaskDialog = false },
-            onCreateTask = { title, description, priority, category, deadline ->
-                onTaskCreate(title, category, description, priority, deadline)
+            onCreateTask = { title, description, priority, category, deadline, estimatedDuration ->
+                onTaskCreate(title, category, description, priority, deadline, estimatedDuration)
                 showCreateTaskDialog = false
             }
         )
@@ -983,7 +938,7 @@ fun TaskFilterDialog(
 fun CreateTaskDialog(
     categories: List<String>,
     onDismiss: () -> Unit,
-    onCreateTask: (title: String, description: String, priority: TaskPriority, category: String, deadline: String) -> Unit
+    onCreateTask: (title: String, description: String, priority: TaskPriority, category: String, deadline: String, estimatedDuration: String) -> Unit
 ) {
     // Calculer la date par défaut (aujourd'hui + 7 jours)
     val defaultDeadline = remember {
@@ -1490,7 +1445,7 @@ fun CreateTaskDialog(
                     onClick = {
                         val finalCategory = if (category == "Aucune") "" else category
                         if (title.isNotBlank()) {
-                            onCreateTask(title, description, priority, finalCategory, deadlineDate)
+                            onCreateTask(title, description, priority, finalCategory, deadlineDate, estimatedDuration)
                             onDismiss()
                         }
                     },
@@ -1666,6 +1621,7 @@ fun TasksContent(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     onTaskClick: (Task) -> Unit,
+    onTaskStatusChange: (String, TaskStatus) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val pullRefreshState = rememberPullToRefreshState()
@@ -1712,7 +1668,8 @@ fun TasksContent(
                 items(tasks, key = { it.id }) { task ->
                     TaskItemCompact(
                         task = task,
-                        onClick = { onTaskClick(task) }
+                        onClick = { onTaskClick(task) },
+                        onStatusChange = { newStatus -> onTaskStatusChange(task.id, newStatus) }
                     )
                 }
             }
@@ -2390,7 +2347,8 @@ fun CalendarDayItem(
 @Composable
 fun TaskItemCompact(
     task: Task,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onStatusChange: (TaskStatus) -> Unit
 ) {
     // Couleurs de priorité
     val priorityText = when (task.priority) {
@@ -2491,6 +2449,30 @@ fun TaskItemCompact(
                 )
             }
         }
+        
+        // Icône de statut à droite (cliquable pour changer le statut)
+        val (statusIcon, statusColor, statusDescription) = when (task.status) {
+            TaskStatus.TODO -> Triple(Icons.Outlined.Circle, TextSecondary, "À faire")
+            TaskStatus.IN_PROGRESS -> Triple(Icons.Outlined.HourglassBottom, NormalOrange, "En cours")
+            TaskStatus.COMPLETED -> Triple(Icons.Default.CheckCircle, CompletedGreen, "Terminé")
+        }
+        
+        // Calculer le prochain statut (cycle: TODO -> IN_PROGRESS -> COMPLETED -> TODO)
+        val nextStatus = when (task.status) {
+            TaskStatus.TODO -> TaskStatus.IN_PROGRESS
+            TaskStatus.IN_PROGRESS -> TaskStatus.COMPLETED
+            TaskStatus.COMPLETED -> TaskStatus.TODO
+        }
+        
+        Icon(
+            imageVector = statusIcon,
+            contentDescription = statusDescription,
+            modifier = Modifier
+                .padding(start = 12.dp)
+                .size(24.dp)
+                .clickable { onStatusChange(nextStatus) },
+            tint = statusColor
+        )
     }
 }
 

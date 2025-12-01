@@ -9,8 +9,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Grass
@@ -75,6 +73,7 @@ fun WeatherScreen(
     onRadarClick: () -> Unit,
     onNavigateToChat: () -> Unit = {},
     onNavigateToTasks: () -> Unit = {},
+    onNavigateToPlanning: () -> Unit = {},
     onNavigateToNotes: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -87,6 +86,7 @@ fun WeatherScreen(
                 NavigationScreen.VOICE -> onNavigateBack()
                 NavigationScreen.CHAT -> onNavigateToChat()
                 NavigationScreen.TASKS -> onNavigateToTasks()
+                NavigationScreen.PLANNING -> onNavigateToPlanning()
                 NavigationScreen.WEATHER -> { /* Déjà sur cet écran */ }
                 NavigationScreen.NOTES -> onNavigateToNotes()
             }
@@ -158,29 +158,6 @@ private fun WeatherScreenContent(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .pointerInput(onNavigateBack) {
-                        var cumulativeDrag = 0f
-                        var swipeTriggered = false
-                        detectHorizontalDragGestures(
-                            onHorizontalDrag = { _, dragAmount ->
-                                if (dragAmount > 0f) {
-                                    cumulativeDrag += dragAmount
-                                    if (!swipeTriggered && cumulativeDrag >= 80f) {
-                                        swipeTriggered = true
-                                        onNavigateBack()
-                                    }
-                                }
-                            },
-                            onDragEnd = {
-                                cumulativeDrag = 0f
-                                swipeTriggered = false
-                            },
-                            onDragCancel = {
-                                cumulativeDrag = 0f
-                                swipeTriggered = false
-                            }
-                        )
-                    }
             ) {
                 if (weatherData == null) {
                     // État de chargement initial

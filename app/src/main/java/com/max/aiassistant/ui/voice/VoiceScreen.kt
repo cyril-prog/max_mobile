@@ -53,6 +53,7 @@ fun VoiceScreen(
     onToggleRealtime: () -> Unit,
     onNavigateToChat: () -> Unit,
     onNavigateToTasks: () -> Unit,
+    onNavigateToPlanning: () -> Unit = {},
     onNavigateToWeather: () -> Unit,
     onNavigateToNotes: () -> Unit,
     modifier: Modifier = Modifier
@@ -66,6 +67,7 @@ fun VoiceScreen(
                 NavigationScreen.VOICE -> { /* Déjà sur cet écran */ }
                 NavigationScreen.CHAT -> onNavigateToChat()
                 NavigationScreen.TASKS -> onNavigateToTasks()
+                NavigationScreen.PLANNING -> onNavigateToPlanning()
                 NavigationScreen.WEATHER -> onNavigateToWeather()
                 NavigationScreen.NOTES -> onNavigateToNotes()
             }

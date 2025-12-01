@@ -2,7 +2,6 @@ package com.max.aiassistant.ui.notes
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -120,6 +119,7 @@ fun NotesScreen(
     onNavigateBack: () -> Unit,
     onNavigateToChat: () -> Unit = {},
     onNavigateToTasks: () -> Unit = {},
+    onNavigateToPlanning: () -> Unit = {},
     onNavigateToWeather: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -132,6 +132,7 @@ fun NotesScreen(
                 NavigationScreen.VOICE -> onNavigateBack()
                 NavigationScreen.CHAT -> onNavigateToChat()
                 NavigationScreen.TASKS -> onNavigateToTasks()
+                NavigationScreen.PLANNING -> onNavigateToPlanning()
                 NavigationScreen.WEATHER -> onNavigateToWeather()
                 NavigationScreen.NOTES -> { /* Déjà sur cet écran */ }
             }
@@ -165,27 +166,11 @@ private fun NotesScreenContent(
     var showAddDialog by remember { mutableStateOf(false) }
     var noteToEdit by remember { mutableStateOf<Note?>(null) }
     var noteToView by remember { mutableStateOf<Note?>(null) }
-    var swipeOffset by remember { mutableStateOf(0f) }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(DarkBackground)
-            .pointerInput(Unit) {
-                detectHorizontalDragGestures(
-                    onDragEnd = {
-                        if (swipeOffset > 100f) {
-                            onNavigateBack()
-                        }
-                        swipeOffset = 0f
-                    },
-                    onHorizontalDrag = { _, dragAmount ->
-                        if (dragAmount > 0) {
-                            swipeOffset += dragAmount
-                        }
-                    }
-                )
-            }
     ) {
         Column(
             modifier = Modifier

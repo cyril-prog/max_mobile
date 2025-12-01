@@ -39,11 +39,14 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.max.aiassistant.model.Message
@@ -73,6 +76,7 @@ fun ChatScreen(
     onVoiceInput: () -> Unit,
     onNavigateToHome: () -> Unit,
     onNavigateToTasks: () -> Unit = {},
+    onNavigateToPlanning: () -> Unit = {},
     onNavigateToWeather: () -> Unit = {},
     onNavigateToNotes: () -> Unit = {},
     initialText: String = "",
@@ -88,6 +92,7 @@ fun ChatScreen(
                 NavigationScreen.VOICE -> onNavigateToHome()
                 NavigationScreen.CHAT -> { /* Déjà sur cet écran */ }
                 NavigationScreen.TASKS -> onNavigateToTasks()
+                NavigationScreen.PLANNING -> onNavigateToPlanning()
                 NavigationScreen.WEATHER -> onNavigateToWeather()
                 NavigationScreen.NOTES -> onNavigateToNotes()
             }
@@ -182,29 +187,6 @@ private fun ChatScreenContent(
         modifier = modifier
             .fillMaxSize()
             .background(DarkBackground)
-            .pointerInput(onNavigateToHome) {
-                var cumulativeDrag = 0f
-                var swipeTriggered = false
-                detectHorizontalDragGestures(
-                    onHorizontalDrag = { _, dragAmount ->
-                        if (dragAmount > 0f) {
-                            cumulativeDrag += dragAmount
-                            if (!swipeTriggered && cumulativeDrag >= 80f) {
-                                swipeTriggered = true
-                                onNavigateToHome()
-                            }
-                        }
-                    },
-                    onDragEnd = {
-                        cumulativeDrag = 0f
-                        swipeTriggered = false
-                    },
-                    onDragCancel = {
-                        cumulativeDrag = 0f
-                        swipeTriggered = false
-                    }
-                )
-            }
     ) {
         // Espace en haut pour éviter que les messages soient coupés
         Spacer(modifier = Modifier.height(32.dp))
@@ -323,14 +305,94 @@ fun MessageBubble(message: Message) {
                     }
                 }
                 
-                // Affiche le texte si présent
+                // Affiche le texte si présent (avec formatage markdown pour les messages de l'IA)
                 if (message.content.isNotBlank()) {
                     Text(
-                        text = message.content,
+                        text = if (message.isFromUser) {
+                            AnnotatedString(message.content)
+                        } else {
+                            parseMarkdown(message.content)
+                        },
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.bodyLarge,
                         color = TextPrimary
                     )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Parse le texte markdown et retourne un AnnotatedString formaté
+ * Supporte : **gras**, *italique*, ***gras italique***, `code`
+ */
+private fun parseMarkdown(text: String): AnnotatedString {
+    return buildAnnotatedString {
+        var currentIndex = 0
+        val length = text.length
+        
+        while (currentIndex < length) {
+            when {
+                // Gras + Italique: ***texte***
+                currentIndex + 2 < length && text.substring(currentIndex, currentIndex + 3) == "***" -> {
+                    val endIndex = text.indexOf("***", currentIndex + 3)
+                    if (endIndex != -1) {
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic)) {
+                            append(text.substring(currentIndex + 3, endIndex))
+                        }
+                        currentIndex = endIndex + 3
+                    } else {
+                        append(text[currentIndex])
+                        currentIndex++
+                    }
+                }
+                // Gras: **texte**
+                currentIndex + 1 < length && text.substring(currentIndex, currentIndex + 2) == "**" -> {
+                    val endIndex = text.indexOf("**", currentIndex + 2)
+                    if (endIndex != -1) {
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                            append(text.substring(currentIndex + 2, endIndex))
+                        }
+                        currentIndex = endIndex + 2
+                    } else {
+                        append(text[currentIndex])
+                        currentIndex++
+                    }
+                }
+                // Italique: *texte*
+                text[currentIndex] == '*' && currentIndex + 1 < length && text[currentIndex + 1] != '*' -> {
+                    val endIndex = text.indexOf('*', currentIndex + 1)
+                    if (endIndex != -1 && endIndex > currentIndex + 1) {
+                        withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                            append(text.substring(currentIndex + 1, endIndex))
+                        }
+                        currentIndex = endIndex + 1
+                    } else {
+                        append(text[currentIndex])
+                        currentIndex++
+                    }
+                }
+                // Code inline: `code`
+                text[currentIndex] == '`' -> {
+                    val endIndex = text.indexOf('`', currentIndex + 1)
+                    if (endIndex != -1) {
+                        withStyle(SpanStyle(
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            background = Color(0xFF2D2D2D)
+                        )) {
+                            append(text.substring(currentIndex + 1, endIndex))
+                        }
+                        currentIndex = endIndex + 1
+                    } else {
+                        append(text[currentIndex])
+                        currentIndex++
+                    }
+                }
+                // Texte normal
+                else -> {
+                    append(text[currentIndex])
+                    currentIndex++
                 }
             }
         }
@@ -352,8 +414,8 @@ fun MessageInputBar(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = DarkSurface,
-        tonalElevation = 4.dp
+        color = Color.Black,
+        tonalElevation = 0.dp
     ) {
         Column(
             modifier = Modifier.fillMaxWidth()
@@ -424,11 +486,13 @@ fun MessageInputBar(
                 
                 Spacer(modifier = Modifier.width(8.dp))
                 
-                // Champ de texte
+                // Champ de texte multiligne (max 3 lignes visibles)
                 TextField(
                     value = value,
                     onValueChange = onValueChange,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(max = 120.dp),
                     placeholder = {
                         Text(
                             text = "Message",
@@ -446,14 +510,12 @@ fun MessageInputBar(
                         disabledIndicatorColor = Color.Transparent
                     ),
                     shape = RoundedCornerShape(24.dp),
-                    singleLine = true,
+                    singleLine = false,
+                    maxLines = 5,
                     textStyle = MaterialTheme.typography.bodyLarge,
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences,
-                        imeAction = ImeAction.Send
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onSend = { onSend() }
+                        imeAction = ImeAction.Default
                     )
                 )
 
@@ -461,14 +523,15 @@ fun MessageInputBar(
 
                 // Bouton d'envoi (activé si texte ou image présent)
                 val isEnabled = value.isNotBlank() || selectedImageUri != null
-                IconButton(
-                    onClick = { if (isEnabled) onSend() },
+                Box(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
                         .background(
                             if (isEnabled) AccentBlue else DarkSurfaceVariant
                         )
+                        .clickable(enabled = isEnabled) { onSend() },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,

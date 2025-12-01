@@ -37,7 +37,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.max.aiassistant.ui.theme.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -50,9 +53,10 @@ import kotlin.math.sqrt
 enum class NavigationScreen {
     VOICE,    // Page 0 - Écran principal voice to voice
     CHAT,     // Page 1 - Chat messenger
-    TASKS,    // Page 2 - Tâches & Planning
-    WEATHER,  // Page 3 - Météo
-    NOTES     // Page 4 - Notes
+    TASKS,    // Page 2 - Tâches
+    PLANNING, // Page 3 - Planning/Agenda
+    WEATHER,  // Page 4 - Météo
+    NOTES     // Page 5 - Notes
 }
 
 /**
@@ -200,11 +204,13 @@ private fun FloatingNavigationSidebar(
         Pair(NavigationScreen.VOICE, Icons.Default.Mic),
         Pair(NavigationScreen.CHAT, Icons.AutoMirrored.Filled.Message),
         Pair(NavigationScreen.TASKS, Icons.Default.CheckCircle),
+        Pair(NavigationScreen.PLANNING, Icons.Default.CalendarMonth),
         Pair(NavigationScreen.WEATHER, Icons.Default.WbSunny),
         Pair(NavigationScreen.NOTES, Icons.Default.Edit)
     )
     
     val currentIndex = screens.indexOfFirst { it.first == currentScreen }
+    val coroutineScope = rememberCoroutineScope()
     
     // État pour tracker le bouton pressé (preview)
     var pressedIndex by remember { mutableStateOf<Int?>(null) }
@@ -249,6 +255,22 @@ private fun FloatingNavigationSidebar(
     val buttonSize = 48.dp
     val buttonSpacing = 8.dp
     val density = LocalDensity.current
+    
+    // Fonction pour naviguer avec délai d'animation
+    fun navigateWithAnimation(targetScreenIndex: Int) {
+        if (targetScreenIndex in screens.indices) {
+            val distance = abs(targetScreenIndex - currentIndex)
+            // Délai basé sur la distance (environ 150ms par bouton)
+            val animationDelay = (distance * 150L).coerceIn(100L, 400L)
+            
+            coroutineScope.launch {
+                delay(animationDelay)
+                onNavigateToScreen(screens[targetScreenIndex].first)
+                // Réinitialiser pressedIndex seulement après la navigation
+                pressedIndex = null
+            }
+        }
+    }
 
     Box(
         modifier = modifier
@@ -289,8 +311,9 @@ private fun FloatingNavigationSidebar(
                         },
                         onDragEnd = {
                             // Navigation vers le bouton sous le doigt au release
+                            // Pour le drag, la lumière a déjà suivi le doigt, navigation immédiate
                             pressedIndex?.let { index ->
-                                if (index in screens.indices) {
+                                if (index in screens.indices && index != currentIndex) {
                                     onNavigateToScreen(screens[index].first)
                                 }
                             }
@@ -301,6 +324,33 @@ private fun FloatingNavigationSidebar(
                             // Annulation : retour à la position initiale
                             pressedIndex = null
                             isDragging = false
+                        }
+                    )
+                }
+                .pointerInput(screens.size) {
+                    val buttonSizePx = buttonSize.toPx()
+                    val spacingPx = buttonSpacing.toPx()
+                    val totalHeightPerButton = buttonSizePx + spacingPx
+                    
+                    // Détection des taps simples (clic rapide sans drag)
+                    detectTapGestures(
+                        onPress = { offset ->
+                            // Calculer quel bouton est sous le doigt
+                            val index = (offset.y / totalHeightPerButton).toInt()
+                                .coerceIn(0, screens.size - 1)
+                            pressedIndex = index
+                        },
+                        onTap = { offset ->
+                            // Navigation au relâchement du tap avec délai pour l'animation
+                            val index = (offset.y / totalHeightPerButton).toInt()
+                                .coerceIn(0, screens.size - 1)
+                            if (index != currentIndex) {
+                                // pressedIndex reste actif jusqu'à la fin de navigateWithAnimation
+                                navigateWithAnimation(index)
+                            } else {
+                                // Si on tape sur le bouton actuel, reset immédiat
+                                pressedIndex = null
+                            }
                         }
                     )
                 },
