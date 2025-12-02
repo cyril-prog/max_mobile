@@ -78,6 +78,9 @@ fun TasksScreen(
     onTaskNoteChange: (String, String) -> Unit,
     onTaskDelete: (String) -> Unit,
     onTaskCreate: (titre: String, categorie: String, description: String, priorite: TaskPriority, dateLimite: String, dureeEstimee: String) -> Unit,
+    onSubTaskCreate: (taskId: String, text: String) -> Unit,
+    onSubTaskUpdate: (subTaskId: String, text: String, isCompleted: Boolean) -> Unit,
+    onSubTaskDelete: (subTaskId: String) -> Unit,
     onNavigateToHome: () -> Unit,
     onNavigateToChat: () -> Unit = {},
     onNavigateToPlanning: () -> Unit = {},
@@ -115,6 +118,9 @@ fun TasksScreen(
             onTaskNoteChange = onTaskNoteChange,
             onTaskDelete = onTaskDelete,
             onTaskCreate = onTaskCreate,
+            onSubTaskCreate = onSubTaskCreate,
+            onSubTaskUpdate = onSubTaskUpdate,
+            onSubTaskDelete = onSubTaskDelete,
             modifier = modifier
         )
     }
@@ -139,6 +145,9 @@ private fun TasksScreenContent(
     onTaskNoteChange: (String, String) -> Unit,
     onTaskDelete: (String) -> Unit,
     onTaskCreate: (titre: String, categorie: String, description: String, priorite: TaskPriority, dateLimite: String, dureeEstimee: String) -> Unit,
+    onSubTaskCreate: (taskId: String, text: String) -> Unit,
+    onSubTaskUpdate: (subTaskId: String, text: String, isCompleted: Boolean) -> Unit,
+    onSubTaskDelete: (subTaskId: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Stocker l'ID de la tâche sélectionnée au lieu de la tâche elle-même
@@ -240,6 +249,7 @@ private fun TasksScreenContent(
                 onRefresh = onRefresh,
                 onTaskClick = { selectedTaskId = it.id },
                 onTaskStatusChange = onTaskStatusChange,
+                onSubTaskToggle = onSubTaskUpdate,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -320,6 +330,11 @@ private fun TasksScreenContent(
             onNoteChange = { newNote ->
                 onTaskNoteChange(task.id, newNote)
             },
+            onSubTaskCreate = { text ->
+                onSubTaskCreate(task.id, text)
+            },
+            onSubTaskUpdate = onSubTaskUpdate,
+            onSubTaskDelete = onSubTaskDelete,
             onDelete = {
                 onTaskDelete(task.id)
                 selectedTaskId = null
@@ -955,7 +970,6 @@ fun CreateTaskDialog(
     // État local de la tâche en création
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var note by remember { mutableStateOf("") }
     var status by remember { mutableStateOf(TaskStatus.TODO) }
     var priority by remember { mutableStateOf(TaskPriority.P3) }
     var category by remember { mutableStateOf("Aucune") }
@@ -974,12 +988,10 @@ fun CreateTaskDialog(
     // États pour l'édition inline
     var isEditingTitle by remember { mutableStateOf(false) }
     var isEditingDescription by remember { mutableStateOf(false) }
-    var isEditingNote by remember { mutableStateOf(false) }
     
     // FocusRequesters
     val titleFocusRequester = remember { FocusRequester() }
     val descriptionFocusRequester = remember { FocusRequester() }
-    val noteFocusRequester = remember { FocusRequester() }
     val subTaskFocusRequester = remember { FocusRequester() }
     
     LaunchedEffect(isEditingTitle) {
@@ -987,9 +999,6 @@ fun CreateTaskDialog(
     }
     LaunchedEffect(isEditingDescription) {
         if (isEditingDescription) descriptionFocusRequester.requestFocus()
-    }
-    LaunchedEffect(isEditingNote) {
-        if (isEditingNote) noteFocusRequester.requestFocus()
     }
 
     // Dialogs de sélection
@@ -1159,7 +1168,7 @@ fun CreateTaskDialog(
                         )
                 )
 
-                // Onglets Description / Notes / Sous-tâches
+                // Onglets Description / Sous-tâches
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1216,27 +1225,9 @@ fun CreateTaskDialog(
                             }
                         }
                     }
-                    
-                    // Onglet Notes
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (selectedTab == 2) AccentBlue else Color.Transparent)
-                            .clickable { selectedTab = 2 }
-                            .padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Notes",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (selectedTab == 2) Color.White else Color.White.copy(alpha = 0.6f),
-                            fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
                 }
 
-                // Contenu Description/Notes
+                // Contenu Description/Sous-tâches
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1389,52 +1380,6 @@ fun CreateTaskDialog(
                                         )
                                     }
                                 }
-                            }
-                        }
-                        2 -> {
-                            if (isEditingNote) {
-                                Column {
-                                    OutlinedTextField(
-                                        value = note,
-                                        onValueChange = { note = it },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .focusRequester(noteFocusRequester),
-                                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                            color = Color.White.copy(alpha = 0.9f),
-                                            lineHeight = 22.sp
-                                        ),
-                                        placeholder = { Text("Ajouter une note...", color = Color.White.copy(alpha = 0.5f)) },
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedBorderColor = AccentBlue,
-                                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                                            cursorColor = AccentBlue
-                                        ),
-                                        shape = RoundedCornerShape(8.dp),
-                                        minLines = 3,
-                                        maxLines = 6
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Row(
-                                        horizontalArrangement = Arrangement.End,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        TextButton(onClick = { isEditingNote = false }) {
-                                            Text("Valider", color = AccentBlue, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-                                }
-                            } else {
-                                Text(
-                                    text = if (note.isNotEmpty()) note else "Appuyez pour ajouter une note...",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = if (note.isNotEmpty()) Color.White.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.5f),
-                                    lineHeight = 22.sp,
-                                    fontStyle = if (note.isEmpty()) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { isEditingNote = true }
-                                )
                             }
                         }
                     }
@@ -1622,6 +1567,7 @@ fun TasksContent(
     onRefresh: () -> Unit,
     onTaskClick: (Task) -> Unit,
     onTaskStatusChange: (String, TaskStatus) -> Unit,
+    onSubTaskToggle: (subTaskId: String, text: String, isCompleted: Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val pullRefreshState = rememberPullToRefreshState()
@@ -1669,7 +1615,8 @@ fun TasksContent(
                     TaskItemCompact(
                         task = task,
                         onClick = { onTaskClick(task) },
-                        onStatusChange = { newStatus -> onTaskStatusChange(task.id, newStatus) }
+                        onStatusChange = { newStatus -> onTaskStatusChange(task.id, newStatus) },
+                        onSubTaskToggle = onSubTaskToggle
                     )
                 }
             }
@@ -2348,8 +2295,12 @@ fun CalendarDayItem(
 fun TaskItemCompact(
     task: Task,
     onClick: () -> Unit,
-    onStatusChange: (TaskStatus) -> Unit
+    onStatusChange: (TaskStatus) -> Unit,
+    onSubTaskToggle: (subTaskId: String, text: String, isCompleted: Boolean) -> Unit = { _, _, _ -> }
 ) {
+    // État pour afficher le dialog des sous-tâches
+    var showSubTasksDialog by remember { mutableStateOf(false) }
+    
     // Couleurs de priorité
     val priorityText = when (task.priority) {
         TaskPriority.P1 -> "P1"
@@ -2450,6 +2401,32 @@ fun TaskItemCompact(
             }
         }
         
+        // Compteur de sous-tâches (si la tâche en a) - cliquable pour ouvrir le dialog
+        if (task.subTasks.isNotEmpty()) {
+            val completedCount = task.subTasks.count { it.isCompleted }
+            val totalCount = task.subTasks.size
+            Text(
+                text = "$completedCount/$totalCount",
+                style = MaterialTheme.typography.bodySmall,
+                color = AccentBlue,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .clickable { showSubTasksDialog = true }
+                    .padding(4.dp)
+            )
+        }
+        
+        // Dialog des sous-tâches
+        if (showSubTasksDialog) {
+            SubTasksQuickDialog(
+                task = task,
+                onDismiss = { showSubTasksDialog = false },
+                onSubTaskToggle = onSubTaskToggle
+            )
+        }
+        
         // Icône de statut à droite (cliquable pour changer le statut)
         val (statusIcon, statusColor, statusDescription) = when (task.status) {
             TaskStatus.TODO -> Triple(Icons.Outlined.Circle, TextSecondary, "À faire")
@@ -2474,6 +2451,104 @@ fun TaskItemCompact(
             tint = statusColor
         )
     }
+}
+
+/**
+ * Dialog rapide pour cocher/décocher les sous-tâches
+ */
+@Composable
+fun SubTasksQuickDialog(
+    task: Task,
+    onDismiss: () -> Unit,
+    onSubTaskToggle: (subTaskId: String, text: String, isCompleted: Boolean) -> Unit
+) {
+    // État local des sous-tâches pour mise à jour immédiate
+    var localSubTasks by remember(task.subTasks) { mutableStateOf(task.subTasks) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF2C2C2E),
+        title = {
+            Column {
+                Text(
+                    text = task.title,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                val completedCount = localSubTasks.count { it.isCompleted }
+                Text(
+                    text = "$completedCount/${localSubTasks.size} sous-tâches terminées",
+                    color = AccentBlue,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 300.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                localSubTasks.forEachIndexed { index, subTask ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.White.copy(alpha = 0.05f))
+                            .clickable {
+                                val newCompleted = !subTask.isCompleted
+                                // Mise à jour locale immédiate
+                                localSubTasks = localSubTasks.toMutableList().apply {
+                                    this[index] = subTask.copy(isCompleted = newCompleted)
+                                }
+                                // Appeler l'API
+                                if (subTask.id.isNotEmpty()) {
+                                    onSubTaskToggle(subTask.id, subTask.text, newCompleted)
+                                }
+                            }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = subTask.isCompleted,
+                            onCheckedChange = { checked ->
+                                // Mise à jour locale immédiate
+                                localSubTasks = localSubTasks.toMutableList().apply {
+                                    this[index] = subTask.copy(isCompleted = checked)
+                                }
+                                // Appeler l'API
+                                if (subTask.id.isNotEmpty()) {
+                                    onSubTaskToggle(subTask.id, subTask.text, checked)
+                                }
+                            },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = AccentBlue,
+                                uncheckedColor = Color.White.copy(alpha = 0.5f),
+                                checkmarkColor = Color.White
+                            )
+                        )
+                        Text(
+                            text = subTask.text,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (subTask.isCompleted) Color.White.copy(alpha = 0.5f) else Color.White,
+                            textDecoration = if (subTask.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Fermer", color = AccentBlue)
+            }
+        }
+    )
 }
 
 /**
@@ -3039,6 +3114,9 @@ fun TaskDetailsDialog(
     onTitleChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
     onNoteChange: (String) -> Unit,
+    onSubTaskCreate: (text: String) -> Unit,
+    onSubTaskUpdate: (subTaskId: String, text: String, isCompleted: Boolean) -> Unit,
+    onSubTaskDelete: (subTaskId: String) -> Unit,
     onDelete: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
@@ -3049,23 +3127,24 @@ fun TaskDetailsDialog(
     var showDeadlineDialog by remember { mutableStateOf(false) }
     var showCategoryDialog by remember { mutableStateOf(false) }
     
-    // États pour les sous-tâches
-    var subTasks by remember { mutableStateOf(listOf<SubTask>()) }
+    // États pour les sous-tâches (initialisées depuis la tâche)
+    var subTasks by remember(task.subTasks) { mutableStateOf(task.subTasks) }
     var newSubTaskText by remember { mutableStateOf("") }
     val subTaskFocusRequester = remember { FocusRequester() }
+    
+    // États pour l'édition d'une sous-tâche
+    var editingSubTaskIndex by remember { mutableStateOf<Int?>(null) }
+    var editingSubTaskText by remember { mutableStateOf("") }
     
     // États pour l'édition inline
     var isEditingTitle by remember { mutableStateOf(false) }
     var editedTitle by remember(task.title) { mutableStateOf(task.title) }
     var isEditingDescription by remember { mutableStateOf(false) }
     var editedDescription by remember(task.description) { mutableStateOf(task.description) }
-    var isEditingNote by remember { mutableStateOf(false) }
-    var editedNote by remember(task.note) { mutableStateOf(task.note) }
     
     // FocusRequesters pour ouvrir le clavier automatiquement
     val titleFocusRequester = remember { FocusRequester() }
     val descriptionFocusRequester = remember { FocusRequester() }
-    val noteFocusRequester = remember { FocusRequester() }
     
     // Demander le focus quand on passe en mode édition
     LaunchedEffect(isEditingTitle) {
@@ -3076,11 +3155,6 @@ fun TaskDetailsDialog(
     LaunchedEffect(isEditingDescription) {
         if (isEditingDescription) {
             descriptionFocusRequester.requestFocus()
-        }
-    }
-    LaunchedEffect(isEditingNote) {
-        if (isEditingNote) {
-            noteFocusRequester.requestFocus()
         }
     }
 
@@ -3413,73 +3487,6 @@ fun TaskDetailsDialog(
                                 }
                             }
                             1 -> {
-                                // Notes éditables
-                                if (isEditingNote) {
-                                    Column {
-                                        OutlinedTextField(
-                                            value = editedNote,
-                                            onValueChange = { editedNote = it },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .focusRequester(noteFocusRequester),
-                                            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                                color = Color.White.copy(alpha = 0.9f),
-                                                lineHeight = 22.sp
-                                            ),
-                                            placeholder = {
-                                                Text(
-                                                    "Ajouter une note...",
-                                                    color = Color.White.copy(alpha = 0.5f)
-                                                )
-                                            },
-                                            colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = AccentBlue,
-                                                unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                                                cursorColor = AccentBlue
-                                            ),
-                                            shape = RoundedCornerShape(8.dp),
-                                            minLines = 3,
-                                            maxLines = 6
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Row(
-                                            horizontalArrangement = Arrangement.End,
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            TextButton(
-                                                onClick = {
-                                                    editedNote = task.note
-                                                    isEditingNote = false
-                                                }
-                                            ) {
-                                                Text("Annuler", color = Color.White.copy(alpha = 0.7f))
-                                            }
-                                            TextButton(
-                                                onClick = {
-                                                    if (editedNote != task.note) {
-                                                        onNoteChange(editedNote.trim())
-                                                    }
-                                                    isEditingNote = false
-                                                }
-                                            ) {
-                                                Text("Valider", color = AccentBlue, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    Text(
-                                        text = if (task.note.isNotEmpty()) task.note else "Appuyez pour ajouter une note...",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = if (task.note.isNotEmpty()) Color.White.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.5f),
-                                        lineHeight = 22.sp,
-                                        fontStyle = if (task.note.isEmpty()) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { isEditingNote = true }
-                                    )
-                                }
-                            }
-                            2 -> {
                                 // Sous-tâches
                                 Column(
                                     modifier = Modifier.fillMaxWidth()
@@ -3517,7 +3524,8 @@ fun TaskDetailsDialog(
                                         IconButton(
                                             onClick = {
                                                 if (newSubTaskText.isNotBlank()) {
-                                                    subTasks = subTasks + SubTask(text = newSubTaskText.trim())
+                                                    // Appeler l'API pour créer la sous-tâche
+                                                    onSubTaskCreate(newSubTaskText.trim())
                                                     newSubTaskText = ""
                                                 }
                                             },
@@ -3550,8 +3558,14 @@ fun TaskDetailsDialog(
                                                         .clip(RoundedCornerShape(8.dp))
                                                         .background(Color.White.copy(alpha = 0.05f))
                                                         .clickable {
+                                                            // Mettre à jour l'état local immédiatement pour feedback visuel
+                                                            val newCompleted = !subTask.isCompleted
                                                             subTasks = subTasks.toMutableList().apply {
-                                                                this[index] = subTask.copy(isCompleted = !subTask.isCompleted)
+                                                                this[index] = subTask.copy(isCompleted = newCompleted)
+                                                            }
+                                                            // Appeler l'API pour persister
+                                                            if (subTask.id.isNotEmpty()) {
+                                                                onSubTaskUpdate(subTask.id, subTask.text, newCompleted)
                                                             }
                                                         }
                                                         .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -3560,8 +3574,13 @@ fun TaskDetailsDialog(
                                                     Checkbox(
                                                         checked = subTask.isCompleted,
                                                         onCheckedChange = { checked ->
+                                                            // Mettre à jour l'état local immédiatement pour feedback visuel
                                                             subTasks = subTasks.toMutableList().apply {
                                                                 this[index] = subTask.copy(isCompleted = checked)
+                                                            }
+                                                            // Appeler l'API pour persister
+                                                            if (subTask.id.isNotEmpty()) {
+                                                                onSubTaskUpdate(subTask.id, subTask.text, checked)
                                                             }
                                                         },
                                                         colors = CheckboxDefaults.colors(
@@ -3570,27 +3589,110 @@ fun TaskDetailsDialog(
                                                             checkmarkColor = Color.White
                                                         )
                                                     )
-                                                    Text(
-                                                        text = subTask.text,
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = if (subTask.isCompleted) Color.White.copy(alpha = 0.5f) else Color.White,
-                                                        textDecoration = if (subTask.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
-                                                        modifier = Modifier.weight(1f)
-                                                    )
-                                                    IconButton(
-                                                        onClick = {
-                                                            subTasks = subTasks.toMutableList().apply {
-                                                                removeAt(index)
+                                                    
+                                                    // Mode édition ou affichage du texte
+                                                    if (editingSubTaskIndex == index) {
+                                                        // Mode édition inline
+                                                        OutlinedTextField(
+                                                            value = editingSubTaskText,
+                                                            onValueChange = { editingSubTaskText = it },
+                                                            modifier = Modifier
+                                                                .weight(1f)
+                                                                .padding(end = 4.dp),
+                                                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                                                color = Color.White
+                                                            ),
+                                                            colors = OutlinedTextFieldDefaults.colors(
+                                                                focusedBorderColor = AccentBlue,
+                                                                unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                                                                cursorColor = AccentBlue
+                                                            ),
+                                                            shape = RoundedCornerShape(6.dp),
+                                                            singleLine = true,
+                                                            keyboardOptions = KeyboardOptions(
+                                                                capitalization = KeyboardCapitalization.Sentences
+                                                            ),
+                                                            trailingIcon = {
+                                                                Row {
+                                                                    // Bouton valider
+                                                                    IconButton(
+                                                                        onClick = {
+                                                                            if (editingSubTaskText.isNotBlank()) {
+                                                                                // Mettre à jour localement
+                                                                                subTasks = subTasks.toMutableList().apply {
+                                                                                    this[index] = subTask.copy(text = editingSubTaskText.trim())
+                                                                                }
+                                                                                // Appeler l'API
+                                                                                if (subTask.id.isNotEmpty()) {
+                                                                                    onSubTaskUpdate(subTask.id, editingSubTaskText.trim(), subTask.isCompleted)
+                                                                                }
+                                                                            }
+                                                                            editingSubTaskIndex = null
+                                                                        },
+                                                                        modifier = Modifier.size(24.dp)
+                                                                    ) {
+                                                                        Icon(
+                                                                            imageVector = Icons.Default.Check,
+                                                                            contentDescription = "Valider",
+                                                                            tint = AccentBlue,
+                                                                            modifier = Modifier.size(16.dp)
+                                                                        )
+                                                                    }
+                                                                    // Bouton annuler
+                                                                    IconButton(
+                                                                        onClick = { editingSubTaskIndex = null },
+                                                                        modifier = Modifier.size(24.dp)
+                                                                    ) {
+                                                                        Icon(
+                                                                            imageVector = Icons.Default.Close,
+                                                                            contentDescription = "Annuler",
+                                                                            tint = Color.White.copy(alpha = 0.5f),
+                                                                            modifier = Modifier.size(16.dp)
+                                                                        )
+                                                                    }
+                                                                }
                                                             }
-                                                        },
-                                                        modifier = Modifier.size(32.dp)
-                                                    ) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.Close,
-                                                            contentDescription = "Supprimer",
-                                                            tint = Color.White.copy(alpha = 0.5f),
-                                                            modifier = Modifier.size(16.dp)
                                                         )
+                                                    } else {
+                                                        // Mode affichage - cliquable pour éditer
+                                                        Text(
+                                                            text = subTask.text,
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            color = if (subTask.isCompleted) Color.White.copy(alpha = 0.5f) else Color.White,
+                                                            textDecoration = if (subTask.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
+                                                            modifier = Modifier
+                                                                .weight(1f)
+                                                                .clickable {
+                                                                    // Ouvrir le mode édition
+                                                                    editingSubTaskText = subTask.text
+                                                                    editingSubTaskIndex = index
+                                                                }
+                                                                .padding(vertical = 4.dp)
+                                                        )
+                                                    }
+                                                    
+                                                    // Bouton supprimer (masqué en mode édition)
+                                                    if (editingSubTaskIndex != index) {
+                                                        IconButton(
+                                                            onClick = {
+                                                                // Supprimer de l'état local immédiatement
+                                                                subTasks = subTasks.toMutableList().apply {
+                                                                    removeAt(index)
+                                                                }
+                                                                // Appeler l'API pour supprimer
+                                                                if (subTask.id.isNotEmpty()) {
+                                                                    onSubTaskDelete(subTask.id)
+                                                                }
+                                                            },
+                                                            modifier = Modifier.size(32.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Close,
+                                                                contentDescription = "Supprimer",
+                                                                tint = Color.White.copy(alpha = 0.5f),
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }
@@ -3820,7 +3922,7 @@ fun ModernTaskContentTabSelector(
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Toujours afficher les deux onglets pour permettre l'ajout de contenu
+        // Onglet Description
         ModernTabItem(
             text = "Description",
             isSelected = selectedIndex == 0,
@@ -3828,21 +3930,13 @@ fun ModernTaskContentTabSelector(
             modifier = Modifier.weight(1f)
         )
 
+        // Onglet Sous-tâches (toujours affiché)
         ModernTabItem(
-            text = "Notes",
+            text = "Sous-tâches",
             isSelected = selectedIndex == 1,
             onClick = { onTabSelected(1) },
             modifier = Modifier.weight(1f)
         )
-        
-        if (showSubTasks) {
-            ModernTabItem(
-                text = "Sous-tâches",
-                isSelected = selectedIndex == 2,
-                onClick = { onTabSelected(2) },
-                modifier = Modifier.weight(1f)
-            )
-        }
     }
 }
 

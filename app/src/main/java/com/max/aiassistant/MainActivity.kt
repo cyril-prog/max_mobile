@@ -284,6 +284,15 @@ class MainActivity : ComponentActivity() {
                                         dureeEstimee = dureeEstimee
                                     )
                                 },
+                                onSubTaskCreate = { taskId, text ->
+                                    viewModel.createSubTask(taskId, text)
+                                },
+                                onSubTaskUpdate = { subTaskId, text, isCompleted ->
+                                    viewModel.updateSubTask(subTaskId, text, isCompleted)
+                                },
+                                onSubTaskDelete = { subTaskId ->
+                                    viewModel.deleteSubTask(subTaskId)
+                                },
                                 onNavigateToHome = {
                                     targetPage = 0
                                     isTransitioning = true

@@ -654,6 +654,131 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ========== GESTION DES SOUS-TÂCHES ==========
+
+    /**
+     * Crée une nouvelle sous-tâche via l'API
+     */
+    fun createSubTask(taskId: String, text: String) {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Création de la sous-tâche pour la tâche $taskId...")
+
+                // Mise à jour optimiste : ajouter temporairement la sous-tâche (sans ID)
+                _tasks.value = _tasks.value.map { task ->
+                    if (task.id == taskId) {
+                        task.copy(
+                            subTasks = task.subTasks + com.max.aiassistant.model.SubTask(
+                                id = "temp_${System.currentTimeMillis()}",
+                                taskId = taskId,
+                                text = text,
+                                isCompleted = false
+                            )
+                        )
+                    } else {
+                        task
+                    }
+                }
+
+                val request = com.max.aiassistant.data.api.SubTaskCreateRequest(
+                    taskId = taskId,
+                    text = text,
+                    isCompleted = false
+                )
+
+                val response = apiService.createSubTask(request)
+
+                if (response.isSuccessful) {
+                    Log.d(TAG, "Sous-tâche créée avec succès, rafraîchissement pour obtenir l'ID...")
+                    refreshTasks() // Pour obtenir le vrai ID de la sous-tâche
+                } else {
+                    Log.e(TAG, "Erreur lors de la création de la sous-tâche: ${response.code()}")
+                    refreshTasks() // Reverter la mise à jour optimiste
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors de la création de la sous-tâche", e)
+                refreshTasks()
+            }
+        }
+    }
+
+    /**
+     * Met à jour une sous-tâche via l'API (texte ou statut)
+     */
+    fun updateSubTask(subTaskId: String, text: String, isCompleted: Boolean) {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Mise à jour de la sous-tâche $subTaskId...")
+
+                // Mise à jour optimiste de la liste locale immédiatement
+                _tasks.value = _tasks.value.map { task ->
+                    task.copy(
+                        subTasks = task.subTasks.map { subTask ->
+                            if (subTask.id == subTaskId) {
+                                subTask.copy(text = text, isCompleted = isCompleted)
+                            } else {
+                                subTask
+                            }
+                        }
+                    )
+                }
+
+                val request = com.max.aiassistant.data.api.SubTaskUpdateRequest(
+                    id = subTaskId,
+                    text = text,
+                    isCompleted = isCompleted
+                )
+
+                val response = apiService.updateSubTask(request)
+
+                if (response.isSuccessful) {
+                    Log.d(TAG, "Sous-tâche mise à jour avec succès")
+                    // Pas besoin de refreshTasks(), la mise à jour optimiste suffit
+                } else {
+                    Log.e(TAG, "Erreur lors de la mise à jour de la sous-tâche: ${response.code()}")
+                    // En cas d'erreur, on pourrait reverter la mise à jour optimiste
+                    refreshTasks()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors de la mise à jour de la sous-tâche", e)
+                // En cas d'erreur, rafraîchir pour avoir l'état réel
+                refreshTasks()
+            }
+        }
+    }
+
+    /**
+     * Supprime une sous-tâche via l'API
+     */
+    fun deleteSubTask(subTaskId: String) {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Suppression de la sous-tâche $subTaskId...")
+
+                // Mise à jour optimiste de la liste locale immédiatement
+                _tasks.value = _tasks.value.map { task ->
+                    task.copy(
+                        subTasks = task.subTasks.filter { it.id != subTaskId }
+                    )
+                }
+
+                val request = com.max.aiassistant.data.api.SubTaskDeleteRequest(id = subTaskId)
+
+                val response = apiService.deleteSubTask(request)
+
+                if (response.isSuccessful) {
+                    Log.d(TAG, "Sous-tâche supprimée avec succès")
+                } else {
+                    Log.e(TAG, "Erreur lors de la suppression de la sous-tâche: ${response.code()}")
+                    refreshTasks()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors de la suppression de la sous-tâche", e)
+                refreshTasks()
+            }
+        }
+    }
+
     // ========== ÉTAT DU PLANNING ==========
 
     private val _events = MutableStateFlow<List<Event>>(emptyList())

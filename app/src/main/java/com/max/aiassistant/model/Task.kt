@@ -24,7 +24,8 @@ data class Task(
     val deadline: String,
     val deadlineDate: String = "",
     val category: String = "",
-    val estimatedDuration: String = ""
+    val estimatedDuration: String = "",
+    val subTasks: List<SubTask> = emptyList()
 )
 
 /**
@@ -52,7 +53,8 @@ enum class TaskPriority {
  * Représente une sous-tâche
  */
 data class SubTask(
-    val id: String = java.util.UUID.randomUUID().toString(),
+    val id: String = "",
+    val taskId: String = "",
     val text: String,
     val isCompleted: Boolean = false
 )

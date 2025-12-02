@@ -43,7 +43,49 @@ data class TaskApiData(
     @SerializedName("duree_estimee")
     val dureeEstimee: String,
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String,
+    @SerializedName("sous_taches")
+    val sousTaches: List<SubTaskApiData>? = null
+)
+
+/**
+ * Représentation d'une sous-tâche telle que retournée par l'API
+ */
+data class SubTaskApiData(
+    val id: Int? = null,
+    @SerializedName("task_id")
+    val taskId: String? = null,
+    val text: String = "",
+    @SerializedName("is_completed")
+    val isCompleted: Boolean = false
+)
+
+/**
+ * Requête pour créer une sous-tâche (POST /webhook/create_subtask)
+ */
+data class SubTaskCreateRequest(
+    @SerializedName("task_id")
+    val taskId: String,
+    val text: String,
+    @SerializedName("is_completed")
+    val isCompleted: Boolean = false
+)
+
+/**
+ * Requête pour mettre à jour une sous-tâche (POST /webhook/upd_subtask)
+ */
+data class SubTaskUpdateRequest(
+    val id: String,
+    val text: String,
+    @SerializedName("is_completed")
+    val isCompleted: Boolean
+)
+
+/**
+ * Requête pour supprimer une sous-tâche (POST /webhook/del_subtask)
+ */
+data class SubTaskDeleteRequest(
+    val id: String
 )
 
 /**
@@ -126,7 +168,20 @@ fun TaskApiData.toTask(): Task {
         deadline = formatDeadline(dateLimite),
         deadlineDate = isoDate,
         category = categorie,
-        estimatedDuration = dureeEstimee
+        estimatedDuration = dureeEstimee,
+        subTasks = sousTaches?.map { it.toSubTask() } ?: emptyList()
+    )
+}
+
+/**
+ * Convertit une SubTaskApiData en SubTask pour l'affichage dans l'app
+ */
+fun SubTaskApiData.toSubTask(): com.max.aiassistant.model.SubTask {
+    return com.max.aiassistant.model.SubTask(
+        id = id?.toString() ?: "",
+        taskId = taskId ?: "",
+        text = text,
+        isCompleted = isCompleted
     )
 }
 

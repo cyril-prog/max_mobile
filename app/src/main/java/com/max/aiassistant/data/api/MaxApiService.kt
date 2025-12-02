@@ -44,6 +44,17 @@ interface MaxApiService {
     @POST("webhook/create_task")
     suspend fun createTask(@Body task: TaskCreateRequest): Response<ResponseBody>
 
+    // ========== SOUS-TÂCHES ==========
+
+    @POST("webhook/create_subtask")
+    suspend fun createSubTask(@Body subTask: SubTaskCreateRequest): Response<ResponseBody>
+
+    @POST("webhook/upd_subtask")
+    suspend fun updateSubTask(@Body subTask: SubTaskUpdateRequest): Response<ResponseBody>
+
+    @POST("webhook/del_subtask")
+    suspend fun deleteSubTask(@Body subTask: SubTaskDeleteRequest): Response<ResponseBody>
+
     companion object {
         private const val BASE_URL = "https://n8n.srv1086212.hstgr.cloud/"
 
