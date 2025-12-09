@@ -44,7 +44,8 @@ fun PlanningScreen(
         currentScreen = NavigationScreen.PLANNING,
         onNavigateToScreen = { screen ->
             when (screen) {
-                NavigationScreen.VOICE -> onNavigateToHome()
+                NavigationScreen.HOME -> onNavigateToHome()
+                NavigationScreen.VOICE -> onNavigateToHome() // Retourne à Home pour accéder à Voice
                 NavigationScreen.CHAT -> onNavigateToChat()
                 NavigationScreen.TASKS -> onNavigateToTasks()
                 NavigationScreen.PLANNING -> { /* Déjà sur cet écran */ }

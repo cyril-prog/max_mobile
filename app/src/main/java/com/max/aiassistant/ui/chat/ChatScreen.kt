@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AddPhotoAlternate
@@ -89,7 +90,8 @@ fun ChatScreen(
         currentScreen = NavigationScreen.CHAT,
         onNavigateToScreen = { screen ->
             when (screen) {
-                NavigationScreen.VOICE -> onNavigateToHome()
+                NavigationScreen.HOME -> onNavigateToHome()
+                NavigationScreen.VOICE -> onVoiceInput()
                 NavigationScreen.CHAT -> { /* Déjà sur cet écran */ }
                 NavigationScreen.TASKS -> onNavigateToTasks()
                 NavigationScreen.PLANNING -> onNavigateToPlanning()
@@ -307,16 +309,18 @@ fun MessageBubble(message: Message) {
                 
                 // Affiche le texte si présent (avec formatage markdown pour les messages de l'IA)
                 if (message.content.isNotBlank()) {
-                    Text(
-                        text = if (message.isFromUser) {
-                            AnnotatedString(message.content)
-                        } else {
-                            parseMarkdown(message.content)
-                        },
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = TextPrimary
-                    )
+                    SelectionContainer {
+                        Text(
+                            text = if (message.isFromUser) {
+                                AnnotatedString(message.content)
+                            } else {
+                                parseMarkdown(message.content)
+                            },
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = TextPrimary
+                        )
+                    }
                 }
             }
         }

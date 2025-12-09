@@ -83,7 +83,8 @@ fun WeatherScreen(
         currentScreen = NavigationScreen.WEATHER,
         onNavigateToScreen = { screen ->
             when (screen) {
-                NavigationScreen.VOICE -> onNavigateBack()
+                NavigationScreen.HOME -> onNavigateBack()
+                NavigationScreen.VOICE -> onNavigateBack() // Retourne à Home pour accéder à Voice
                 NavigationScreen.CHAT -> onNavigateToChat()
                 NavigationScreen.TASKS -> onNavigateToTasks()
                 NavigationScreen.PLANNING -> onNavigateToPlanning()

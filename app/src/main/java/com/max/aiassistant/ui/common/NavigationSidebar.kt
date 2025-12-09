@@ -51,12 +51,13 @@ import kotlin.math.sqrt
  * Identifiants des écrans de navigation
  */
 enum class NavigationScreen {
-    VOICE,    // Page 0 - Écran principal voice to voice
-    CHAT,     // Page 1 - Chat messenger
-    TASKS,    // Page 2 - Tâches
-    PLANNING, // Page 3 - Planning/Agenda
-    WEATHER,  // Page 4 - Météo
-    NOTES     // Page 5 - Notes
+    HOME,     // Page 0 - Dashboard d'accueil
+    VOICE,    // Page 1 - Écran principal voice to voice
+    CHAT,     // Page 2 - Chat messenger
+    TASKS,    // Page 3 - Tâches
+    PLANNING, // Page 4 - Planning/Agenda
+    WEATHER,  // Page 5 - Météo
+    NOTES     // Page 6 - Notes
 }
 
 /**
@@ -201,6 +202,7 @@ private fun FloatingNavigationSidebar(
     modifier: Modifier = Modifier
 ) {
     val screens = listOf(
+        Pair(NavigationScreen.HOME, Icons.Default.Home),
         Pair(NavigationScreen.VOICE, Icons.Default.Mic),
         Pair(NavigationScreen.CHAT, Icons.AutoMirrored.Filled.Message),
         Pair(NavigationScreen.TASKS, Icons.Default.CheckCircle),

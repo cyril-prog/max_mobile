@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.max.aiassistant.model.TaskStatus
 import com.max.aiassistant.ui.chat.ChatScreen
+import com.max.aiassistant.ui.home.HomeScreen
 import com.max.aiassistant.ui.notes.NotesScreen
 import com.max.aiassistant.ui.planning.PlanningScreen
 import com.max.aiassistant.ui.tasks.TasksScreen
@@ -43,14 +44,15 @@ import kotlin.math.sqrt
  *
  * Single-Activity architecture avec Jetpack Compose
  *
- * Gère la navigation entre 7 écrans via HorizontalPager :
- * - Page 0 : VoiceScreen (Voice to Voice) - ÉCRAN PAR DÉFAUT
- * - Page 1 : ChatScreen (Messenger)
- * - Page 2 : TasksScreen (Tâches)
- * - Page 3 : PlanningScreen (Planning/Agenda)
- * - Page 4 : WeatherScreen (Météo)
- * - Page 5 : NotesScreen (Prise de notes)
- * - Page 6 : RadarScreen (Radar météo)
+ * Gère la navigation entre 8 écrans via HorizontalPager :
+ * - Page 0 : HomeScreen (Dashboard) - ÉCRAN PAR DÉFAUT
+ * - Page 1 : VoiceScreen (Voice to Voice)
+ * - Page 2 : ChatScreen (Messenger)
+ * - Page 3 : TasksScreen (Tâches)
+ * - Page 4 : PlanningScreen (Planning/Agenda)
+ * - Page 5 : WeatherScreen (Météo)
+ * - Page 6 : NotesScreen (Prise de notes)
+ * - Page 7 : RadarScreen (Radar météo)
  *
  * L'utilisateur peut naviguer entre les pages via les boutons de navigation
  */
@@ -113,10 +115,10 @@ class MainActivity : ComponentActivity() {
                 val cityLatitude by viewModel.cityLatitude.collectAsState()
                 val cityLongitude by viewModel.cityLongitude.collectAsState()
 
-                // État du pager (7 pages)
+                // État du pager (8 pages)
                 val pagerState = rememberPagerState(
                     initialPage = 0,
-                    pageCount = { 7 }
+                    pageCount = { 8 }
                 )
 
                 // Scope pour les animations de navigation
@@ -125,8 +127,15 @@ class MainActivity : ComponentActivity() {
                 // Si du texte a été partagé, naviguer vers le chat
                 LaunchedEffect(sharedText) {
                     if (!sharedText.isNullOrEmpty()) {
-                        pagerState.scrollToPage(1) // Naviguer vers ChatScreen
+                        pagerState.scrollToPage(2) // Naviguer vers ChatScreen
                     }
+                }
+
+                // Charge les données initiales au démarrage (page 0 = HomeScreen)
+                LaunchedEffect(Unit) {
+                    viewModel.refreshTasks()
+                    viewModel.refreshCalendarEvents()
+                    viewModel.refreshWeather()
                 }
 
                 // État pour l'animation de transition futuriste
@@ -137,17 +146,23 @@ class MainActivity : ComponentActivity() {
                 // Recharge les données quand on change de page
                 LaunchedEffect(pagerState.currentPage) {
                     when (pagerState.currentPage) {
-                        1 -> {
-                            // Page 1 : ChatScreen - recharge les messages
-                            viewModel.loadRecentMessages()
+                        0 -> {
+                            // Page 0 : HomeScreen - recharge les tâches, événements et météo
+                            viewModel.refreshTasks()
+                            viewModel.refreshCalendarEvents()
+                            viewModel.refreshWeather()
                         }
                         2 -> {
-                            // Page 2 : TasksScreen - recharge les tâches et événements
+                            // Page 2 : ChatScreen - recharge les messages
+                            viewModel.loadRecentMessages()
+                        }
+                        3 -> {
+                            // Page 3 : TasksScreen - recharge les tâches et événements
                             viewModel.refreshTasks()
                             viewModel.refreshCalendarEvents()
                         }
-                        3 -> {
-                            // Page 3 : WeatherScreen - recharge la météo
+                        5 -> {
+                            // Page 5 : WeatherScreen - recharge la météo
                             viewModel.refreshWeather()
                         }
                     }
@@ -167,8 +182,42 @@ class MainActivity : ComponentActivity() {
                         userScrollEnabled = false // Désactive le swipe - navigation uniquement par boutons
                     ) { page ->
                     when (page) {
-                        // PAGE 0 : Écran Voice (écran principal)
+                        // PAGE 0 : Dashboard (écran d'accueil)
                         0 -> {
+                            HomeScreen(
+                                tasks = tasks,
+                                events = events,
+                                weatherData = weatherData,
+                                cityName = cityName,
+                                onNavigateToVoice = {
+                                    targetPage = 1
+                                    isTransitioning = true
+                                },
+                                onNavigateToChat = {
+                                    targetPage = 2
+                                    isTransitioning = true
+                                },
+                                onNavigateToTasks = {
+                                    targetPage = 3
+                                    isTransitioning = true
+                                },
+                                onNavigateToPlanning = {
+                                    targetPage = 4
+                                    isTransitioning = true
+                                },
+                                onNavigateToWeather = {
+                                    targetPage = 5
+                                    isTransitioning = true
+                                },
+                                onNavigateToNotes = {
+                                    targetPage = 6
+                                    isTransitioning = true
+                                }
+                            )
+                        }
+
+                        // PAGE 1 : Écran Voice
+                        1 -> {
                             VoiceScreen(
                                 isRealtimeConnected = isRealtimeConnected,
                                 transcript = voiceTranscript,
@@ -181,31 +230,35 @@ class MainActivity : ComponentActivity() {
                                         permissionHelper.requestRecordAudioPermission()
                                     }
                                 },
-                                onNavigateToChat = {
-                                    targetPage = 1
+                                onNavigateToHome = {
+                                    targetPage = 0
                                     isTransitioning = true
                                 },
-                                onNavigateToTasks = {
+                                onNavigateToChat = {
                                     targetPage = 2
                                     isTransitioning = true
                                 },
-                                onNavigateToPlanning = {
+                                onNavigateToTasks = {
                                     targetPage = 3
                                     isTransitioning = true
                                 },
-                                onNavigateToWeather = {
+                                onNavigateToPlanning = {
                                     targetPage = 4
                                     isTransitioning = true
                                 },
-                                onNavigateToNotes = {
+                                onNavigateToWeather = {
                                     targetPage = 5
+                                    isTransitioning = true
+                                },
+                                onNavigateToNotes = {
+                                    targetPage = 6
                                     isTransitioning = true
                                 }
                             )
                         }
 
-                        // PAGE 1 : Écran Chat
-                        1 -> {
+                        // PAGE 2 : Écran Chat
+                        2 -> {
                             ChatScreen(
                                 messages = messages,
                                 isWaitingForAiResponse = isWaitingForAiResponse,
@@ -213,7 +266,7 @@ class MainActivity : ComponentActivity() {
                                     viewModel.sendMessage(message, imageUri)
                                 },
                                 onVoiceInput = {
-                                    targetPage = 0
+                                    targetPage = 1
                                     isTransitioning = true
                                 },
                                 onNavigateToHome = {
@@ -221,19 +274,19 @@ class MainActivity : ComponentActivity() {
                                     isTransitioning = true
                                 },
                                 onNavigateToTasks = {
-                                    targetPage = 2
-                                    isTransitioning = true
-                                },
-                                onNavigateToPlanning = {
                                     targetPage = 3
                                     isTransitioning = true
                                 },
-                                onNavigateToWeather = {
+                                onNavigateToPlanning = {
                                     targetPage = 4
                                     isTransitioning = true
                                 },
-                                onNavigateToNotes = {
+                                onNavigateToWeather = {
                                     targetPage = 5
+                                    isTransitioning = true
+                                },
+                                onNavigateToNotes = {
+                                    targetPage = 6
                                     isTransitioning = true
                                 },
                                 initialText = sharedText ?: "",
@@ -241,8 +294,8 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // PAGE 2 : Écran Tâches
-                        2 -> {
+                        // PAGE 3 : Écran Tâches
+                        3 -> {
                             TasksScreen(
                                 tasks = tasks,
                                 isRefreshing = isLoadingTasks,
@@ -298,26 +351,26 @@ class MainActivity : ComponentActivity() {
                                     isTransitioning = true
                                 },
                                 onNavigateToChat = {
-                                    targetPage = 1
+                                    targetPage = 2
                                     isTransitioning = true
                                 },
                                 onNavigateToPlanning = {
-                                    targetPage = 3
-                                    isTransitioning = true
-                                },
-                                onNavigateToWeather = {
                                     targetPage = 4
                                     isTransitioning = true
                                 },
-                                onNavigateToNotes = {
+                                onNavigateToWeather = {
                                     targetPage = 5
+                                    isTransitioning = true
+                                },
+                                onNavigateToNotes = {
+                                    targetPage = 6
                                     isTransitioning = true
                                 }
                             )
                         }
 
-                        // PAGE 3 : Écran Planning
-                        3 -> {
+                        // PAGE 4 : Écran Planning
+                        4 -> {
                             PlanningScreen(
                                 events = events,
                                 isRefreshing = isLoadingEvents,
@@ -327,26 +380,26 @@ class MainActivity : ComponentActivity() {
                                     isTransitioning = true
                                 },
                                 onNavigateToChat = {
-                                    targetPage = 1
-                                    isTransitioning = true
-                                },
-                                onNavigateToTasks = {
                                     targetPage = 2
                                     isTransitioning = true
                                 },
+                                onNavigateToTasks = {
+                                    targetPage = 3
+                                    isTransitioning = true
+                                },
                                 onNavigateToWeather = {
-                                    targetPage = 4
+                                    targetPage = 5
                                     isTransitioning = true
                                 },
                                 onNavigateToNotes = {
-                                    targetPage = 5
+                                    targetPage = 6
                                     isTransitioning = true
                                 }
                             )
                         }
 
-                        // PAGE 4 : Écran Météo
-                        4 -> {
+                        // PAGE 5 : Écran Météo
+                        5 -> {
                             WeatherScreen(
                                 weatherData = weatherData,
                                 cityName = cityName,
@@ -362,30 +415,30 @@ class MainActivity : ComponentActivity() {
                                     isTransitioning = true
                                 },
                                 onRadarClick = {
-                                    targetPage = 6
+                                    targetPage = 7
                                     isTransitioning = true
                                 },
                                 onNavigateToChat = {
-                                    targetPage = 1
-                                    isTransitioning = true
-                                },
-                                onNavigateToTasks = {
                                     targetPage = 2
                                     isTransitioning = true
                                 },
-                                onNavigateToPlanning = {
+                                onNavigateToTasks = {
                                     targetPage = 3
                                     isTransitioning = true
                                 },
+                                onNavigateToPlanning = {
+                                    targetPage = 4
+                                    isTransitioning = true
+                                },
                                 onNavigateToNotes = {
-                                    targetPage = 5
+                                    targetPage = 6
                                     isTransitioning = true
                                 }
                             )
                         }
 
-                        // PAGE 5 : Écran Notes
-                        5 -> {
+                        // PAGE 6 : Écran Notes
+                        6 -> {
                             NotesScreen(
                                 notes = notes,
                                 onAddNote = { title, content ->
@@ -402,32 +455,32 @@ class MainActivity : ComponentActivity() {
                                     isTransitioning = true
                                 },
                                 onNavigateToChat = {
-                                    targetPage = 1
-                                    isTransitioning = true
-                                },
-                                onNavigateToTasks = {
                                     targetPage = 2
                                     isTransitioning = true
                                 },
-                                onNavigateToPlanning = {
+                                onNavigateToTasks = {
                                     targetPage = 3
                                     isTransitioning = true
                                 },
-                                onNavigateToWeather = {
+                                onNavigateToPlanning = {
                                     targetPage = 4
+                                    isTransitioning = true
+                                },
+                                onNavigateToWeather = {
+                                    targetPage = 5
                                     isTransitioning = true
                                 }
                             )
                         }
 
-                        // PAGE 6 : Écran Radar Météo
-                        6 -> {
+                        // PAGE 7 : Écran Radar Météo
+                        7 -> {
                             RadarScreen(
                                 cityName = cityName,
                                 latitude = cityLatitude,
                                 longitude = cityLongitude,
                                 onNavigateBack = {
-                                    targetPage = 4
+                                    targetPage = 5
                                     isTransitioning = true
                                 }
                             )

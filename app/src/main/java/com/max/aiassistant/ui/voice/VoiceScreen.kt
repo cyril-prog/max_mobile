@@ -51,6 +51,7 @@ fun VoiceScreen(
     isRealtimeConnected: Boolean,
     transcript: String,
     onToggleRealtime: () -> Unit,
+    onNavigateToHome: () -> Unit = {},
     onNavigateToChat: () -> Unit,
     onNavigateToTasks: () -> Unit,
     onNavigateToPlanning: () -> Unit = {},
@@ -64,6 +65,7 @@ fun VoiceScreen(
         currentScreen = NavigationScreen.VOICE,
         onNavigateToScreen = { screen ->
             when (screen) {
+                NavigationScreen.HOME -> onNavigateToHome()
                 NavigationScreen.VOICE -> { /* Déjà sur cet écran */ }
                 NavigationScreen.CHAT -> onNavigateToChat()
                 NavigationScreen.TASKS -> onNavigateToTasks()

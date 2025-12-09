@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -129,7 +130,8 @@ fun NotesScreen(
         currentScreen = NavigationScreen.NOTES,
         onNavigateToScreen = { screen ->
             when (screen) {
-                NavigationScreen.VOICE -> onNavigateBack()
+                NavigationScreen.HOME -> onNavigateBack()
+                NavigationScreen.VOICE -> onNavigateBack() // Retourne à Home pour accéder à Voice
                 NavigationScreen.CHAT -> onNavigateToChat()
                 NavigationScreen.TASKS -> onNavigateToTasks()
                 NavigationScreen.PLANNING -> onNavigateToPlanning()
@@ -867,18 +869,20 @@ fun ViewNoteDialog(
                         }
                     }
                 } else {
-                    // Note texte simple
+                    // Note texte simple - sélectionnable
                     if (note.content.isNotEmpty()) {
-                        Text(
-                            text = note.content,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = TextPrimary.copy(alpha = 0.9f),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(DarkSurfaceVariant)
-                                .padding(16.dp)
-                        )
+                        SelectionContainer {
+                            Text(
+                                text = note.content,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = TextPrimary.copy(alpha = 0.9f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(DarkSurfaceVariant)
+                                    .padding(16.dp)
+                            )
+                        }
                     }
                 }
 
