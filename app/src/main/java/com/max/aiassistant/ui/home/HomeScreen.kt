@@ -7,6 +7,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.max.aiassistant.data.api.WeatherData
@@ -93,7 +95,12 @@ fun HomeScreen(
 }
 
 /**
- * Contenu scrollable du HomeScreen
+ * Contenu du HomeScreen — layout fixe sans scroll, tout tient en hauteur
+ *
+ * Structure verticale avec weight() pour répartir l'espace disponible :
+ *   - Météo      : hauteur fixe (wrap_content)
+ *   - Résumé     : weight(1f) — prend l'espace restant
+ *   - Raccourcis : weight(2f) — prend 2× plus d'espace que le résumé
  */
 @Composable
 private fun HomeScreenContent(
@@ -109,62 +116,59 @@ private fun HomeScreenContent(
     onNavigateToNotes: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LazyColumn(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(DarkBackground)
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = Spacing.md.dp),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md.dp)
+            .padding(
+                start = Spacing.md.dp,
+                end = Spacing.md.dp,
+                top = Spacing.xl.dp,
+                bottom = Spacing.sm.dp
+            ),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
     ) {
-        // Espace en haut
-        item {
-            Spacer(modifier = Modifier.height(Spacing.xxl.dp))
-        }
-
-        // Bloc Météo
-        item {
-            if (weatherData != null) {
-                CurrentWeatherCard(
-                    weatherData = weatherData,
-                    cityName = cityName,
-                    onOpenSettings = { },
-                    onRadarClick = onNavigateToWeather
-                )
-            } else {
-                WeatherPlaceholderCard(onClick = onNavigateToWeather)
-            }
-        }
-
-        // Résumé du jour
-        item {
-            DailySummarySection(
-                tasks = tasks,
-                events = events
+        // ── Bloc Météo (hauteur naturelle) ──────────────────────────────
+        if (weatherData != null) {
+            CurrentWeatherCard(
+                weatherData = weatherData,
+                cityName = cityName,
+                onOpenSettings = { },
+                onRadarClick = onNavigateToWeather
             )
+        } else {
+            WeatherPlaceholderCard(onClick = onNavigateToWeather)
         }
 
-        // Grille de raccourcis
-        item {
-            QuickAccessGrid(
-                onNavigateToVoice = onNavigateToVoice,
-                onNavigateToChat = onNavigateToChat,
-                onNavigateToTasks = onNavigateToTasks,
-                onNavigateToPlanning = onNavigateToPlanning,
-                onNavigateToWeather = onNavigateToWeather,
-                onNavigateToNotes = onNavigateToNotes
-            )
-        }
+        // ── Résumé du jour (s'étire pour remplir) ───────────────────────
+        DailySummarySection(
+            tasks = tasks,
+            events = events,
+            onNavigateToTasks = onNavigateToTasks,
+            onNavigateToPlanning = onNavigateToPlanning,
+            modifier = Modifier.weight(1f)
+        )
 
-        // Espace en bas
-        item {
-            Spacer(modifier = Modifier.height(Spacing.xl.dp))
-        }
+        // ── Grille de raccourcis (prend 2× l'espace du résumé) ──────────
+        QuickAccessGrid(
+            onNavigateToVoice = onNavigateToVoice,
+            onNavigateToChat = onNavigateToChat,
+            onNavigateToTasks = onNavigateToTasks,
+            onNavigateToPlanning = onNavigateToPlanning,
+            onNavigateToWeather = onNavigateToWeather,
+            onNavigateToNotes = onNavigateToNotes,
+            modifier = Modifier.weight(2f)
+        )
     }
 }
 
 /**
- * Grille 2×3 de raccourcis rapides
+ * Grille de raccourcis — 3 lignes × 2 boutons, hauteur identique pour chaque bouton.
+ *
+ * Ligne 1 : Vocal  | Chat
+ * Ligne 2 : Tâches | Planning
+ * Ligne 3 : Météo  | Notes
  */
 @Composable
 private fun QuickAccessGrid(
@@ -174,10 +178,15 @@ private fun QuickAccessGrid(
     onNavigateToPlanning: () -> Unit,
     onNavigateToWeather: () -> Unit,
     onNavigateToNotes: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm.dp)) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
+    ) {
+        // ── Ligne 1 : Vocal + Chat ──────────────────────────────────────
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().weight(1f),
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
         ) {
             QuickAccessCard(
@@ -186,19 +195,21 @@ private fun QuickAccessGrid(
                 subtitle = "Parler avec Max",
                 gradientColors = GradientVoice,
                 onClick = onNavigateToVoice,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).fillMaxHeight()
             )
             QuickAccessCard(
                 icon = Icons.AutoMirrored.Filled.Chat,
                 title = "Chat",
-                subtitle = "Discuter par texte",
+                subtitle = "Discuter avec Max",
                 gradientColors = GradientChat,
                 onClick = onNavigateToChat,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).fillMaxHeight()
             )
         }
+
+        // ── Ligne 2 : Tâches + Planning ─────────────────────────────────
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().weight(1f),
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
         ) {
             QuickAccessCard(
@@ -207,7 +218,7 @@ private fun QuickAccessGrid(
                 subtitle = "Gérer mes tâches",
                 gradientColors = GradientTasks,
                 onClick = onNavigateToTasks,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).fillMaxHeight()
             )
             QuickAccessCard(
                 icon = Icons.Default.CalendarToday,
@@ -215,11 +226,13 @@ private fun QuickAccessGrid(
                 subtitle = "Voir mon agenda",
                 gradientColors = GradientPlanning,
                 onClick = onNavigateToPlanning,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).fillMaxHeight()
             )
         }
+
+        // ── Ligne 3 : Météo + Notes ─────────────────────────────────────
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().weight(1f),
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
         ) {
             QuickAccessCard(
@@ -228,15 +241,15 @@ private fun QuickAccessGrid(
                 subtitle = "Voir les prévisions",
                 gradientColors = GradientWeather,
                 onClick = onNavigateToWeather,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).fillMaxHeight()
             )
             QuickAccessCard(
                 icon = Icons.AutoMirrored.Filled.Notes,
                 title = "Notes",
-                subtitle = "Créer une note",
+                subtitle = "Prises de notes",
                 gradientColors = GradientNotes,
                 onClick = onNavigateToNotes,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).fillMaxHeight()
             )
         }
     }
@@ -293,33 +306,45 @@ private fun WeatherPlaceholderCard(onClick: () -> Unit) {
 }
 
 /**
- * Section résumé du jour
+ * Section résumé du jour — version enrichie
+ * - En-tête avec la date du jour
+ * - Tâche prioritaire mise en avant dans le sous-titre
+ * - Compteur d'événements + prochain événement nommé
+ * - Liens "Voir tout" vers Tâches et Planning
+ * - Barre gauche avec IntrinsicSize pour éviter la hauteur 0
  */
 @Composable
 private fun DailySummarySection(
     tasks: List<Task>,
-    events: List<Event>
+    events: List<Event>,
+    onNavigateToTasks: () -> Unit,
+    onNavigateToPlanning: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val today = Calendar.getInstance()
-
-    val todayTasks = tasks.filter { it.status != TaskStatus.COMPLETED }
-    val highPriorityTasks = todayTasks.filter { it.priority == TaskPriority.P1 || it.priority == TaskPriority.P2 }
-    val mediumPriorityTasks = todayTasks.filter { it.priority == TaskPriority.P3 }
-
     val now = Calendar.getInstance()
+
+    // ── Tâches ───────────────────────────────────────────────────────────
+    val pendingTasks = tasks.filter { it.status != TaskStatus.COMPLETED }
+    val highPriorityTask = pendingTasks.firstOrNull {
+        it.priority == TaskPriority.P1 || it.priority == TaskPriority.P2
+    }
+    val taskSubtitle = when {
+        pendingTasks.isEmpty() -> "Profitez de votre journée !"
+        highPriorityTask != null -> "Priorité : ${highPriorityTask.title}"
+        else -> "${pendingTasks.size} tâche${if (pendingTasks.size > 1) "s" else ""} en attente"
+    }
+
+    // ── Événements ───────────────────────────────────────────────────────
     val todayEvents = events.filter { event ->
         try {
             if (event.startDateTime.isNotEmpty()) {
                 val eventCal = parseIsoDate(event.startDateTime)
                 eventCal != null && isSameDay(eventCal, today)
-            } else if (event.date.isNotEmpty()) {
-                true
             } else {
-                false
+                event.date.isNotEmpty()
             }
-        } catch (e: Exception) {
-            false
-        }
+        } catch (e: Exception) { false }
     }
 
     val currentOrNextEvent = todayEvents.find { event ->
@@ -332,86 +357,113 @@ private fun DailySummarySection(
                 val hasEnded = endCal != null && now.timeInMillis >= endCal.timeInMillis
                 hasStarted && !hasEnded
             } else false
-        } catch (e: Exception) {
-            false
-        }
+        } catch (e: Exception) { false }
     } ?: todayEvents.find { event ->
         try {
             if (event.startDateTime.isEmpty()) return@find true
             val startCal = parseIsoDate(event.startDateTime)
             startCal != null && now.timeInMillis < startCal.timeInMillis
-        } catch (e: Exception) {
-            false
-        }
+        } catch (e: Exception) { false }
     } ?: todayEvents.firstOrNull()
 
+    val isEventOngoing = currentOrNextEvent != null && try {
+        val startCal = parseIsoDate(currentOrNextEvent.startDateTime)
+        startCal != null && now.timeInMillis >= startCal.timeInMillis
+    } catch (e: Exception) { false }
+
+    val eventSubtitle = when {
+        currentOrNextEvent == null -> "Journée libre"
+        isEventOngoing -> "En cours"
+        currentOrNextEvent.startTime == "Toute la journée" -> "Toute la journée"
+        else -> {
+            val timeUntil = calculateTimeUntil(currentOrNextEvent.startDateTime)
+            if (timeUntil.isNotEmpty()) "dans $timeUntil" else currentOrNextEvent.startTime
+        }
+    }
+
+    // ── En-tête : date du jour ────────────────────────────────────────────
+    val dayName = android.text.format.DateFormat.format("EEEE d MMMM", today).toString()
+        .replaceFirstChar { it.uppercase() }
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = DarkSurface),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(Spacing.md.dp),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md.dp)
+        // IntrinsicSize.Min garantit que la barre gauche prend bien la hauteur du contenu
+        Row(modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
         ) {
-            Text(
-                text = "Résumé du jour",
-                style = MaterialTheme.typography.titleMedium,
-                color = TextPrimary,
-                fontWeight = FontWeight.Bold
+            // Barre verticale gradient à gauche
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(AccentBlue, Color(0xFF3B3BFF))
+                        ),
+                        shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
+                    )
             )
 
-            if (todayTasks.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 14.dp, top = Spacing.md.dp, end = Spacing.md.dp, bottom = Spacing.md.dp),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md.dp)
+            ) {
+                // En-tête : titre + date
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Résumé du jour",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = dayName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextTertiary
+                    )
+                }
+
+                HorizontalDivider(
+                    color = Color.White.copy(alpha = 0.06f),
+                    thickness = 1.dp
+                )
+
+                // ── Ligne tâches ──────────────────────────────────────────
                 SummaryItem(
-                    icon = Icons.Default.CheckCircle,
-                    title = "${todayTasks.size} tâche${if (todayTasks.size > 1) "s" else ""} à faire",
-                    subtitle = buildString {
-                        if (highPriorityTasks.isNotEmpty()) append("${highPriorityTasks.size} priorité haute")
-                        if (mediumPriorityTasks.isNotEmpty()) {
-                            if (isNotEmpty()) append(" • ")
-                            append("${mediumPriorityTasks.size} priorité moyenne")
-                        }
+                    icon = if (pendingTasks.isEmpty()) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                    title = if (pendingTasks.isEmpty()) "Aucune tâche en attente"
+                            else "${pendingTasks.size} tâche${if (pendingTasks.size > 1) "s" else ""} à faire",
+                    subtitle = taskSubtitle,
+                    iconTint = if (pendingTasks.isEmpty()) CompletedGreen else HighOrange,
+                    actionLabel = if (pendingTasks.isNotEmpty()) "Voir tout" else null,
+                    onAction = onNavigateToTasks
+                )
+
+                // ── Ligne événements ──────────────────────────────────────
+                SummaryItem(
+                    icon = Icons.Default.Event,
+                    title = currentOrNextEvent?.title ?: "Aucun événement prévu",
+                    subtitle = if (todayEvents.size > 1)
+                        "$eventSubtitle  ·  ${todayEvents.size} événements"
+                    else
+                        eventSubtitle,
+                    iconTint = when {
+                        currentOrNextEvent == null -> TextTertiary
+                        isEventOngoing -> CompletedGreen
+                        else -> Color(0xFF9C27B0)
                     },
-                    iconTint = HighOrange
-                )
-            } else {
-                SummaryItem(
-                    icon = Icons.Default.CheckCircle,
-                    title = "Aucune tâche en attente",
-                    subtitle = "Profitez de votre journée !",
-                    iconTint = CompletedGreen
-                )
-            }
-
-            if (currentOrNextEvent != null) {
-                val isOngoing = try {
-                    val startCal = parseIsoDate(currentOrNextEvent.startDateTime)
-                    startCal != null && now.timeInMillis >= startCal.timeInMillis
-                } catch (e: Exception) {
-                    false
-                }
-
-                val timeInfo = when {
-                    isOngoing -> "En cours"
-                    currentOrNextEvent.startTime == "Toute la journée" -> "Toute la journée"
-                    else -> {
-                        val timeUntil = calculateTimeUntil(currentOrNextEvent.startDateTime)
-                        if (timeUntil.isNotEmpty()) "dans $timeUntil" else currentOrNextEvent.startTime
-                    }
-                }
-
-                SummaryItem(
-                    icon = Icons.Default.Event,
-                    title = currentOrNextEvent.title,
-                    subtitle = timeInfo,
-                    iconTint = if (isOngoing) CompletedGreen else Color(0xFF9C27B0)
-                )
-            } else {
-                SummaryItem(
-                    icon = Icons.Default.Event,
-                    title = "Aucun événement prévu",
-                    subtitle = "Journée libre",
-                    iconTint = TextTertiary
+                    actionLabel = if (todayEvents.isNotEmpty()) "Agenda" else null,
+                    onAction = onNavigateToPlanning
                 )
             }
         }
@@ -419,24 +471,27 @@ private fun DailySummarySection(
 }
 
 /**
- * Item de résumé (icône + texte)
+ * Item de résumé (icône + texte + lien optionnel)
  */
 @Composable
 private fun SummaryItem(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    iconTint: Color
+    iconTint: Color,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        // Icône avec fond coloré subtil
+        // Icône avec fond circulaire coloré
         Box(
             modifier = Modifier
                 .size(36.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .clip(CircleShape)
                 .background(iconTint.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
         ) {
@@ -447,26 +502,45 @@ private fun SummaryItem(
                 modifier = Modifier.size(20.dp)
             )
         }
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextPrimary,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             if (subtitle.isNotEmpty()) {
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
+                    color = TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+        // Lien "Voir tout" / "Agenda"
+        if (actionLabel != null && onAction != null) {
+            Text(
+                text = actionLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = AccentBlue,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable(onClick = onAction)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
         }
     }
 }
 
 /**
- * Carte de raccourci rapide avec animation au tap
+ * Carte de raccourci rapide avec animation au tap.
+ * La hauteur est contrôlée par le modifier extérieur (fillMaxHeight + weight).
+ * iconSize : taille de l'icône en dp (défaut 22, hero = 28)
  */
 @Composable
 private fun QuickAccessCard(
@@ -475,9 +549,10 @@ private fun QuickAccessCard(
     subtitle: String,
     gradientColors: List<Color>,
     onClick: () -> Unit,
+    iconSize: Int = 22,
     modifier: Modifier = Modifier
 ) {
-    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
     val scale by animateFloatAsState(
@@ -491,51 +566,55 @@ private fun QuickAccessCard(
 
     Card(
         modifier = modifier
-            .height(80.dp)
             .graphicsLayer(scaleX = scale, scaleY = scale)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick
             ),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        shape = RoundedCornerShape(14.dp)
+        shape = RoundedCornerShape(16.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Brush.linearGradient(gradientColors))
-                .padding(horizontal = Spacing.md.dp, vertical = Spacing.sm.dp)
+                .padding(horizontal = Spacing.md.dp, vertical = Spacing.sm.dp),
+            contentAlignment = Alignment.CenterStart
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
+                // Fond circulaire semi-transparent autour de l'icône
+                Box(
+                    modifier = Modifier
+                        .size((iconSize + 20).dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = title,
                         tint = Color.White,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(iconSize.dp)
                     )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleSmall,
                         color = Color.White,
                         fontWeight = FontWeight.Bold
                     )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White.copy(alpha = 0.75f)
+                    )
                 }
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(start = 30.dp)
-                )
             }
         }
     }

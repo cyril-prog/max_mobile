@@ -1,16 +1,17 @@
 package com.max.aiassistant.data.realtime
 
+import android.content.Context
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
+import android.media.audiofx.AcousticEchoCanceler
 import android.util.Base64
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -24,9 +25,18 @@ import java.util.concurrent.LinkedBlockingQueue
  * - Conversion en Base64 pour envoi à l'API
  * - Lecture audio via AudioTrack (réception depuis l'API)
  * - Décodage Base64 vers PCM16
+ * - Suppression d'écho : mode MODE_IN_COMMUNICATION + AEC hardware + pause micro pendant le playback IA
+ *
+ * Timing correct du micro :
+ *   startSpeaking()  → appelé sur chaque ResponseAudioDelta (micro en pause)
+ *   markAudioDone()  → appelé sur ResponseAudioDone (signale que l'envoi réseau est terminé)
+ *   Le micro ne reprend QUE quand la queue de playback est entièrement vidée,
+ *   afin d'éviter que le micro capte la fin de la réponse IA encore en cours de lecture.
  */
 class RealtimeAudioManager(
-    private val onAudioChunk: (String) -> Unit // Callback pour envoyer les chunks audio
+    private val context: Context,
+    private val onAudioChunk: (String) -> Unit, // Callback pour envoyer les chunks audio
+    private val onSpeakingFinished: (() -> Unit)? = null // Callback quand le playback est vraiment terminé
 ) {
     private val TAG = "RealtimeAudioManager"
 
@@ -41,11 +51,22 @@ class RealtimeAudioManager(
 
     private var audioRecord: AudioRecord? = null
     private var audioTrack: AudioTrack? = null
+    private var echoCanceler: AcousticEchoCanceler? = null
     private var recordingJob: Job? = null
     private var playbackJob: Job? = null
     private var audioChunkQueue = LinkedBlockingQueue<ShortArray>()
     private var isRecording = false
     private var isPlaybackActive = false
+
+    // Flag : true pendant que l'IA joue sa réponse audio
+    // Quand true, les chunks micro sont capturés mais NOT envoyés au serveur
+    @Volatile
+    private var isSpeaking = false
+
+    // Flag : true quand ResponseAudioDone a été reçu (réseau fini)
+    // Le micro reprend seulement quand ce flag est true ET la queue est vide
+    @Volatile
+    private var pendingAudioDone = false
 
     // Buffer pour l'enregistrement
     private val recordBufferSize = AudioRecord.getMinBufferSize(
@@ -62,8 +83,8 @@ class RealtimeAudioManager(
     ) * BUFFER_SIZE_MULTIPLIER
 
     /**
-     * Démarre l'enregistrement audio
-     * Capture l'audio du micro et envoie les chunks via le callback
+     * Démarre l'enregistrement audio.
+     * Configure AudioManager en MODE_IN_COMMUNICATION pour activer l'AEC hardware.
      */
     fun startRecording() {
         if (isRecording) {
@@ -72,6 +93,11 @@ class RealtimeAudioManager(
         }
 
         try {
+            // ── Mode téléphonie : active l'AEC hardware ──────────────────
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            Log.d(TAG, "AudioManager mode → MODE_IN_COMMUNICATION")
+
             // Initialise AudioRecord
             audioRecord = AudioRecord(
                 MediaRecorder.AudioSource.VOICE_COMMUNICATION,
@@ -84,6 +110,16 @@ class RealtimeAudioManager(
             if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
                 Log.e(TAG, "Échec d'initialisation d'AudioRecord")
                 return
+            }
+
+            // ── Active l'AEC software en fallback si le hardware le supporte ──
+            val audioSessionId = audioRecord!!.audioSessionId
+            if (AcousticEchoCanceler.isAvailable()) {
+                echoCanceler = AcousticEchoCanceler.create(audioSessionId)
+                echoCanceler?.enabled = true
+                Log.d(TAG, "AcousticEchoCanceler activé (session $audioSessionId)")
+            } else {
+                Log.w(TAG, "AcousticEchoCanceler non disponible sur cet appareil")
             }
 
             // Initialise AudioTrack pour la lecture (mode non-bloquant)
@@ -105,6 +141,8 @@ class RealtimeAudioManager(
             audioRecord?.startRecording()
             isRecording = true
             isPlaybackActive = true
+            isSpeaking = false
+            pendingAudioDone = false
 
             Log.d(TAG, "Enregistrement audio démarré")
 
@@ -126,7 +164,7 @@ class RealtimeAudioManager(
     }
 
     /**
-     * Arrête l'enregistrement audio
+     * Arrête l'enregistrement audio et restaure le mode audio normal.
      */
     fun stopRecording() {
         if (!isRecording) {
@@ -136,10 +174,15 @@ class RealtimeAudioManager(
 
         isRecording = false
         isPlaybackActive = false
+        isSpeaking = false
+        pendingAudioDone = false
         recordingJob?.cancel()
         playbackJob?.cancel()
 
         try {
+            echoCanceler?.release()
+            echoCanceler = null
+
             audioRecord?.stop()
             audioRecord?.release()
             audioRecord = null
@@ -151,6 +194,11 @@ class RealtimeAudioManager(
             // Vide la queue
             audioChunkQueue.clear()
 
+            // ── Restaure le mode audio normal ────────────────────────────
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioManager.mode = AudioManager.MODE_NORMAL
+            Log.d(TAG, "AudioManager mode → MODE_NORMAL")
+
             Log.d(TAG, "Enregistrement audio arrêté")
         } catch (e: Exception) {
             Log.e(TAG, "Erreur lors de l'arrêt de l'enregistrement", e)
@@ -158,7 +206,8 @@ class RealtimeAudioManager(
     }
 
     /**
-     * Capture l'audio et envoie les chunks en Base64
+     * Capture l'audio et envoie les chunks en Base64.
+     * Les chunks sont silencieusement ignorés (non envoyés) pendant que l'IA parle.
      */
     private suspend fun captureAudio() {
         val buffer = ShortArray(recordBufferSize / 2) // ShortArray car PCM16
@@ -168,6 +217,9 @@ class RealtimeAudioManager(
                 val readResult = audioRecord?.read(buffer, 0, buffer.size) ?: 0
 
                 if (readResult > 0) {
+                    // ── Ne pas envoyer pendant le playback IA ────────────
+                    if (isSpeaking) continue
+
                     // Convertit ShortArray en ByteArray (PCM16)
                     val byteBuffer = ByteBuffer.allocate(readResult * 2)
                     byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
@@ -191,6 +243,23 @@ class RealtimeAudioManager(
                 break
             }
         }
+    }
+
+    /**
+     * Signale le début du playback IA — suspend l'envoi micro.
+     */
+    fun startSpeaking() {
+        isSpeaking = true
+        Log.d(TAG, "IA commence à parler → micro en pause")
+    }
+
+    /**
+     * Signale que le serveur a fini d'envoyer les chunks audio (ResponseAudioDone).
+     * Le micro reprendra seulement quand la queue de playback sera entièrement vidée.
+     */
+    fun markAudioDone() {
+        pendingAudioDone = true
+        Log.d(TAG, "ResponseAudioDone reçu → en attente vidage de la queue avant de réactiver le micro")
     }
 
     /**
@@ -219,8 +288,9 @@ class RealtimeAudioManager(
     }
 
     /**
-     * Consomme la queue de chunks audio et les joue de manière séquentielle
-     * S'exécute dans un thread background dédié
+     * Consomme la queue de chunks audio et les joue de manière séquentielle.
+     * Ne remet le micro actif (isSpeaking = false) que quand la queue est entièrement vidée
+     * ET que pendingAudioDone == true (signal que le serveur a fini d'envoyer).
      */
     private suspend fun playbackAudioChunks() {
         while (isPlaybackActive) {
@@ -234,6 +304,14 @@ class RealtimeAudioManager(
 
                     if (written < 0) {
                         Log.e(TAG, "Erreur d'écriture AudioTrack: $written")
+                    }
+                } else {
+                    // Queue vide : si le serveur a signalé la fin, on reprend le micro
+                    if (pendingAudioDone && isSpeaking) {
+                        isSpeaking = false
+                        pendingAudioDone = false
+                        Log.d(TAG, "Queue vidée après ResponseAudioDone → micro actif")
+                        onSpeakingFinished?.invoke()
                     }
                 }
             } catch (e: InterruptedException) {

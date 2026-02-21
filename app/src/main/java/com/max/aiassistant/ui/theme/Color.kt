@@ -55,12 +55,18 @@ val BorderColor = Color(0xFF3A3A3C)              // Bordure subtile
 val BorderColorLight = Color(0xFF48484A)         // Bordure plus visible
 
 // ─── Gradients prédéfinis ────────────────────────────────────────────
-val GradientVoice = listOf(Color(0xFF0A84FF), Color(0xFF0066CC))
-val GradientChat = listOf(Color(0xFF34C759), Color(0xFF28A046))
-val GradientTasks = listOf(Color(0xFFFF6B35), Color(0xFFE5471A))
-val GradientPlanning = listOf(Color(0xFF9C27B0), Color(0xFF7B1FA2))
-val GradientWeather = listOf(Color(0xFF00BCD4), Color(0xFF0097A7))
-val GradientNotes = listOf(Color(0xFFD32F2F), Color(0xFFC62828))
+// Voice : violet chaud → rose magenta (vivant, expressif)
+val GradientVoice = listOf(Color(0xFF7C3AED), Color(0xFFDB2777))
+// Chat : bleu électrique → cyan (technologie, fluidité)
+val GradientChat = listOf(Color(0xFF0A84FF), Color(0xFF00C6FB))
+// Tasks : orange brûlé → rouge corail (énergie, action)
+val GradientTasks = listOf(Color(0xFFFF6B35), Color(0xFFEA4C1D))
+// Planning : teal profond → émeraude (organisation, clarté)
+val GradientPlanning = listOf(Color(0xFF0D9488), Color(0xFF059669))
+// Weather : bleu nuit → cyan ciel (atmosphère, horizon)
+val GradientWeather = listOf(Color(0xFF1E40AF), Color(0xFF0891B2))
+// Notes : indigo → violet moyen (créativité, réflexion)
+val GradientNotes = listOf(Color(0xFF4F46E5), Color(0xFF7C3AED))
 
 // ─── Système de Spacing ──────────────────────────────────────────────
 // Utiliser ces constantes plutôt que des valeurs hardcodées

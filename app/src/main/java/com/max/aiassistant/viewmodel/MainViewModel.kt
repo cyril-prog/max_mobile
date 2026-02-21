@@ -21,6 +21,7 @@ import com.max.aiassistant.data.realtime.RealtimeAudioManager
 import com.max.aiassistant.data.realtime.RealtimeServerEvent
 import com.max.aiassistant.model.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -57,6 +58,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Service Realtime (initialisé paresseusement)
     private var realtimeService: RealtimeApiService? = null
     private var audioManager: RealtimeAudioManager? = null
+
+    // Jobs des collecteurs Realtime — annulés à chaque déconnexion pour éviter les doublons
+    private var realtimeEventsJob: Job? = null
+    private var realtimeErrorsJob: Job? = null
+    private var realtimeConnectionJob: Job? = null
 
     // Contexte système pour enrichir le prompt du voice-to-voice
     private var systemContext: String = ""
@@ -982,7 +988,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var messageIdCounter = 0
 
     // Dernière transcription utilisateur (en attente de la réponse IA)
-    private var pendingUserTranscript: String? = null
+    // File d'attente pour éviter qu'une transcription rapide écrase la précédente
+    private val pendingUserTranscripts = kotlin.collections.ArrayDeque<String>()
 
     /**
      * Toggle la connexion à l'API Realtime
@@ -1006,35 +1013,55 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun connectRealtime() {
         Log.d(TAG, "Connexion à l'API Realtime...")
 
+        // Annule les collecteurs de la session précédente (évite les doublons)
+        realtimeEventsJob?.cancel()
+        realtimeErrorsJob?.cancel()
+        realtimeConnectionJob?.cancel()
+        realtimeEventsJob = null
+        realtimeErrorsJob = null
+        realtimeConnectionJob = null
+
         // Initialise le service Realtime
         realtimeService = RealtimeApiService(OPENAI_API_KEY)
 
         // Initialise le gestionnaire audio
-        audioManager = RealtimeAudioManager { base64Audio ->
-            // Callback appelé pour chaque chunk audio capturé
-            realtimeService?.sendAudioChunk(base64Audio)
-        }
+        audioManager = RealtimeAudioManager(
+            context = getApplication(),
+            onAudioChunk = { base64Audio ->
+                // Callback appelé pour chaque chunk audio capturé
+                realtimeService?.sendAudioChunk(base64Audio)
+            },
+            onSpeakingFinished = {
+                // Le playback IA est vraiment terminé (queue vidée) :
+                // purge le buffer d'entrée côté serveur pour éliminer ce que le micro
+                // a pu capter pendant le playback (écho résiduel avant que isSpeaking soit actif)
+                realtimeService?.clearAudioBuffer()
+                Log.d(TAG, "Playback IA terminé → input_audio_buffer.clear envoyé")
+            }
+        )
 
-        // Observe les événements du serveur
-        viewModelScope.launch {
+        // Observe les événements du serveur — Job stocké pour pouvoir l'annuler
+        realtimeEventsJob = viewModelScope.launch {
             realtimeService?.serverEvents?.collect { event ->
                 handleRealtimeEvent(event)
             }
         }
 
-        // Observe les erreurs
-        viewModelScope.launch {
+        // Observe les erreurs — Job stocké
+        realtimeErrorsJob = viewModelScope.launch {
             realtimeService?.errors?.collect { error ->
                 Log.e(TAG, "Erreur Realtime: $error")
             }
         }
 
-        // Observe l'état de connexion
-        viewModelScope.launch {
+        // Observe l'état de connexion — Job stocké
+        // On utilise un flag pour ne démarrer l'enregistrement qu'une seule fois
+        var recordingStarted = false
+        realtimeConnectionJob = viewModelScope.launch {
             realtimeService?.isConnected?.collect { connected ->
                 _isRealtimeConnected.value = connected
-                if (connected) {
-                    // Démarre l'enregistrement audio une fois connecté
+                if (connected && !recordingStarted) {
+                    recordingStarted = true
                     audioManager?.startRecording()
                     Log.d(TAG, "Connexion Realtime établie, enregistrement démarré")
                 }
@@ -1056,6 +1083,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     private fun disconnectRealtime() {
         Log.d(TAG, "Déconnexion de l'API Realtime...")
+
+        // Annule tous les collecteurs pour éviter qu'ils tournent en arrière-plan
+        realtimeEventsJob?.cancel()
+        realtimeErrorsJob?.cancel()
+        realtimeConnectionJob?.cancel()
+        realtimeEventsJob = null
+        realtimeErrorsJob = null
+        realtimeConnectionJob = null
 
         // Arrête l'enregistrement audio
         audioManager?.stopRecording()
@@ -1098,29 +1133,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             is RealtimeServerEvent.InputAudioTranscriptionCompleted -> {
                 Log.d(TAG, "*** Transcription utilisateur reçue: ${event.transcript}")
-                // Stocke la transcription utilisateur en attente de la réponse IA
-                pendingUserTranscript = event.transcript
-                Log.d(TAG, "*** pendingUserTranscript stocké: $pendingUserTranscript")
+                // Empile la transcription en attente de la réponse IA correspondante
+                pendingUserTranscripts.addLast(event.transcript)
+                Log.d(TAG, "*** pendingUserTranscripts taille: ${pendingUserTranscripts.size}")
             }
 
             is RealtimeServerEvent.ResponseAudioTranscriptDone -> {
                 Log.d(TAG, "*** Transcription IA reçue: ${event.transcript}")
-                Log.d(TAG, "*** pendingUserTranscript avant ajout: $pendingUserTranscript")
+                // Dépile la transcription utilisateur la plus ancienne (FIFO)
+                val userTranscript = pendingUserTranscripts.removeFirstOrNull() ?: ""
+                Log.d(TAG, "*** userTranscript associé: $userTranscript")
                 _voiceTranscript.value = event.transcript
                 _liveTranscript.value = ""
 
                 // Ajoute la paire utilisateur + IA à la conversation
-                addConversationPair(pendingUserTranscript ?: "", event.transcript)
-                pendingUserTranscript = null
+                addConversationPair(userTranscript, event.transcript)
             }
 
             is RealtimeServerEvent.ResponseAudioDelta -> {
-                // Chunk audio reçu de l'IA, on le joue
+                // Chunk audio reçu de l'IA : pause micro + lecture
+                audioManager?.startSpeaking()
                 audioManager?.playAudioChunk(event.delta)
             }
 
             is RealtimeServerEvent.ResponseAudioDone -> {
-                Log.d(TAG, "Réponse audio terminée")
+                // Fin de l'envoi réseau : le micro reprendra quand la queue sera vidée
+                audioManager?.markAudioDone()
+                Log.d(TAG, "Réponse audio terminée (réseau)")
             }
 
             is RealtimeServerEvent.ResponseTextDelta -> {
@@ -1221,7 +1260,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         conversationMessages.clear()
         sessionId = UUID.randomUUID().toString()
         messageIdCounter = 0
-        pendingUserTranscript = null
+        pendingUserTranscripts.clear()
         Log.d(TAG, "Conversation réinitialisée avec nouveau session ID: $sessionId")
     }
 
