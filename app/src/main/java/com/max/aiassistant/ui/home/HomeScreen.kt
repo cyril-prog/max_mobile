@@ -59,6 +59,7 @@ fun HomeScreen(
     onNavigateToPlanning: () -> Unit,
     onNavigateToWeather: () -> Unit,
     onNavigateToNotes: () -> Unit,
+    onNavigateToActu: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val sidebarState = rememberNavigationSidebarState()
@@ -74,6 +75,7 @@ fun HomeScreen(
                 NavigationScreen.PLANNING -> onNavigateToPlanning()
                 NavigationScreen.WEATHER -> onNavigateToWeather()
                 NavigationScreen.NOTES -> onNavigateToNotes()
+                NavigationScreen.ACTU -> onNavigateToActu()
             }
         },
         sidebarState = sidebarState
@@ -89,6 +91,7 @@ fun HomeScreen(
             onNavigateToPlanning = onNavigateToPlanning,
             onNavigateToWeather = onNavigateToWeather,
             onNavigateToNotes = onNavigateToNotes,
+            onNavigateToActu = onNavigateToActu,
             modifier = modifier
         )
     }
@@ -114,6 +117,7 @@ private fun HomeScreenContent(
     onNavigateToPlanning: () -> Unit,
     onNavigateToWeather: () -> Unit,
     onNavigateToNotes: () -> Unit,
+    onNavigateToActu: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -156,8 +160,8 @@ private fun HomeScreenContent(
             onNavigateToChat = onNavigateToChat,
             onNavigateToTasks = onNavigateToTasks,
             onNavigateToPlanning = onNavigateToPlanning,
-            onNavigateToWeather = onNavigateToWeather,
             onNavigateToNotes = onNavigateToNotes,
+            onNavigateToActu = onNavigateToActu,
             modifier = Modifier.weight(2f)
         )
     }
@@ -166,9 +170,9 @@ private fun HomeScreenContent(
 /**
  * Grille de raccourcis — 3 lignes × 2 boutons, hauteur identique pour chaque bouton.
  *
- * Ligne 1 : Vocal  | Chat
- * Ligne 2 : Tâches | Planning
- * Ligne 3 : Météo  | Notes
+ * Ligne 1 : Vocal      | Chat
+ * Ligne 2 : Tâches     | Planning
+ * Ligne 3 : Notes      | Actualités
  */
 @Composable
 private fun QuickAccessGrid(
@@ -176,8 +180,8 @@ private fun QuickAccessGrid(
     onNavigateToChat: () -> Unit,
     onNavigateToTasks: () -> Unit,
     onNavigateToPlanning: () -> Unit,
-    onNavigateToWeather: () -> Unit,
     onNavigateToNotes: () -> Unit,
+    onNavigateToActu: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -230,25 +234,25 @@ private fun QuickAccessGrid(
             )
         }
 
-        // ── Ligne 3 : Météo + Notes ─────────────────────────────────────
+        // ── Ligne 3 : Notes + Actualités ────────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth().weight(1f),
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
         ) {
-            QuickAccessCard(
-                icon = Icons.Default.WbSunny,
-                title = "Météo",
-                subtitle = "Voir les prévisions",
-                gradientColors = GradientWeather,
-                onClick = onNavigateToWeather,
-                modifier = Modifier.weight(1f).fillMaxHeight()
-            )
             QuickAccessCard(
                 icon = Icons.AutoMirrored.Filled.Notes,
                 title = "Notes",
                 subtitle = "Prises de notes",
                 gradientColors = GradientNotes,
                 onClick = onNavigateToNotes,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            )
+            QuickAccessCard(
+                icon = Icons.Default.Newspaper,
+                title = "Actualités",
+                subtitle = "Actualité du jour & IA",
+                gradientColors = GradientActu,
+                onClick = onNavigateToActu,
                 modifier = Modifier.weight(1f).fillMaxHeight()
             )
         }

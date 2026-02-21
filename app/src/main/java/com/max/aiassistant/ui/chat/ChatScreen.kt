@@ -87,6 +87,7 @@ fun ChatScreen(
     onNavigateToPlanning: () -> Unit = {},
     onNavigateToWeather: () -> Unit = {},
     onNavigateToNotes: () -> Unit = {},
+    onNavigateToActu: () -> Unit = {},
     initialText: String = "",
     onInitialTextConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -104,6 +105,7 @@ fun ChatScreen(
                 NavigationScreen.PLANNING -> onNavigateToPlanning()
                 NavigationScreen.WEATHER -> onNavigateToWeather()
                 NavigationScreen.NOTES -> onNavigateToNotes()
+                NavigationScreen.ACTU -> onNavigateToActu()
             }
         },
         sidebarState = sidebarState
@@ -197,8 +199,42 @@ private fun ChatScreenContent(
             .fillMaxSize()
             .background(DarkBackground)
     ) {
-        // Espace en haut pour éviter que les messages soient coupés
-        Spacer(modifier = Modifier.height(32.dp))
+        // TopBar harmonisé
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(DarkBackground)
+                .statusBarsPadding()
+                .padding(horizontal = Spacing.md.dp, vertical = Spacing.sm.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(GradientChat)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ChatBubbleOutline,
+                        contentDescription = null,
+                        tint = TextPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Text(
+                    text = "Chat",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
 
         // Zone de messages (se compresse quand le clavier apparaît)
         if (messages.isEmpty() && !isWaitingForAiResponse) {

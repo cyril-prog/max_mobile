@@ -67,6 +67,8 @@ val GradientPlanning = listOf(Color(0xFF0D9488), Color(0xFF059669))
 val GradientWeather = listOf(Color(0xFF1E40AF), Color(0xFF0891B2))
 // Notes : indigo → violet moyen (créativité, réflexion)
 val GradientNotes = listOf(Color(0xFF4F46E5), Color(0xFF7C3AED))
+// Actualités : ambre doré → rouge corail (presse, urgence, info)
+val GradientActu = listOf(Color(0xFFF59E0B), Color(0xFFEF4444))
 
 // ─── Système de Spacing ──────────────────────────────────────────────
 // Utiliser ces constantes plutôt que des valeurs hardcodées

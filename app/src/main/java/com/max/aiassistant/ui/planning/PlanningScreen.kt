@@ -2,12 +2,18 @@ package com.max.aiassistant.ui.planning
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.max.aiassistant.model.Event
@@ -36,6 +42,7 @@ fun PlanningScreen(
     onNavigateToTasks: () -> Unit = {},
     onNavigateToWeather: () -> Unit = {},
     onNavigateToNotes: () -> Unit = {},
+    onNavigateToActu: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val sidebarState = rememberNavigationSidebarState()
@@ -51,6 +58,7 @@ fun PlanningScreen(
                 NavigationScreen.PLANNING -> { /* Déjà sur cet écran */ }
                 NavigationScreen.WEATHER -> onNavigateToWeather()
                 NavigationScreen.NOTES -> onNavigateToNotes()
+                NavigationScreen.ACTU -> onNavigateToActu()
             }
         },
         sidebarState = sidebarState
@@ -81,20 +89,44 @@ private fun PlanningScreenContent(
             .background(DarkBackground)
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
-        // Espace en haut (aligné avec l'écran Tâches)
-        Spacer(modifier = Modifier.height(48.dp))
-
-        // En-tête avec titre
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            Text(
-                text = "Planning",
-                style = MaterialTheme.typography.headlineMedium,
-                color = TextPrimary,
-                fontWeight = FontWeight.Bold
-            )
+        // TopBar harmonisé
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(DarkBackground)
+                .statusBarsPadding()
+                .padding(horizontal = Spacing.md.dp, vertical = Spacing.sm.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(GradientPlanning)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        tint = TextPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Text(
+                    text = "Planning",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Contenu du planning (réutilise AgendaContent de TasksScreen)
         Box(

@@ -93,6 +93,7 @@ fun TasksScreen(
     onNavigateToPlanning: () -> Unit = {},
     onNavigateToWeather: () -> Unit = {},
     onNavigateToNotes: () -> Unit = {},
+    onNavigateToActu: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val sidebarState = rememberNavigationSidebarState()
@@ -108,6 +109,7 @@ fun TasksScreen(
                 NavigationScreen.PLANNING -> onNavigateToPlanning()
                 NavigationScreen.WEATHER -> onNavigateToWeather()
                 NavigationScreen.NOTES -> onNavigateToNotes()
+                NavigationScreen.ACTU -> onNavigateToActu()
             }
         },
         sidebarState = sidebarState
@@ -219,21 +221,45 @@ private fun TasksScreenContent(
             .background(DarkBackground)
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
-        // Espace en haut pour éviter que le calendrier soit coupé
-        Spacer(modifier = Modifier.height(32.dp))
+        // TopBar harmonisé
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(DarkBackground)
+                .statusBarsPadding()
+                .padding(horizontal = Spacing.md.dp, vertical = Spacing.sm.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(GradientTasks)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = TextPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Text(
+                    text = "Tâches",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
 
-        // En-tête avec titre et barre d'actions
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Tâches",
-                style = MaterialTheme.typography.headlineMedium,
-                color = TextPrimary,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Barre de filtres et création
+        // Barre de filtres et création
+        Column(modifier = Modifier.padding(horizontal = Spacing.md.dp)) {
             TaskActionBar(
                 hasActiveFilters = filterCategory != null || filterPriority != null || filterDeadlineDate != null,
                 currentSortOrder = sortOrder,

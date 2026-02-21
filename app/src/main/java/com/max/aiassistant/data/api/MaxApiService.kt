@@ -55,6 +55,11 @@ interface MaxApiService {
     @POST("webhook/del_subtask")
     suspend fun deleteSubTask(@Body subTask: SubTaskDeleteRequest): Response<ResponseBody>
 
+    // ========== ACTUALITÉS ==========
+
+    @POST("webhook/get_actu")
+    suspend fun getActu(): ActuApiResponse
+
     companion object {
         private const val BASE_URL = "https://n8n.srv1086212.hstgr.cloud/"
 

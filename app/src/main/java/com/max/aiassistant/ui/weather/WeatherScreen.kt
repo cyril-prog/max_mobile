@@ -75,6 +75,7 @@ fun WeatherScreen(
     onNavigateToTasks: () -> Unit = {},
     onNavigateToPlanning: () -> Unit = {},
     onNavigateToNotes: () -> Unit = {},
+    onNavigateToActu: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val sidebarState = rememberNavigationSidebarState()
@@ -90,6 +91,7 @@ fun WeatherScreen(
                 NavigationScreen.PLANNING -> onNavigateToPlanning()
                 NavigationScreen.WEATHER -> { /* Déjà sur cet écran */ }
                 NavigationScreen.NOTES -> onNavigateToNotes()
+                NavigationScreen.ACTU -> onNavigateToActu()
             }
         },
         sidebarState = sidebarState

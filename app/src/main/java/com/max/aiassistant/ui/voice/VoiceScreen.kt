@@ -60,6 +60,7 @@ fun VoiceScreen(
     onNavigateToPlanning: () -> Unit = {},
     onNavigateToWeather: () -> Unit,
     onNavigateToNotes: () -> Unit,
+    onNavigateToActu: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val sidebarState = rememberNavigationSidebarState()
@@ -75,6 +76,7 @@ fun VoiceScreen(
                 NavigationScreen.PLANNING -> onNavigateToPlanning()
                 NavigationScreen.WEATHER -> onNavigateToWeather()
                 NavigationScreen.NOTES -> onNavigateToNotes()
+                NavigationScreen.ACTU -> onNavigateToActu()
             }
         },
         sidebarState = sidebarState
@@ -128,12 +130,55 @@ private fun VoiceScreenContent(
         modifier = modifier
             .fillMaxSize()
             .background(DarkBackground)
-            .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 24.dp),
+            .windowInsetsPadding(WindowInsets.navigationBars),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Espacement haut
-        Spacer(modifier = Modifier.height(48.dp))
+        // TopBar harmonisé
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(DarkBackground)
+                .statusBarsPadding()
+                .padding(horizontal = Spacing.md.dp, vertical = Spacing.sm.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(GradientVoice)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Mic,
+                        contentDescription = null,
+                        tint = TextPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Text(
+                    text = "Vocal",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        // Contenu centré avec padding horizontal
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Indicateur d'état de connexion
         ConnectionStatusBadge(isConnected = isRealtimeConnected)
@@ -184,6 +229,7 @@ private fun VoiceScreenContent(
         )
 
         Spacer(modifier = Modifier.height(32.dp))
+        } // fin Column interne (padding horizontal)
     }
 }
 

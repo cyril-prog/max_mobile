@@ -57,7 +57,8 @@ enum class NavigationScreen {
     TASKS,    // Page 3 - Tâches
     PLANNING, // Page 4 - Planning/Agenda
     WEATHER,  // Page 5 - Météo
-    NOTES     // Page 6 - Notes
+    NOTES,    // Page 6 - Notes
+    ACTU      // Page 8 - Actualités
 }
 
 /**
@@ -208,7 +209,8 @@ private fun FloatingNavigationSidebar(
         Triple(NavigationScreen.TASKS, Icons.Default.CheckCircle, "Tâches"),
         Triple(NavigationScreen.PLANNING, Icons.Default.CalendarMonth, "Planning"),
         Triple(NavigationScreen.WEATHER, Icons.Default.WbSunny, "Météo"),
-        Triple(NavigationScreen.NOTES, Icons.Default.Edit, "Notes")
+        Triple(NavigationScreen.NOTES, Icons.Default.Edit, "Notes"),
+        Triple(NavigationScreen.ACTU, Icons.Default.Newspaper, "Actualités")
     )
     
     val currentIndex = screens.indexOfFirst { it.first == currentScreen }

@@ -16,6 +16,8 @@ import com.max.aiassistant.data.api.toTask
 import com.max.aiassistant.data.api.toEvent
 import com.max.aiassistant.data.api.toUpdateRequest
 import com.max.aiassistant.data.api.toWeatherData
+import com.max.aiassistant.data.api.toActuArticle
+import com.max.aiassistant.data.api.toRechercheArticle
 import com.max.aiassistant.data.realtime.RealtimeApiService
 import com.max.aiassistant.data.realtime.RealtimeAudioManager
 import com.max.aiassistant.data.realtime.RealtimeServerEvent
@@ -860,6 +862,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _notes.value = _notes.value.filter { it.id != noteId }
         notesPreferences.saveNotes(_notes.value)
         Log.d(TAG, "Note supprimée: $noteId")
+    }
+
+    // ========== ÉTAT DES ACTUALITÉS ==========
+
+    private val _actuArticles = MutableStateFlow<List<com.max.aiassistant.data.api.ActuArticle>>(emptyList())
+    val actuArticles: StateFlow<List<com.max.aiassistant.data.api.ActuArticle>> = _actuArticles.asStateFlow()
+
+    private val _rechercheArticles = MutableStateFlow<List<com.max.aiassistant.data.api.RechercheArticle>>(emptyList())
+    val rechercheArticles: StateFlow<List<com.max.aiassistant.data.api.RechercheArticle>> = _rechercheArticles.asStateFlow()
+
+    private val _isLoadingActu = MutableStateFlow(false)
+    val isLoadingActu: StateFlow<Boolean> = _isLoadingActu.asStateFlow()
+
+    /**
+     * Récupère les actualités et les recherches IA depuis l'API N8N
+     */
+    fun refreshActu() {
+        viewModelScope.launch {
+            try {
+                _isLoadingActu.value = true
+                Log.d(TAG, "Récupération des actualités...")
+                val response = apiService.getActu()
+                _actuArticles.value = response.response?.actu
+                    ?.mapNotNull { it.toActuArticle() }
+                    ?.sortedByDescending { it.score } ?: emptyList()
+                _rechercheArticles.value = response.response?.recherche
+                    ?.mapNotNull { it.toRechercheArticle() } ?: emptyList()
+                Log.d(TAG, "Actualités récupérées: ${_actuArticles.value.size} actu, ${_rechercheArticles.value.size} recherches")
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors de la récupération des actualités", e)
+            } finally {
+                _isLoadingActu.value = false
+            }
+        }
     }
 
     /**

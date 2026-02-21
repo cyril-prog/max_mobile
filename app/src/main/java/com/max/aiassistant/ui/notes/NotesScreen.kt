@@ -44,6 +44,10 @@ import com.max.aiassistant.ui.theme.DarkSurface
 import com.max.aiassistant.ui.theme.DarkSurfaceVariant
 import com.max.aiassistant.ui.theme.TextPrimary
 import com.max.aiassistant.ui.theme.TextSecondary
+import com.max.aiassistant.ui.theme.GradientNotes
+import com.max.aiassistant.ui.theme.Spacing
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Brush
 import com.max.aiassistant.ui.common.EmptyStateView
 import com.max.aiassistant.ui.common.NavigationSidebarScaffold
 import com.max.aiassistant.ui.common.NavigationScreen
@@ -126,6 +130,7 @@ fun NotesScreen(
     onNavigateToTasks: () -> Unit = {},
     onNavigateToPlanning: () -> Unit = {},
     onNavigateToWeather: () -> Unit = {},
+    onNavigateToActu: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val sidebarState = rememberNavigationSidebarState()
@@ -141,6 +146,7 @@ fun NotesScreen(
                 NavigationScreen.PLANNING -> onNavigateToPlanning()
                 NavigationScreen.WEATHER -> onNavigateToWeather()
                 NavigationScreen.NOTES -> { /* Déjà sur cet écran */ }
+                NavigationScreen.ACTU -> onNavigateToActu()
             }
         },
         sidebarState = sidebarState
@@ -181,16 +187,43 @@ private fun NotesScreenContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 48.dp)
         ) {
-            // En-tête personnalisé sans flèche de retour
-            Text(
-                text = "Notes",
-                style = MaterialTheme.typography.headlineMedium,
-                color = TextPrimary,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
+            // TopBar harmonisé
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(DarkBackground)
+                    .statusBarsPadding()
+                    .padding(horizontal = Spacing.md.dp, vertical = Spacing.sm.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Brush.linearGradient(GradientNotes)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Description,
+                            contentDescription = null,
+                            tint = TextPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Text(
+                        text = "Notes",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
 
             if (notes.isEmpty()) {
                 // État vide illustré

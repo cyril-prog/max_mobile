@@ -36,6 +36,7 @@ import com.max.aiassistant.ui.voice.VoiceScreen
 import com.max.aiassistant.ui.voice.FluidOrbVisualizer
 import com.max.aiassistant.ui.weather.WeatherScreen
 import com.max.aiassistant.ui.weather.RadarScreen
+import com.max.aiassistant.ui.actu.ActuScreen
 import com.max.aiassistant.viewmodel.MainViewModel
 import kotlin.math.sqrt
 
@@ -44,7 +45,7 @@ import kotlin.math.sqrt
  *
  * Single-Activity architecture avec Jetpack Compose
  *
- * Gère la navigation entre 8 écrans via HorizontalPager :
+ * Gère la navigation entre 9 écrans via HorizontalPager :
  * - Page 0 : HomeScreen (Dashboard) - ÉCRAN PAR DÉFAUT
  * - Page 1 : VoiceScreen (Voice to Voice)
  * - Page 2 : ChatScreen (Messenger)
@@ -53,6 +54,7 @@ import kotlin.math.sqrt
  * - Page 5 : WeatherScreen (Météo)
  * - Page 6 : NotesScreen (Prise de notes)
  * - Page 7 : RadarScreen (Radar météo)
+ * - Page 8 : ActuScreen (Actualités)
  *
  * L'utilisateur peut naviguer entre les pages via les boutons de navigation
  */
@@ -114,11 +116,14 @@ class MainActivity : ComponentActivity() {
                 val showAllergies by viewModel.showAllergies.collectAsState()
                 val cityLatitude by viewModel.cityLatitude.collectAsState()
                 val cityLongitude by viewModel.cityLongitude.collectAsState()
+                val actuArticles by viewModel.actuArticles.collectAsState()
+                val rechercheArticles by viewModel.rechercheArticles.collectAsState()
+                val isLoadingActu by viewModel.isLoadingActu.collectAsState()
 
-                // État du pager (8 pages)
+                // État du pager (9 pages)
                 val pagerState = rememberPagerState(
                     initialPage = 0,
-                    pageCount = { 8 }
+                    pageCount = { 9 }
                 )
 
                 // Scope pour les animations de navigation
@@ -164,6 +169,10 @@ class MainActivity : ComponentActivity() {
                         5 -> {
                             // Page 5 : WeatherScreen - recharge la météo
                             viewModel.refreshWeather()
+                        }
+                        8 -> {
+                            // Page 8 : ActuScreen - recharge les actualités
+                            viewModel.refreshActu()
                         }
                     }
                 }
@@ -212,6 +221,10 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToNotes = {
                                     targetPage = 6
                                     isTransitioning = true
+                                },
+                                onNavigateToActu = {
+                                    targetPage = 8
+                                    isTransitioning = true
                                 }
                             )
                         }
@@ -251,13 +264,17 @@ class MainActivity : ComponentActivity() {
                                     isTransitioning = true
                                 },
                                 onNavigateToNotes = {
-                                    targetPage = 6
-                                    isTransitioning = true
-                                }
-                            )
-                        }
+                                     targetPage = 6
+                                     isTransitioning = true
+                                 },
+                                 onNavigateToActu = {
+                                     targetPage = 8
+                                     isTransitioning = true
+                                 }
+                             )
+                         }
 
-                        // PAGE 2 : Écran Chat
+                         // PAGE 2 : Écran Chat
                         2 -> {
                             ChatScreen(
                                 messages = messages,
@@ -286,10 +303,14 @@ class MainActivity : ComponentActivity() {
                                     isTransitioning = true
                                 },
                                 onNavigateToNotes = {
-                                    targetPage = 6
-                                    isTransitioning = true
-                                },
-                                initialText = sharedText ?: "",
+                                     targetPage = 6
+                                     isTransitioning = true
+                                 },
+                                 onNavigateToActu = {
+                                     targetPage = 8
+                                     isTransitioning = true
+                                 },
+                                 initialText = sharedText ?: "",
                                 onInitialTextConsumed = { _sharedText.value = null }
                             )
                         }
@@ -363,13 +384,17 @@ class MainActivity : ComponentActivity() {
                                     isTransitioning = true
                                 },
                                 onNavigateToNotes = {
-                                    targetPage = 6
-                                    isTransitioning = true
-                                }
-                            )
-                        }
+                                     targetPage = 6
+                                     isTransitioning = true
+                                 },
+                                 onNavigateToActu = {
+                                     targetPage = 8
+                                     isTransitioning = true
+                                 }
+                             )
+                         }
 
-                        // PAGE 4 : Écran Planning
+                         // PAGE 4 : Écran Planning
                         4 -> {
                             PlanningScreen(
                                 events = events,
@@ -392,13 +417,17 @@ class MainActivity : ComponentActivity() {
                                     isTransitioning = true
                                 },
                                 onNavigateToNotes = {
-                                    targetPage = 6
-                                    isTransitioning = true
-                                }
-                            )
-                        }
+                                     targetPage = 6
+                                     isTransitioning = true
+                                 },
+                                 onNavigateToActu = {
+                                     targetPage = 8
+                                     isTransitioning = true
+                                 }
+                             )
+                         }
 
-                        // PAGE 5 : Écran Météo
+                         // PAGE 5 : Écran Météo
                         5 -> {
                             WeatherScreen(
                                 weatherData = weatherData,
@@ -431,13 +460,17 @@ class MainActivity : ComponentActivity() {
                                     isTransitioning = true
                                 },
                                 onNavigateToNotes = {
-                                    targetPage = 6
-                                    isTransitioning = true
-                                }
-                            )
-                        }
+                                     targetPage = 6
+                                     isTransitioning = true
+                                 },
+                                 onNavigateToActu = {
+                                     targetPage = 8
+                                     isTransitioning = true
+                                 }
+                             )
+                         }
 
-                        // PAGE 6 : Écran Notes
+                         // PAGE 6 : Écran Notes
                         6 -> {
                             NotesScreen(
                                 notes = notes,
@@ -467,13 +500,17 @@ class MainActivity : ComponentActivity() {
                                     isTransitioning = true
                                 },
                                 onNavigateToWeather = {
-                                    targetPage = 5
-                                    isTransitioning = true
-                                }
-                            )
-                        }
+                                     targetPage = 5
+                                     isTransitioning = true
+                                 },
+                                 onNavigateToActu = {
+                                     targetPage = 8
+                                     isTransitioning = true
+                                 }
+                             )
+                         }
 
-                        // PAGE 7 : Écran Radar Météo
+                         // PAGE 7 : Écran Radar Météo
                         7 -> {
                             RadarScreen(
                                 cityName = cityName,
@@ -481,6 +518,44 @@ class MainActivity : ComponentActivity() {
                                 longitude = cityLongitude,
                                 onNavigateBack = {
                                     targetPage = 5
+                                    isTransitioning = true
+                                }
+                            )
+                        }
+
+                        // PAGE 8 : Écran Actualités
+                        8 -> {
+                            ActuScreen(
+                                actuArticles = actuArticles,
+                                rechercheArticles = rechercheArticles,
+                                isRefreshing = isLoadingActu,
+                                onRefresh = { viewModel.refreshActu() },
+                                onNavigateToHome = {
+                                    targetPage = 0
+                                    isTransitioning = true
+                                },
+                                onNavigateToVoice = {
+                                    targetPage = 1
+                                    isTransitioning = true
+                                },
+                                onNavigateToChat = {
+                                    targetPage = 2
+                                    isTransitioning = true
+                                },
+                                onNavigateToTasks = {
+                                    targetPage = 3
+                                    isTransitioning = true
+                                },
+                                onNavigateToPlanning = {
+                                    targetPage = 4
+                                    isTransitioning = true
+                                },
+                                onNavigateToWeather = {
+                                    targetPage = 5
+                                    isTransitioning = true
+                                },
+                                onNavigateToNotes = {
+                                    targetPage = 6
                                     isTransitioning = true
                                 }
                             )
