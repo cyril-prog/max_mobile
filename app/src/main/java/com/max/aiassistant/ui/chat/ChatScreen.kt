@@ -626,7 +626,7 @@ fun MessageInputBar(
     val haptic = LocalHapticFeedback.current
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = Color.Black,
+        color = DarkBackground,
         tonalElevation = 0.dp
     ) {
         Column(
@@ -873,13 +873,13 @@ fun createImageUri(context: Context): Uri {
 fun TypingIndicator() {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End
+        horizontalArrangement = Arrangement.Start
     ) {
         val bubbleShape = RoundedCornerShape(
             topStart = 20.dp,
             topEnd = 20.dp,
-            bottomStart = 20.dp,
-            bottomEnd = 4.dp
+            bottomStart = 4.dp,
+            bottomEnd = 20.dp
         )
 
         Surface(

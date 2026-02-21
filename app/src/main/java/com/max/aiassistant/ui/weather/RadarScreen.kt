@@ -6,20 +6,30 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.max.aiassistant.ui.theme.DarkBackground
+import com.max.aiassistant.ui.theme.GradientWeather
+import com.max.aiassistant.ui.theme.Spacing
+import com.max.aiassistant.ui.theme.TextPrimary
 
 /**
  * Écran affichant le radar de précipitations RainViewer sur une carte interactive
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RadarScreen(
     cityName: String,
@@ -28,42 +38,60 @@ fun RadarScreen(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Radar météo - $cityName",
-                        color = Color.White
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Retour",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DarkBackground
-                )
-            )
-        },
-        containerColor = DarkBackground
-    ) { paddingValues ->
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(DarkBackground)
+    ) {
+        // TopBar custom — style cohérent avec les autres écrans
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(DarkBackground)
+                .statusBarsPadding()
+                .padding(horizontal = Spacing.md.dp, vertical = Spacing.sm.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // WebView avec la carte RainViewer
-            RadarWebView(
-                latitude = latitude,
-                longitude = longitude
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(GradientWeather)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Radar,
+                        contentDescription = null,
+                        tint = TextPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Text(
+                    text = "Radar — $cityName",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Retour",
+                    tint = TextPrimary
+                )
+            }
         }
+
+        // WebView avec la carte RainViewer
+        RadarWebView(
+            latitude = latitude,
+            longitude = longitude
+        )
     }
 }
 

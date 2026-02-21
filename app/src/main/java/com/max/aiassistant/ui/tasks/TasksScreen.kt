@@ -379,39 +379,6 @@ private fun TasksScreenContent(
 }
 
 /**
- * Sélecteur d'onglets (Tâches / Planning)
- * Style similaire à l'écran météo avec TabRow Material3
- */
-@Composable
-fun TabSelector(
-    selectedIndex: Int,
-    onTabSelected: (Int) -> Unit
-) {
-    val tabs = listOf("Tâches", "Planning")
-    
-    TabRow(
-        selectedTabIndex = selectedIndex,
-        containerColor = DarkBackground,
-        contentColor = AccentBlue,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        tabs.forEachIndexed { index, title ->
-            Tab(
-                selected = selectedIndex == index,
-                onClick = { onTabSelected(index) },
-                text = {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = if (selectedIndex == index) AccentBlue else Color.White.copy(alpha = 0.6f)
-                    )
-                }
-            )
-        }
-    }
-}
-
-/**
  * Barre d'actions pour les tâches (filtre + tri + création)
  */
 @Composable
@@ -507,7 +474,7 @@ fun TaskSortDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF2C2C2E),
+        containerColor = DarkSurfaceVariant,
         title = {
             Text(
                 text = "Trier les tâches",
@@ -525,8 +492,8 @@ fun TaskSortDialog(
                             onSortSelected(if (currentSortOrder == "priority") null else "priority")
                             onDismiss()
                         },
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (currentSortOrder == "priority") AccentBlue.copy(alpha = 0.3f) else Color(0xFF1A1A1C)
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (currentSortOrder == "priority") AccentBlue.copy(alpha = 0.3f) else DarkBackground
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -566,8 +533,8 @@ fun TaskSortDialog(
                             onSortSelected(if (currentSortOrder == "deadline") null else "deadline")
                             onDismiss()
                         },
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (currentSortOrder == "deadline") AccentBlue.copy(alpha = 0.3f) else Color(0xFF1A1A1C)
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (currentSortOrder == "deadline") AccentBlue.copy(alpha = 0.3f) else DarkBackground
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -670,13 +637,13 @@ fun TaskFilterDialog(
                     Text("Annuler", color = Color.White.copy(alpha = 0.7f))
                 }
             },
-            colors = DatePickerDefaults.colors(containerColor = Color(0xFF2C2C2E))
+            colors = DatePickerDefaults.colors(containerColor = DarkSurfaceVariant)
         ) {
             DatePicker(
                 state = datePickerState,
                 showModeToggle = false,
                 colors = DatePickerDefaults.colors(
-                    containerColor = Color(0xFF2C2C2E),
+                    containerColor = DarkSurfaceVariant,
                     titleContentColor = Color.White,
                     headlineContentColor = Color.White,
                     weekdayContentColor = Color.White.copy(alpha = 0.7f),
@@ -698,7 +665,7 @@ fun TaskFilterDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF2C2C2E),
+        containerColor = DarkSurfaceVariant,
         title = {
             Text(
                 text = "Filtrer les tâches",
@@ -716,8 +683,8 @@ fun TaskFilterDialog(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF1A1A1C))
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(DarkBackground)
                         .padding(10.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -750,8 +717,8 @@ fun TaskFilterDialog(
                                     selectedContainerColor = AccentBlue,
                                     selectedLabelColor = Color.White,
                                     selectedLeadingIconColor = Color.White,
-                                    containerColor = Color(0xFF2C2C2E),
-                                    labelColor = Color.White.copy(alpha = 0.7f)
+                                 containerColor = DarkSurfaceVariant,
+                                labelColor = Color.White.copy(alpha = 0.7f)
                                 )
                             )
                             
@@ -776,7 +743,7 @@ fun TaskFilterDialog(
                                         selectedContainerColor = AccentBlue,
                                         selectedLabelColor = Color.White,
                                         selectedLeadingIconColor = Color.White,
-                                        containerColor = Color(0xFF2C2C2E),
+                                        containerColor = DarkSurfaceVariant,
                                         labelColor = Color.White.copy(alpha = 0.7f)
                                     )
                                 )
@@ -789,8 +756,8 @@ fun TaskFilterDialog(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF1A1A1C))
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(DarkBackground)
                         .padding(10.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -823,7 +790,7 @@ fun TaskFilterDialog(
                                     selectedContainerColor = AccentBlue,
                                     selectedLabelColor = Color.White,
                                     selectedLeadingIconColor = Color.White,
-                                    containerColor = Color(0xFF2C2C2E),
+                                    containerColor = DarkSurfaceVariant,
                                     labelColor = Color.White.copy(alpha = 0.7f)
                                 )
                             )
@@ -862,7 +829,7 @@ fun TaskFilterDialog(
                                         selectedContainerColor = priorityColor,
                                         selectedLabelColor = Color.White,
                                         selectedLeadingIconColor = Color.White,
-                                        containerColor = Color(0xFF2C2C2E),
+                                        containerColor = DarkSurfaceVariant,
                                         labelColor = Color.White.copy(alpha = 0.7f)
                                     )
                                 )
@@ -875,8 +842,8 @@ fun TaskFilterDialog(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF1A1A1C))
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(DarkBackground)
                         .padding(10.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -907,7 +874,7 @@ fun TaskFilterDialog(
                                     1.dp,
                                     if (selectedDeadlineDate != null) AccentBlue else Color.White.copy(alpha = 0.3f)
                                 ),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(12.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.DateRange,
@@ -1093,7 +1060,7 @@ fun CreateTaskDialog(
                     brush = Brush.verticalGradient(
                         colors = listOf(
                             Color(0xFF1C1C1E),
-                            Color(0xFF2C2C2E)
+                            DarkSurfaceVariant
                         )
                     )
                 )
@@ -1208,7 +1175,7 @@ fun CreateTaskDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF1A1A1C))
+                        .background(DarkBackground)
                         .padding(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -1267,7 +1234,7 @@ fun CreateTaskDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF1A1A1C))
+                        .background(DarkBackground)
                         .padding(12.dp)
                 ) {
                     when (selectedTab) {
@@ -2557,7 +2524,7 @@ fun SubTasksQuickDialog(
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF2C2C2E),
+        containerColor = DarkSurfaceVariant,
         title = {
             Column {
                 Text(
@@ -2697,7 +2664,7 @@ fun StatusSelectionDialog(
                             onDismiss()
                         },
                     shape = RoundedCornerShape(12.dp),
-                    color = if (status == currentStatus) statusColor.copy(alpha = 0.2f) else Color(0xFF2C2C2E)
+                    color = if (status == currentStatus) statusColor.copy(alpha = 0.2f) else DarkSurfaceVariant
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
@@ -2802,7 +2769,7 @@ fun PrioritySelectionDialog(
                             onDismiss()
                         },
                     shape = RoundedCornerShape(12.dp),
-                    color = if (isSelected) priorityColor.copy(alpha = 0.2f) else Color(0xFF2C2C2E)
+                    color = if (isSelected) priorityColor.copy(alpha = 0.2f) else DarkSurfaceVariant
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
@@ -2893,7 +2860,7 @@ fun CategorySelectionDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF2C2C2E))
+                        .background(DarkSurfaceVariant)
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -2939,7 +2906,7 @@ fun CategorySelectionDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF2C2C2E))
+                    .background(DarkSurfaceVariant)
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -3062,7 +3029,7 @@ fun DurationInputDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF2C2C2E),
+        containerColor = DarkSurfaceVariant,
         title = {
             Text(
                 text = "Durée estimée",
@@ -3209,14 +3176,14 @@ fun DeadlineDatePickerDialog(
             }
         },
         colors = DatePickerDefaults.colors(
-            containerColor = Color(0xFF2C2C2E)
+            containerColor = DarkSurfaceVariant
         )
     ) {
         DatePicker(
             state = datePickerState,
             showModeToggle = false,
             colors = DatePickerDefaults.colors(
-                containerColor = Color(0xFF2C2C2E),
+                containerColor = DarkSurfaceVariant,
                 titleContentColor = Color.White,
                 headlineContentColor = Color.White,
                 weekdayContentColor = Color.White.copy(alpha = 0.7f),
@@ -3301,7 +3268,7 @@ fun TaskDetailsDialog(
     if (showDeleteConfirmation) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
-            containerColor = Color(0xFF2C2C2E),
+            containerColor = DarkSurfaceVariant,
             title = {
                 Text(
                     text = "Supprimer la tâche ?",
@@ -3414,7 +3381,7 @@ fun TaskDetailsDialog(
                     brush = Brush.verticalGradient(
                         colors = listOf(
                             Color(0xFF1C1C1E),
-                            Color(0xFF2C2C2E)
+                            DarkSurfaceVariant
                         )
                     )
                 )
@@ -3554,7 +3521,7 @@ fun TaskDetailsDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF1A1A1C))
+                            .background(DarkBackground)
                             .padding(12.dp)
                     ) {
                         when (selectedTab) {
@@ -4057,7 +4024,7 @@ fun ModernTaskContentTabSelector(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF1A1A1C))
+            .background(DarkBackground)
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {

@@ -41,8 +41,15 @@ import com.max.aiassistant.data.api.getWeatherDescription
 import com.max.aiassistant.data.api.getWeatherIcon
 import com.max.aiassistant.data.api.getPollenLevel
 import com.max.aiassistant.data.api.getPollenColor
+import com.max.aiassistant.ui.theme.AccentBlue
 import com.max.aiassistant.ui.theme.DarkBackground
 import com.max.aiassistant.ui.theme.DarkSurface
+import com.max.aiassistant.ui.theme.GradientWeather
+import com.max.aiassistant.ui.theme.Spacing
+import com.max.aiassistant.ui.theme.TextPrimary
+import com.max.aiassistant.ui.theme.TextSecondary
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import com.max.aiassistant.ui.common.NavigationSidebarScaffold
 import com.max.aiassistant.ui.common.NavigationScreen
 import com.max.aiassistant.ui.common.rememberNavigationSidebarState
@@ -151,7 +158,39 @@ private fun WeatherScreenContent(
     }
 
     Scaffold(
-        containerColor = DarkBackground
+        containerColor = DarkBackground,
+        topBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(DarkBackground)
+                    .statusBarsPadding()
+                    .padding(horizontal = Spacing.md.dp, vertical = Spacing.sm.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(GradientWeather)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Air,
+                        contentDescription = null,
+                        tint = TextPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Text(
+                    text = "Météo",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     ) { paddingValues ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
@@ -168,7 +207,7 @@ private fun WeatherScreenContent(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = Color(0xFF0A84FF))
+                        CircularProgressIndicator(color = AccentBlue)
                     }
                 } else {
                     // Affichage des données météo
@@ -203,7 +242,7 @@ private fun WeatherScreenContent(
                         TabRow(
                             selectedTabIndex = selectedTabIndex,
                             containerColor = DarkBackground,
-                            contentColor = Color(0xFF0A84FF),
+                            contentColor = AccentBlue,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             tabs.forEachIndexed { index, title ->
@@ -214,7 +253,7 @@ private fun WeatherScreenContent(
                                         Text(
                                             text = title,
                                             style = MaterialTheme.typography.titleSmall,
-                                            color = if (selectedTabIndex == index) Color(0xFF0A84FF) else Color.White.copy(alpha = 0.6f)
+                                            color = if (selectedTabIndex == index) AccentBlue else TextSecondary
                                         )
                                     }
                                 )
@@ -546,7 +585,7 @@ private fun WeatherSettingsDialog(
                             text = "🌍 Ville",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0A84FF)
+                            color = AccentBlue
                         )
 
                         OutlinedTextField(
@@ -568,9 +607,9 @@ private fun WeatherSettingsDialog(
                                 },
                                 enabled = cityQuery.trim().length >= 2,
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF0A84FF)
+                                    containerColor = AccentBlue
                                 ),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(12.dp)
                             ) {
                                 Text(
                                     text = "Rechercher",
@@ -626,7 +665,7 @@ private fun WeatherSettingsDialog(
                             text = "⚙️ Affichage",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0A84FF)
+                            color = AccentBlue
                         )
 
                         // Switch pour afficher/masquer les allergies
@@ -663,9 +702,9 @@ private fun WeatherSettingsDialog(
             Button(
                 onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF0A84FF)
+                    containerColor = AccentBlue
                 ),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
                     text = "Fermer",
@@ -733,8 +772,8 @@ fun AllergyCard(weatherData: WeatherData) {
                 .background(
                     brush = Brush.linearGradient(
                         colors = listOf(
-                            Color(0xFF002C0F),
-                            Color(0xFF0D3C1F)
+                            GradientWeather[0].copy(alpha = 0.8f),
+                            GradientWeather[1].copy(alpha = 0.6f)
                         ),
                         start = Offset(0f, 0f),
                         end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
@@ -1003,9 +1042,9 @@ private fun AllergyDetailDialog(
             Button(
                 onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF0A84FF)
+                    containerColor = AccentBlue
                 ),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
                     text = "Fermer",

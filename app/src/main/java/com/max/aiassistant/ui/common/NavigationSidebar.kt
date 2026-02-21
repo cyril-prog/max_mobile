@@ -286,8 +286,8 @@ private fun FloatingNavigationSidebar(
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xFF0D1B2A).copy(alpha = 0.95f),
-                            Color(0xFF1B2838).copy(alpha = 0.95f)
+                            DarkSurface.copy(alpha = 0.95f),
+                            DarkSurfaceElevated.copy(alpha = 0.95f)
                         )
                     ),
                     shape = RoundedCornerShape(28.dp)
@@ -504,7 +504,7 @@ private fun LiquidNavButton(
     )
     
     // Couleur de fond
-    val backgroundColor = Color(0xFF152238)
+    val backgroundColor = DarkSurfaceVariant
     
     // Couleur de l'icône
     val iconColor = when {

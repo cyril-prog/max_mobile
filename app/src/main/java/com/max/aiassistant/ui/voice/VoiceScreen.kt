@@ -484,11 +484,11 @@ fun FluidOrbVisualizer(
         val baseRadius = size.minDimension / 2
 
         val colors = listOf(
-            Color(0xFF1E3A5F),
-            Color(0xFF2563EB),
+            AccentBlueMuted,
+            AccentBlue,
             Color(0xFF3B82F6),
-            Color(0xFF60A5FA),
-            Color(0xFF0EA5E9)
+            AccentBlueLight,
+            AccentBlueDark
         )
 
         val activePulse = if (isActive) pulse else 0.85f

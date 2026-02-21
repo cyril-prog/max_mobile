@@ -39,11 +39,13 @@ import com.max.aiassistant.model.ChecklistItem
 import com.max.aiassistant.model.Note
 import com.max.aiassistant.model.NoteContentType
 import com.max.aiassistant.ui.theme.AccentBlue
+import com.max.aiassistant.ui.theme.CompletedGreen
 import com.max.aiassistant.ui.theme.DarkBackground
 import com.max.aiassistant.ui.theme.DarkSurface
 import com.max.aiassistant.ui.theme.DarkSurfaceVariant
 import com.max.aiassistant.ui.theme.TextPrimary
 import com.max.aiassistant.ui.theme.TextSecondary
+import com.max.aiassistant.ui.theme.UrgentRed
 import com.max.aiassistant.ui.theme.GradientNotes
 import com.max.aiassistant.ui.theme.Spacing
 import androidx.compose.foundation.shape.CircleShape
@@ -229,7 +231,7 @@ private fun NotesScreenContent(
                 // État vide illustré
                 EmptyStateView(
                     icon = Icons.Default.Description,
-                    iconTint = androidx.compose.ui.graphics.Color(0xFF32D74B),
+                    iconTint = CompletedGreen,
                     title = "Aucune note",
                     subtitle = "Appuyez sur + pour créer votre première note",
                     modifier = Modifier.weight(1f)
@@ -979,7 +981,7 @@ fun EditNoteDialog(
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Supprimer",
-                            tint = Color(0xFFFF6B6B)
+                            tint = UrgentRed
                         )
                     }
                 }
