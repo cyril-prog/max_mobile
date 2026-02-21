@@ -202,13 +202,13 @@ private fun FloatingNavigationSidebar(
     modifier: Modifier = Modifier
 ) {
     val screens = listOf(
-        Pair(NavigationScreen.HOME, Icons.Default.Home),
-        Pair(NavigationScreen.VOICE, Icons.Default.Mic),
-        Pair(NavigationScreen.CHAT, Icons.AutoMirrored.Filled.Message),
-        Pair(NavigationScreen.TASKS, Icons.Default.CheckCircle),
-        Pair(NavigationScreen.PLANNING, Icons.Default.CalendarMonth),
-        Pair(NavigationScreen.WEATHER, Icons.Default.WbSunny),
-        Pair(NavigationScreen.NOTES, Icons.Default.Edit)
+        Triple(NavigationScreen.HOME, Icons.Default.Home, "Accueil"),
+        Triple(NavigationScreen.VOICE, Icons.Default.Mic, "Assistant vocal"),
+        Triple(NavigationScreen.CHAT, Icons.AutoMirrored.Filled.Message, "Chat"),
+        Triple(NavigationScreen.TASKS, Icons.Default.CheckCircle, "Tâches"),
+        Triple(NavigationScreen.PLANNING, Icons.Default.CalendarMonth, "Planning"),
+        Triple(NavigationScreen.WEATHER, Icons.Default.WbSunny, "Météo"),
+        Triple(NavigationScreen.NOTES, Icons.Default.Edit, "Notes")
     )
     
     val currentIndex = screens.indexOfFirst { it.first == currentScreen }
@@ -461,9 +461,10 @@ private fun FloatingNavigationSidebar(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(buttonSpacing)
                 ) {
-                    screens.forEachIndexed { index, (screen, icon) ->
+                    screens.forEachIndexed { index, (screen, icon, label) ->
                         LiquidNavButton(
                             icon = icon,
+                            label = label,
                             isSelected = index == currentIndex,
                             isPressed = index == pressedIndex
                         )
@@ -481,6 +482,7 @@ private fun FloatingNavigationSidebar(
 @Composable
 private fun LiquidNavButton(
     icon: ImageVector,
+    label: String,
     isSelected: Boolean,
     isPressed: Boolean,
     modifier: Modifier = Modifier
@@ -518,7 +520,7 @@ private fun LiquidNavButton(
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = null,
+            contentDescription = label,
             tint = iconColor,
             modifier = Modifier.size(22.dp)
         )

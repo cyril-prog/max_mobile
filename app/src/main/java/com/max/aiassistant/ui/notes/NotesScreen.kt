@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.core.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
@@ -26,7 +27,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextDecoration
@@ -207,7 +210,7 @@ private fun NotesScreenContent(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
-                    items(notes) { note ->
+                    items(notes, key = { it.id }) { note ->
                         NoteCard(
                             note = note,
                             onClick = { noteToView = note },
@@ -217,7 +220,12 @@ private fun NotesScreenContent(
                                 // Mettre à jour l'état de la checkbox dans le contenu
                                 val updatedContent = toggleCheckboxInContent(note.content, itemId)
                                 onUpdateNote(note.id, note.title, updatedContent)
-                            }
+                            },
+                            modifier = Modifier.animateItem(
+                                fadeInSpec = tween(durationMillis = 280),
+                                fadeOutSpec = tween(durationMillis = 200),
+                                placementSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                            )
                         )
                     }
                 }
@@ -289,10 +297,12 @@ fun NoteCard(
     onClick: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onToggleCheckbox: (String) -> Unit = {}
+    onToggleCheckbox: (String) -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
@@ -345,7 +355,10 @@ fun NoteCard(
                         )
                     }
                     IconButton(
-                        onClick = onDelete,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onDelete()
+                        },
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(

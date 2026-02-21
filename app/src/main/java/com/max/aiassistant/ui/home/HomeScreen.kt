@@ -122,11 +122,6 @@ private fun HomeScreenContent(
             Spacer(modifier = Modifier.height(Spacing.xxl.dp))
         }
 
-        // En-tête de bienvenue
-        item {
-            DashboardHeader()
-        }
-
         // Bloc Météo
         item {
             if (weatherData != null) {
@@ -165,38 +160,6 @@ private fun HomeScreenContent(
         item {
             Spacer(modifier = Modifier.height(Spacing.xl.dp))
         }
-    }
-}
-
-/**
- * En-tête de bienvenue avec heure dynamique
- */
-@Composable
-private fun DashboardHeader() {
-    val calendar = Calendar.getInstance()
-    val hour = calendar.get(Calendar.HOUR_OF_DAY)
-    val greeting = when {
-        hour < 12 -> "Bonjour"
-        hour < 18 -> "Bon après-midi"
-        else -> "Bonsoir"
-    }
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Text(
-            text = greeting,
-            style = MaterialTheme.typography.titleLarge,
-            color = TextPrimary,
-            fontWeight = FontWeight.Bold,
-            fontSize = 28.sp
-        )
-        Text(
-            text = "Que puis-je faire pour vous ?",
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary
-        )
     }
 }
 

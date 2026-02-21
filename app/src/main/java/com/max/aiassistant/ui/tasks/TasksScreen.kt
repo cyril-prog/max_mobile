@@ -3,6 +3,10 @@ package com.max.aiassistant.ui.tasks
 import android.os.Build
 import android.text.Html
 import android.widget.TextView
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -37,6 +41,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -1580,8 +1586,18 @@ fun TasksContent(
         modifier = modifier
             .fillMaxSize()
     ) {
-        // Liste des tâches
-        if (tasks.isEmpty() && !isRefreshing) {
+        // Skeleton loading : chargement initial (liste vide + en cours de refresh)
+        if (tasks.isEmpty() && isRefreshing) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(16.dp)
+            ) {
+                items(6) {
+                    TaskSkeletonItem()
+                }
+            }
+        } else if (tasks.isEmpty()) {
             // État vide illustré
             EmptyStateView(
                 icon = Icons.Default.CheckCircle,
@@ -1599,7 +1615,12 @@ fun TasksContent(
                         task = task,
                         onClick = { onTaskClick(task) },
                         onStatusChange = { newStatus -> onTaskStatusChange(task.id, newStatus) },
-                        onSubTaskToggle = onSubTaskToggle
+                        onSubTaskToggle = onSubTaskToggle,
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = tween(durationMillis = 300),
+                            fadeOutSpec = tween(durationMillis = 200),
+                            placementSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                        )
                     )
                 }
             }
@@ -2271,6 +2292,65 @@ fun CalendarDayItem(
 }
 
 /**
+ * Item skeleton (placeholder animé) pendant le chargement des tâches
+ */
+@Composable
+fun TaskSkeletonItem() {
+    val infiniteTransition = rememberInfiniteTransition(label = "skeleton")
+    val shimmerAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "shimmer"
+    )
+    val shimmerColor = Color.White.copy(alpha = shimmerAlpha)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(DarkSurface)
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(width = 28.dp, height = 16.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(shimmerColor.copy(alpha = shimmerAlpha * 0.6f))
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.55f)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(shimmerColor)
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.35f)
+                    .height(11.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(shimmerColor.copy(alpha = shimmerAlpha * 0.5f))
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(shimmerColor.copy(alpha = shimmerAlpha * 0.4f))
+        )
+    }
+}
+
+/**
  * Item compact d'une tâche (vue liste)
  * Affiche le titre, deadline et badge de statut/priorité
  */
@@ -2279,12 +2359,13 @@ fun TaskItemCompact(
     task: Task,
     onClick: () -> Unit,
     onStatusChange: (TaskStatus) -> Unit,
-    onSubTaskToggle: (subTaskId: String, text: String, isCompleted: Boolean) -> Unit = { _, _, _ -> }
+    onSubTaskToggle: (subTaskId: String, text: String, isCompleted: Boolean) -> Unit = { _, _, _ -> },
+    modifier: Modifier = Modifier
 ) {
     // État pour afficher le dialog des sous-tâches
     var showSubTasksDialog by remember { mutableStateOf(false) }
-    
-    // Couleurs de priorité
+    val haptic = LocalHapticFeedback.current
+
     val priorityText = when (task.priority) {
         TaskPriority.P1 -> "P1"
         TaskPriority.P2 -> "P2"
@@ -2301,7 +2382,7 @@ fun TaskItemCompact(
     }
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(DarkSurface)
@@ -2430,7 +2511,10 @@ fun TaskItemCompact(
             modifier = Modifier
                 .padding(start = 12.dp)
                 .size(24.dp)
-                .clickable { onStatusChange(nextStatus) },
+                .clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onStatusChange(nextStatus)
+                },
             tint = statusColor
         )
     }

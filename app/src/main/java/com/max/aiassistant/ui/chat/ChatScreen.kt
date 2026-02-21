@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -41,6 +42,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.AnnotatedString
@@ -218,7 +221,14 @@ private fun ChatScreenContent(
             contentPadding = PaddingValues(vertical = 16.dp)
         ) {
             items(messages, key = { it.id }) { message ->
-                MessageBubble(message = message)
+                MessageBubble(
+                    message = message,
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = tween(300),
+                        fadeOutSpec = tween(200),
+                        placementSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                    )
+                )
             }
 
             // Indicateur de chargement si l'IA est en train de réfléchir
@@ -272,7 +282,7 @@ private fun ChatScreenContent(
  * Max (IA) : gauche, fond surface variante avec avatar + rendu markdown riche
  */
 @Composable
-fun MessageBubble(message: Message) {
+fun MessageBubble(message: Message, modifier: Modifier = Modifier) {
     val timeText = remember(message.timestamp) {
         val cal = java.util.Calendar.getInstance().apply { timeInMillis = message.timestamp }
         val h = cal.get(java.util.Calendar.HOUR_OF_DAY).toString().padStart(2, '0')
@@ -281,7 +291,7 @@ fun MessageBubble(message: Message) {
     }
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp),
         horizontalArrangement = if (message.isFromUser) Arrangement.End else Arrangement.Start,
@@ -577,6 +587,7 @@ fun MessageInputBar(
     onSend: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = Color.Black,
@@ -695,7 +706,10 @@ fun MessageInputBar(
                         .background(
                             if (isEnabled) AccentBlue else DarkSurfaceVariant
                         )
-                        .clickable(enabled = isEnabled) { onSend() },
+                        .clickable(enabled = isEnabled) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onSend()
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
