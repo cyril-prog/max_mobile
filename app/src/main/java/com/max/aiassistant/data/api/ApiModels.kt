@@ -305,7 +305,9 @@ fun EventApiData.toEvent(): com.max.aiassistant.model.Event {
         endTime = endTimeDisplay,
         description = description ?: "",
         location = location ?: "",
-        source = "Google Calendar"
+        source = "Google Calendar",
+        startDateTime = start.dateTime ?: start.date ?: "",
+        endDateTime = end.dateTime ?: end.date ?: ""
     )
 }
 

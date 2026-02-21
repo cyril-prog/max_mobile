@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.HourglassBottom
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -1732,75 +1733,71 @@ fun AgendaContent(
 }
 
 /**
- * Sélecteur de vue pour le planning (Semaine, Mois)
+ * Sélecteur de vue pour le planning (Semaine, Mois) — style TabRow comme ActuScreen
  */
 @Composable
 fun PlanningViewSelector(
     currentView: PlanningViewType,
     onViewSelected: (PlanningViewType) -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(DarkSurface)
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        PlanningViewTab(
-            text = "Semaine",
-            icon = Icons.Default.ViewWeek,
-            isSelected = currentView == PlanningViewType.WEEK,
-            onClick = { onViewSelected(PlanningViewType.WEEK) },
-            modifier = Modifier.weight(1f)
-        )
-        PlanningViewTab(
-            text = "Mois",
-            icon = Icons.Default.CalendarMonth,
-            isSelected = currentView == PlanningViewType.MONTH,
-            onClick = { onViewSelected(PlanningViewType.MONTH) },
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
+    val selectedTab = if (currentView == PlanningViewType.WEEK) 0 else 1
 
-/**
- * Tab individuel du sélecteur de vue
- */
-@Composable
-fun PlanningViewTab(
-    text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isSelected) AccentBlue else Color.Transparent)
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp, horizontal = 4.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = if (isSelected) Color.White else Color.White.copy(alpha = 0.6f)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.6f),
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+    TabRow(
+        selectedTabIndex = selectedTab,
+        containerColor = DarkSurface,
+        contentColor = AccentBlue,
+        indicator = { tabPositions ->
+            TabRowDefaults.SecondaryIndicator(
+                modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                color = AccentBlue,
+                height = 2.dp
             )
         }
+    ) {
+        Tab(
+            selected = selectedTab == 0,
+            onClick = { onViewSelected(PlanningViewType.WEEK) },
+            text = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ViewWeek,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (selectedTab == 0) AccentBlue else TextSecondary
+                    )
+                    Text(
+                        text = "Semaine",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (selectedTab == 0) AccentBlue else TextSecondary
+                    )
+                }
+            }
+        )
+        Tab(
+            selected = selectedTab == 1,
+            onClick = { onViewSelected(PlanningViewType.MONTH) },
+            text = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (selectedTab == 1) AccentBlue else TextSecondary
+                    )
+                    Text(
+                        text = "Mois",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (selectedTab == 1) AccentBlue else TextSecondary
+                    )
+                }
+            }
+        )
     }
 }
 

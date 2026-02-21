@@ -380,8 +380,16 @@ private fun DailySummarySection(
         isEventOngoing -> "En cours"
         currentOrNextEvent.startTime == "Toute la journée" -> "Toute la journée"
         else -> {
-            val timeUntil = calculateTimeUntil(currentOrNextEvent.startDateTime)
-            if (timeUntil.isNotEmpty()) "dans $timeUntil" else currentOrNextEvent.startTime
+            val cal = parseIsoDate(currentOrNextEvent.startDateTime)
+            if (cal != null) {
+                val day = "%02d".format(cal.get(Calendar.DAY_OF_MONTH))
+                val month = "%02d".format(cal.get(Calendar.MONTH) + 1)
+                val hour = "%02d".format(cal.get(Calendar.HOUR_OF_DAY))
+                val min = "%02d".format(cal.get(Calendar.MINUTE))
+                "$day/$month à ${hour}h$min"
+            } else {
+                currentOrNextEvent.startTime
+            }
         }
     }
 
