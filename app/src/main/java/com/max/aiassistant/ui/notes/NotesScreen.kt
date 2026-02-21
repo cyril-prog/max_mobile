@@ -41,6 +41,7 @@ import com.max.aiassistant.ui.theme.DarkSurface
 import com.max.aiassistant.ui.theme.DarkSurfaceVariant
 import com.max.aiassistant.ui.theme.TextPrimary
 import com.max.aiassistant.ui.theme.TextSecondary
+import com.max.aiassistant.ui.common.EmptyStateView
 import com.max.aiassistant.ui.common.NavigationSidebarScaffold
 import com.max.aiassistant.ui.common.NavigationScreen
 import com.max.aiassistant.ui.common.rememberNavigationSidebarState
@@ -189,36 +190,14 @@ private fun NotesScreenContent(
             )
 
             if (notes.isEmpty()) {
-                // État vide
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Description,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = TextSecondary
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Aucune note",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = TextSecondary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Appuyez sur + pour en créer une",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary.copy(alpha = 0.6f)
-                        )
-                    }
-                }
+                // État vide illustré
+                EmptyStateView(
+                    icon = Icons.Default.Description,
+                    iconTint = androidx.compose.ui.graphics.Color(0xFF32D74B),
+                    title = "Aucune note",
+                    subtitle = "Appuyez sur + pour créer votre première note",
+                    modifier = Modifier.weight(1f)
+                )
             } else {
                 // Liste des notes
                 LazyColumn(

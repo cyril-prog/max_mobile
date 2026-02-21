@@ -46,6 +46,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import com.max.aiassistant.model.*
+import com.max.aiassistant.ui.common.EmptyStateView
 import com.max.aiassistant.ui.common.MiniFluidOrb
 import com.max.aiassistant.ui.common.NavigationSidebarScaffold
 import com.max.aiassistant.ui.common.NavigationScreen
@@ -1581,32 +1582,13 @@ fun TasksContent(
     ) {
         // Liste des tâches
         if (tasks.isEmpty() && !isRefreshing) {
-            // État vide
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = TextSecondary
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Aucune tâche",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = TextSecondary
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Glissez vers le bas pour actualiser",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary.copy(alpha = 0.6f)
-                    )
-                }
-            }
+            // État vide illustré
+            EmptyStateView(
+                icon = Icons.Default.CheckCircle,
+                iconTint = Color(0xFF0A84FF),
+                title = "Aucune tâche",
+                subtitle = "Appuyez sur + pour ajouter une tâche\nou glissez vers le bas pour actualiser"
+            )
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -2553,164 +2535,210 @@ fun SubTasksQuickDialog(
 }
 
 /**
- * Dialog de sélection du statut
+ * Bottom sheet de sélection du statut
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatusSelectionDialog(
     currentStatus: TaskStatus,
     onDismiss: () -> Unit,
     onStatusSelected: (TaskStatus) -> Unit
 ) {
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF2C2C2E),
-        title = {
+        containerColor = Color(0xFF1C1C1E),
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = 12.dp, bottom = 4.dp)
+                    .width(36.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.White.copy(alpha = 0.3f))
+            )
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Text(
                 text = "Changer le statut",
                 color = Color.White,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
             )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                TaskStatus.values().forEach { status ->
-                    val statusText = when (status) {
-                        TaskStatus.TODO -> "À faire"
-                        TaskStatus.IN_PROGRESS -> "En cours"
-                        TaskStatus.COMPLETED -> "Terminé"
-                    }
-                    val statusColor = when (status) {
-                        TaskStatus.COMPLETED -> CompletedGreen
-                        TaskStatus.IN_PROGRESS -> AccentBlue
-                        else -> NormalOrange
-                    }
-
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onStatusSelected(status)
-                                onDismiss()
-                            },
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (status == currentStatus) statusColor.copy(alpha = 0.3f) else Color(0xFF1C1C1E)
+            TaskStatus.values().forEach { status ->
+                val statusText = when (status) {
+                    TaskStatus.TODO -> "À faire"
+                    TaskStatus.IN_PROGRESS -> "En cours"
+                    TaskStatus.COMPLETED -> "Terminé"
+                }
+                val statusColor = when (status) {
+                    TaskStatus.COMPLETED -> CompletedGreen
+                    TaskStatus.IN_PROGRESS -> AccentBlue
+                    else -> NormalOrange
+                }
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onStatusSelected(status)
+                            onDismiss()
+                        },
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (status == currentStatus) statusColor.copy(alpha = 0.2f) else Color(0xFF2C2C2E)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(statusColor)
+                            )
                             Text(
                                 text = statusText,
                                 color = Color.White,
                                 style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (status == currentStatus) FontWeight.Bold else FontWeight.Normal
+                                fontWeight = if (status == currentStatus) FontWeight.SemiBold else FontWeight.Normal
                             )
-                            if (status == currentStatus) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = statusColor,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
+                        }
+                        if (status == currentStatus) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = statusColor,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Annuler", color = Color.White.copy(alpha = 0.7f))
-            }
         }
-    )
+    }
 }
 
 /**
- * Dialog de sélection de la priorité
+ * BottomSheet de sélection de la priorité
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrioritySelectionDialog(
     currentPriority: TaskPriority,
     onDismiss: () -> Unit,
     onPrioritySelected: (TaskPriority) -> Unit
 ) {
-    AlertDialog(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF2C2C2E),
-        title = {
+        sheetState = sheetState,
+        containerColor = Color(0xFF1C1C1E),
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = 12.dp, bottom = 8.dp)
+                    .size(width = 36.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.White.copy(alpha = 0.3f))
+            )
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Text(
                 text = "Changer la priorité",
                 color = Color.White,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
             )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                TaskPriority.values().forEach { priority ->
-                    val priorityText = when (priority) {
-                        TaskPriority.P1 -> "P1"
-                        TaskPriority.P2 -> "P2"
-                        TaskPriority.P3 -> "P3"
-                        TaskPriority.P4 -> "P4"
-                        TaskPriority.P5 -> "P5"
-                    }
-                    val priorityColor = when (priority) {
-                        TaskPriority.P1 -> UrgentRed
-                        TaskPriority.P2 -> Color(0xFFFF6B35)
-                        TaskPriority.P3 -> NormalOrange
-                        TaskPriority.P4 -> Color(0xFFFFB84D)
-                        TaskPriority.P5 -> CompletedGreen
-                    }
 
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onPrioritySelected(priority)
-                                onDismiss()
-                            },
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (priority == currentPriority) priorityColor.copy(alpha = 0.3f) else Color(0xFF1C1C1E)
+            TaskPriority.values().forEach { priority ->
+                val priorityText = when (priority) {
+                    TaskPriority.P1 -> "P1 — Urgent"
+                    TaskPriority.P2 -> "P2 — Haute"
+                    TaskPriority.P3 -> "P3 — Normale"
+                    TaskPriority.P4 -> "P4 — Basse"
+                    TaskPriority.P5 -> "P5 — Optionnelle"
+                }
+                val priorityColor = when (priority) {
+                    TaskPriority.P1 -> UrgentRed
+                    TaskPriority.P2 -> Color(0xFFFF6B35)
+                    TaskPriority.P3 -> NormalOrange
+                    TaskPriority.P4 -> Color(0xFFFFB84D)
+                    TaskPriority.P5 -> CompletedGreen
+                }
+                val isSelected = priority == currentPriority
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onPrioritySelected(priority)
+                            onDismiss()
+                        },
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isSelected) priorityColor.copy(alpha = 0.2f) else Color(0xFF2C2C2E)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(priorityColor)
+                            )
                             Text(
                                 text = priorityText,
-                                color = Color.White,
+                                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.8f),
                                 style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (priority == currentPriority) FontWeight.Bold else FontWeight.Normal
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                             )
-                            if (priority == currentPriority) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = priorityColor,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
+                        }
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = priorityColor,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Annuler", color = Color.White.copy(alpha = 0.7f))
-            }
         }
-    )
+    }
 }
 
 /**
- * Dialog de sélection de catégorie
+ * BottomSheet de sélection de catégorie
  * Permet de choisir parmi les catégories existantes ou d'en créer une nouvelle
  */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CategorySelectionDialog(
     currentCategory: String,
@@ -2720,176 +2748,179 @@ fun CategorySelectionDialog(
 ) {
     var showNewCategoryInput by remember { mutableStateOf(false) }
     var newCategoryText by remember { mutableStateOf("") }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF2C2C2E),
-        title = {
+        sheetState = sheetState,
+        containerColor = Color(0xFF1C1C1E),
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = 12.dp, bottom = 8.dp)
+                    .size(width = 36.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.White.copy(alpha = 0.3f))
+            )
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
             Text(
                 text = "Changer la catégorie",
                 color = Color.White,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 4.dp)
             )
-        },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.verticalScroll(rememberScrollState())
-            ) {
-                // Section catégories existantes
-                if (categories.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF1A1A1C))
-                            .padding(10.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(
-                                text = "Catégories existantes",
-                                color = Color.White,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                categories.forEach { category ->
-                                    FilterChip(
-                                        selected = currentCategory == category,
-                                        onClick = {
-                                            onCategorySelected(category)
-                                        },
-                                        label = { Text(category) },
-                                        leadingIcon = if (currentCategory == category) {
-                                            {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                        } else null,
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = AccentBlue,
-                                            selectedLabelColor = Color.White,
-                                            selectedLeadingIconColor = Color.White,
-                                            containerColor = Color(0xFF2C2C2E),
-                                            labelColor = Color.White.copy(alpha = 0.7f)
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Section nouvelle catégorie
-                Box(
+
+            // Section catégories existantes
+            if (categories.isNotEmpty()) {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF1A1A1C))
-                        .padding(10.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF2C2C2E))
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            text = "Nouvelle catégorie",
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        
-                        if (!showNewCategoryInput) {
-                            OutlinedButton(
-                                onClick = { showNewCategoryInput = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = AccentBlue
-                                ),
-                                border = BorderStroke(1.dp, AccentBlue.copy(alpha = 0.5f)),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
+                    Text(
+                        text = "Catégories existantes",
+                        color = Color.White.copy(alpha = 0.6f),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        categories.forEach { category ->
+                            FilterChip(
+                                selected = currentCategory == category,
+                                onClick = { onCategorySelected(category) },
+                                label = { Text(category) },
+                                leadingIcon = if (currentCategory == category) {
+                                    {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                } else null,
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = AccentBlue,
+                                    selectedLabelColor = Color.White,
+                                    selectedLeadingIconColor = Color.White,
+                                    containerColor = Color(0xFF3A3A3C),
+                                    labelColor = Color.White.copy(alpha = 0.8f)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Créer une catégorie")
-                            }
-                        } else {
-                            OutlinedTextField(
-                                value = newCategoryText,
-                                onValueChange = { newCategoryText = it },
-                                placeholder = { 
-                                    Text(
-                                        "Nom de la catégorie",
-                                        color = Color.White.copy(alpha = 0.5f)
-                                    )
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    focusedBorderColor = AccentBlue,
-                                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                                    cursorColor = AccentBlue
-                                ),
-                                shape = RoundedCornerShape(8.dp),
-                                singleLine = true
                             )
-                            
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                OutlinedButton(
-                                    onClick = { 
-                                        showNewCategoryInput = false
-                                        newCategoryText = ""
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = Color.White.copy(alpha = 0.7f)
-                                    ),
-                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text("Annuler")
-                                }
-                                
-                                Button(
-                                    onClick = {
-                                        if (newCategoryText.isNotBlank()) {
-                                            onCategorySelected(newCategoryText.trim())
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    enabled = newCategoryText.isNotBlank(),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = AccentBlue,
-                                        disabledContainerColor = AccentBlue.copy(alpha = 0.3f)
-                                    ),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text("Valider", color = Color.White)
-                                }
-                            }
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Fermer", color = Color.White.copy(alpha = 0.7f))
+
+            // Section nouvelle catégorie
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF2C2C2E))
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Nouvelle catégorie",
+                    color = Color.White.copy(alpha = 0.6f),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                if (!showNewCategoryInput) {
+                    OutlinedButton(
+                        onClick = { showNewCategoryInput = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentBlue),
+                        border = BorderStroke(1.dp, AccentBlue.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Créer une catégorie")
+                    }
+                } else {
+                    OutlinedTextField(
+                        value = newCategoryText,
+                        onValueChange = { newCategoryText = it },
+                        placeholder = {
+                            Text(
+                                "Nom de la catégorie",
+                                color = Color.White.copy(alpha = 0.5f)
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = AccentBlue,
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                            cursorColor = AccentBlue
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        singleLine = true
+                    )
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                showNewCategoryInput = false
+                                newCategoryText = ""
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color.White.copy(alpha = 0.7f)
+                            ),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Annuler")
+                        }
+
+                        Button(
+                            onClick = {
+                                if (newCategoryText.isNotBlank()) {
+                                    onCategorySelected(newCategoryText.trim())
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = newCategoryText.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AccentBlue,
+                                disabledContainerColor = AccentBlue.copy(alpha = 0.3f)
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Valider", color = Color.White)
+                        }
+                    }
+                }
             }
         }
-    )
+    }
 }
 
 /**

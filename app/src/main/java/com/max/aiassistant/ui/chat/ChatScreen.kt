@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
@@ -35,6 +36,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -48,9 +50,11 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.max.aiassistant.model.Message
+import com.max.aiassistant.ui.common.EmptyStateView
 import com.max.aiassistant.ui.common.MiniFluidOrb
 import com.max.aiassistant.ui.common.NavigationSidebarScaffold
 import com.max.aiassistant.ui.common.NavigationScreen
@@ -194,6 +198,16 @@ private fun ChatScreenContent(
         Spacer(modifier = Modifier.height(32.dp))
 
         // Zone de messages (se compresse quand le clavier apparaît)
+        if (messages.isEmpty() && !isWaitingForAiResponse) {
+            // État vide illustré
+            EmptyStateView(
+                icon = Icons.Default.ChatBubbleOutline,
+                iconTint = Color(0xFF0A84FF),
+                title = "Aucun message",
+                subtitle = "Commencez une conversation avec Max",
+                modifier = Modifier.weight(1f)
+            )
+        } else {
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
@@ -213,6 +227,7 @@ private fun ChatScreenContent(
                     TypingIndicator()
                 }
             }
+        }
         }
 
         // Barre d'entrée (monte avec le clavier et évite la barre Android)
@@ -253,89 +268,234 @@ private fun ChatScreenContent(
 
 /**
  * Bulle de message
- * S'aligne à gauche pour l'utilisateur, à droite pour Max
- * Peut contenir une image et/ou du texte
+ * Utilisateur : droite, fond bleu accent (convention messenger standard)
+ * Max (IA) : gauche, fond surface variante avec avatar + rendu markdown riche
  */
 @Composable
 fun MessageBubble(message: Message) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (message.isFromUser)
-            Arrangement.Start
-        else
-            Arrangement.End
-    ) {
-        val bubbleShape = RoundedCornerShape(
-            topStart = 20.dp,
-            topEnd = 20.dp,
-            bottomStart = if (message.isFromUser) 4.dp else 20.dp,
-            bottomEnd = if (message.isFromUser) 20.dp else 4.dp
-        )
+    val timeText = remember(message.timestamp) {
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = message.timestamp }
+        val h = cal.get(java.util.Calendar.HOUR_OF_DAY).toString().padStart(2, '0')
+        val m = cal.get(java.util.Calendar.MINUTE).toString().padStart(2, '0')
+        "$h:$m"
+    }
 
-        Surface(
-            shape = bubbleShape,
-            color = if (message.isFromUser) UserMessageBg else MaxMessageBg,
-            tonalElevation = 2.dp,
-            shadowElevation = 4.dp,
-            modifier = Modifier
-                .widthIn(max = 280.dp)
-                .border(
-                    width = 0.5.dp,
-                    color = BorderColor.copy(alpha = 0.3f),
-                    shape = bubbleShape
-                )
-        ) {
-            Column(
-                modifier = Modifier.padding(
-                    horizontal = 8.dp,
-                    vertical = 8.dp
-                )
-            ) {
-                // Affiche l'image si présente
-                message.imageUri?.let { uri ->
-                    AsyncImage(
-                        model = uri,
-                        contentDescription = "Image attachée",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 200.dp)
-                            .clip(RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Fit
-                    )
-                    if (message.content.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                }
-                
-                // Affiche le texte si présent (avec formatage markdown pour les messages de l'IA)
-                if (message.content.isNotBlank()) {
-                    SelectionContainer {
-                        Text(
-                            text = if (message.isFromUser) {
-                                AnnotatedString(message.content)
-                            } else {
-                                parseMarkdown(message.content)
-                            },
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = TextPrimary
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
+        horizontalArrangement = if (message.isFromUser) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        // Avatar Max (visible uniquement pour les messages IA, à gauche)
+        if (!message.isFromUser) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(Color(0xFF1E3A5F), Color(0xFF0A84FF))
                         )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "M",
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+
+        val bubbleShape = if (message.isFromUser) {
+            RoundedCornerShape(
+                topStart = 18.dp,
+                topEnd = 18.dp,
+                bottomStart = 18.dp,
+                bottomEnd = 4.dp
+            )
+        } else {
+            RoundedCornerShape(
+                topStart = 4.dp,
+                topEnd = 18.dp,
+                bottomStart = 18.dp,
+                bottomEnd = 18.dp
+            )
+        }
+
+        Column(horizontalAlignment = if (message.isFromUser) Alignment.End else Alignment.Start) {
+            Surface(
+                shape = bubbleShape,
+                color = if (message.isFromUser) UserMessageBg else MaxMessageBg,
+                modifier = Modifier.widthIn(max = 280.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(
+                        horizontal = 12.dp,
+                        vertical = 10.dp
+                    )
+                ) {
+                    // Image si présente
+                    message.imageUri?.let { uri ->
+                        AsyncImage(
+                            model = uri,
+                            contentDescription = "Image attachée au message",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 200.dp)
+                                .clip(RoundedCornerShape(10.dp)),
+                            contentScale = ContentScale.Fit
+                        )
+                        if (message.content.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+
+                    // Texte : rendu markdown riche pour les messages IA
+                    if (message.content.isNotBlank()) {
+                        if (message.isFromUser) {
+                            SelectionContainer {
+                                Text(
+                                    text = message.content,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextPrimary,
+                                    lineHeight = 21.sp
+                                )
+                            }
+                        } else {
+                            SelectionContainer {
+                                MarkdownContent(text = message.content)
+                            }
+                        }
                     }
                 }
             }
+
+            // Timestamp sous la bulle
+            Text(
+                text = timeText,
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary.copy(alpha = 0.5f),
+                modifier = Modifier.padding(
+                    top = 3.dp,
+                    start = if (message.isFromUser) 0.dp else 4.dp,
+                    end = if (message.isFromUser) 4.dp else 0.dp
+                )
+            )
+        }
+
+        // Espace après bulle utilisateur (côté droit)
+        if (message.isFromUser) {
+            Spacer(modifier = Modifier.width(4.dp))
         }
     }
 }
 
 /**
- * Parse le texte markdown et retourne un AnnotatedString formaté
+ * Rendu markdown ligne par ligne.
+ * Supporte : # ## ### (titres), - / • (listes), **gras**, *italique*, `code`
+ */
+@Composable
+private fun MarkdownContent(text: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        val lines = text.split("\n")
+        var i = 0
+        while (i < lines.size) {
+            val line = lines[i]
+            when {
+                // Titres H1
+                line.startsWith("# ") -> {
+                    Text(
+                        text = parseInlineMarkdown(line.removePrefix("# ")),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = if (i > 0) 6.dp else 0.dp, bottom = 2.dp)
+                    )
+                }
+                // Titres H2
+                line.startsWith("## ") -> {
+                    Text(
+                        text = parseInlineMarkdown(line.removePrefix("## ")),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = if (i > 0) 4.dp else 0.dp, bottom = 1.dp)
+                    )
+                }
+                // Titres H3
+                line.startsWith("### ") -> {
+                    Text(
+                        text = parseInlineMarkdown(line.removePrefix("### ")),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = if (i > 0) 4.dp else 0.dp)
+                    )
+                }
+                // Item de liste (- texte ou • texte)
+                line.startsWith("- ") || line.startsWith("• ") -> {
+                    Row(
+                        modifier = Modifier.padding(start = 4.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Text(
+                            text = "•",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = AccentBlue,
+                            modifier = Modifier.padding(end = 6.dp, top = 1.dp)
+                        )
+                        Text(
+                            text = parseInlineMarkdown(
+                                if (line.startsWith("- ")) line.removePrefix("- ")
+                                else line.removePrefix("• ")
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextPrimary,
+                            lineHeight = 20.sp
+                        )
+                    }
+                }
+                // Ligne de séparation ---
+                line.trim() == "---" || line.trim() == "***" -> {
+                    Spacer(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(Color.White.copy(alpha = 0.15f))
+                    )
+                }
+                // Ligne vide → espacement
+                line.isBlank() -> {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                // Texte normal
+                else -> {
+                    Text(
+                        text = parseInlineMarkdown(line),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextPrimary,
+                        lineHeight = 21.sp
+                    )
+                }
+            }
+            i++
+        }
+    }
+}
+
+/**
+ * Parse le markdown inline (gras, italique, code) et retourne un AnnotatedString
  * Supporte : **gras**, *italique*, ***gras italique***, `code`
  */
-private fun parseMarkdown(text: String): AnnotatedString {
+private fun parseInlineMarkdown(text: String): AnnotatedString {
     return buildAnnotatedString {
         var currentIndex = 0
         val length = text.length
-        
+
         while (currentIndex < length) {
             when {
                 // Gras + Italique: ***texte***
@@ -402,6 +562,7 @@ private fun parseMarkdown(text: String): AnnotatedString {
         }
     }
 }
+
 
 /**
  * Barre d'entrée de message avec champ texte, bouton image et bouton envoi

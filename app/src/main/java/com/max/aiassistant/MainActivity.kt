@@ -544,8 +544,8 @@ class MainActivity : ComponentActivity() {
 
 /**
  * Animation de transition sobre en deux phases
- * Phase 1 : Fade out de l'écran actuel vers le noir (contenu devient transparent)
- * Phase 2 : Fade in du nouvel écran depuis le noir (contenu redevient opaque)
+ * Phase 1 : Fade out de l'écran actuel vers le noir (300ms)
+ * Phase 2 : Fade in du nouvel écran depuis le noir (400ms)
  */
 @Composable
 fun FuturisticTransition(
@@ -565,10 +565,10 @@ fun FuturisticTransition(
         else -> 1f // Phase fade in : opaque (le contenu apparaît)
     }
 
-    // Durée différente selon la phase (fade out plus lent)
+    // Durée différente selon la phase (fade out rapide)
     val animationDuration = when (animationPhase) {
-        0 -> 2000 // Fade out très lent (2400ms) pour une disparition progressive
-        else -> 1200 // Fade in standard (1200ms)
+        0 -> 300 // Fade out rapide (300ms)
+        else -> 400 // Fade in standard (400ms)
     }
 
     // Animation d'alpha pour le contenu avec durée variable
@@ -599,8 +599,8 @@ fun FuturisticTransition(
         onPageChange() // Change de page
         animationPhase = 1 // Démarre immédiatement le fade in sans délai
 
-        // Phase 3 : Fade in (le contenu redevient opaque) - 1200ms
-        delay(1200) // Attendre la fin du fade in
+        // Phase 3 : Fade in (le contenu redevient opaque) - 400ms
+        delay(400) // Attendre la fin du fade in
 
         // Fin de l'animation
         onTransitionComplete()
