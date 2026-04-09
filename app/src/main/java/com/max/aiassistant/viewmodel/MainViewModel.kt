@@ -12,12 +12,13 @@ import com.max.aiassistant.data.api.MaxApiService
 import com.max.aiassistant.data.api.MessageContent
 import com.max.aiassistant.data.api.MessageData
 import com.max.aiassistant.data.api.parseWebhookResponse
-import com.max.aiassistant.data.api.toTask
 import com.max.aiassistant.data.api.toEvent
+import com.max.aiassistant.data.api.toActuArticle
+import com.max.aiassistant.data.api.toCurrentPollen
+import com.max.aiassistant.data.api.toRechercheArticle
+import com.max.aiassistant.data.api.toTask
 import com.max.aiassistant.data.api.toUpdateRequest
 import com.max.aiassistant.data.api.toWeatherData
-import com.max.aiassistant.data.api.toActuArticle
-import com.max.aiassistant.data.api.toRechercheArticle
 import com.max.aiassistant.data.realtime.RealtimeApiService
 import com.max.aiassistant.data.realtime.RealtimeAudioManager
 import com.max.aiassistant.data.realtime.RealtimeServerEvent
@@ -49,6 +50,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val apiService = MaxApiService.create()
     private val weatherApiService = com.max.aiassistant.data.api.WeatherApiService.create()
+    private val pollenApiService = com.max.aiassistant.data.api.PollenApiService.create()
     private val geocodingApiService = com.max.aiassistant.data.api.GeocodingApiService.create()
     private val weatherPreferences = com.max.aiassistant.data.preferences.WeatherPreferences(application.applicationContext)
     private val notesPreferences = com.max.aiassistant.data.preferences.NotesPreferences(application.applicationContext)
@@ -950,11 +952,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _isLoadingWeather.value = true
                 Log.d(TAG, "Récupération des données météo pour ${_cityName.value}...")
 
+                val latitude = _cityLatitude.value
+                val longitude = _cityLongitude.value
                 val response = weatherApiService.getWeatherForecast(
-                    latitude = _cityLatitude.value,
-                    longitude = _cityLongitude.value
+                    latitude = latitude,
+                    longitude = longitude
                 )
-                val weatherData = response.toWeatherData()
+                val pollenData = try {
+                    pollenApiService.getPollenForecast(
+                        latitude = latitude,
+                        longitude = longitude
+                    ).toCurrentPollen()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Impossible de recuperer les pollens depuis l'API air-quality", e)
+                    null
+                }
+                val weatherData = response.toWeatherData(pollenData)
 
                 _weatherData.value = weatherData
                 Log.d(TAG, "Données météo récupérées: ${weatherData.currentTemperature}°C, ${weatherData.hourlyForecasts.size} prévisions horaires")

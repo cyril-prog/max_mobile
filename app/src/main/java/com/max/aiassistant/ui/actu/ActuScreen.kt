@@ -309,17 +309,10 @@ private fun ActuTopBar(
 @Composable
 private fun ActuArticleCard(article: ActuArticle) {
     val context = LocalContext.current
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by remember(article.id) { mutableStateOf(false) }
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = article.url.isNotEmpty()) {
-                if (article.url.isNotEmpty()) {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(article.url))
-                    context.startActivity(intent)
-                }
-            },
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = DarkSurface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -351,7 +344,7 @@ private fun ActuArticleCard(article: ActuArticle) {
                 color = TextPrimary,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = if (expanded) Int.MAX_VALUE else 3,
-                overflow = if (expanded) TextOverflow.Visible else TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis
             )
 
             // ── Description (si non vide) ───────────────────────────────
@@ -361,18 +354,19 @@ private fun ActuArticleCard(article: ActuArticle) {
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary,
                     maxLines = if (expanded) Int.MAX_VALUE else 3,
-                    overflow = if (expanded) TextOverflow.Visible else TextOverflow.Ellipsis,
-                    lineHeight = 18.sp,
-                    modifier = Modifier.clickable { expanded = !expanded }
-                )
-                Text(
-                    text = if (expanded) "Voir moins" else "Voir plus",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AccentBlue,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clickable { expanded = !expanded }
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 18.sp
                 )
             }
+
+            // ── Voir plus / Voir moins ───────────────────────────────────
+            Text(
+                text = if (expanded) "Voir moins" else "Voir plus",
+                style = MaterialTheme.typography.labelSmall,
+                color = AccentBlue,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clickable { expanded = !expanded }
+            )
 
             // ── Ligne bas : score + lien ────────────────────────────────
             Row(
@@ -421,6 +415,7 @@ private fun ActuArticleCard(article: ActuArticle) {
 private fun RechercheArticleCard(article: RechercheArticle) {
     val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
+    var resumeOverflows by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -443,7 +438,7 @@ private fun RechercheArticleCard(article: RechercheArticle) {
                 )
             }
 
-            // ── Titre ───────────────────────────────────────────────────
+            // ── Titre (toujours affiché en entier) ──────────────────────
             if (article.titre.isNotEmpty()) {
                 Text(
                     text = article.titre,
@@ -460,18 +455,25 @@ private fun RechercheArticleCard(article: RechercheArticle) {
                     text = article.resume,
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary,
-                    maxLines = if (expanded) Int.MAX_VALUE else 5,
+                    maxLines = if (expanded) Int.MAX_VALUE else 3,
                     overflow = if (expanded) TextOverflow.Visible else TextOverflow.Ellipsis,
                     lineHeight = 19.sp,
-                    modifier = Modifier.clickable { expanded = !expanded }
+                    onTextLayout = { result ->
+                        if (!expanded) resumeOverflows = result.hasVisualOverflow
+                    },
+                    modifier = Modifier.clickable(enabled = resumeOverflows || expanded) {
+                        expanded = !expanded
+                    }
                 )
-                Text(
-                    text = if (expanded) "Voir moins" else "Voir plus",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AccentBlue,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clickable { expanded = !expanded }
-                )
+                if (resumeOverflows || expanded) {
+                    Text(
+                        text = if (expanded) "Voir moins" else "Voir plus",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AccentBlue,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clickable { expanded = !expanded }
+                    )
+                }
             }
 
             // ── Lien vers l'article source ──────────────────────────────

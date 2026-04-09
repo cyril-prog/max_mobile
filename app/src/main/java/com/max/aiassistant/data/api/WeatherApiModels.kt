@@ -162,6 +162,15 @@ data class WeatherData(
     val ragweedPollen: Double?
 )
 
+data class CurrentPollenData(
+    val grassPollen: Double?,
+    val birchPollen: Double?,
+    val alderPollen: Double?,
+    val olivePollen: Double?,
+    val mugwortPollen: Double?,
+    val ragweedPollen: Double?
+)
+
 /**
  * Prévision horaire simplifiée
  */
@@ -187,7 +196,7 @@ data class DailyForecast(
 /**
  * Convertit la réponse API en modèle simplifié pour l'app
  */
-fun WeatherApiResponse.toWeatherData(): WeatherData {
+fun WeatherApiResponse.toWeatherData(pollenData: CurrentPollenData? = null): WeatherData {
     // Obtenir l'heure actuelle
     val currentCalendar = java.util.Calendar.getInstance()
     val currentHour = currentCalendar.get(java.util.Calendar.HOUR_OF_DAY)
@@ -239,12 +248,12 @@ fun WeatherApiResponse.toWeatherData(): WeatherData {
         weatherCode = current.weatherCode,
         hourlyForecasts = next24Hours,
         dailyForecasts = dailyForecastsList,
-        grassPollen = current.grassPollen,
-        birchPollen = current.birchPollen,
-        alderPollen = current.alderPollen,
-        olivePollen = current.olivePollen,
-        mugwortPollen = current.mugwortPollen,
-        ragweedPollen = current.ragweedPollen
+        grassPollen = pollenData?.grassPollen ?: current.grassPollen,
+        birchPollen = pollenData?.birchPollen ?: current.birchPollen,
+        alderPollen = pollenData?.alderPollen ?: current.alderPollen,
+        olivePollen = pollenData?.olivePollen ?: current.olivePollen,
+        mugwortPollen = pollenData?.mugwortPollen ?: current.mugwortPollen,
+        ragweedPollen = pollenData?.ragweedPollen ?: current.ragweedPollen
     )
 }
 
