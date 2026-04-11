@@ -2,16 +2,13 @@ package com.max.aiassistant.viewmodel
 
 import android.app.Application
 import android.net.Uri
-import android.util.Base64
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.max.aiassistant.BuildConfig
 import com.max.aiassistant.data.api.MaxApiService
 import com.max.aiassistant.data.api.MessageContent
 import com.max.aiassistant.data.api.MessageData
-import com.max.aiassistant.data.api.parseWebhookResponse
 import com.max.aiassistant.data.api.toEvent
 import com.max.aiassistant.data.api.toActuArticle
 import com.max.aiassistant.data.api.toCurrentPollen
@@ -19,6 +16,9 @@ import com.max.aiassistant.data.api.toRechercheArticle
 import com.max.aiassistant.data.api.toTask
 import com.max.aiassistant.data.api.toUpdateRequest
 import com.max.aiassistant.data.api.toWeatherData
+import com.max.aiassistant.data.local.OnDeviceChatEngine
+import com.max.aiassistant.data.local.OnDeviceModelManager
+import com.max.aiassistant.data.local.OnDeviceModelProvisioningState
 import com.max.aiassistant.data.realtime.RealtimeApiService
 import com.max.aiassistant.data.realtime.RealtimeAudioManager
 import com.max.aiassistant.data.realtime.RealtimeServerEvent
@@ -30,7 +30,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.*
 
 /**
@@ -54,6 +53,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val geocodingApiService = com.max.aiassistant.data.api.GeocodingApiService.create()
     private val weatherPreferences = com.max.aiassistant.data.preferences.WeatherPreferences(application.applicationContext)
     private val notesPreferences = com.max.aiassistant.data.preferences.NotesPreferences(application.applicationContext)
+    private val onDeviceModelManager = OnDeviceModelManager(application.applicationContext)
+    private val onDeviceChatEngine = OnDeviceChatEngine(application.applicationContext)
     private val TAG = "MainViewModel"
 
     // Clé API OpenAI pour l'API Realtime (chargée depuis local.properties via BuildConfig)
@@ -79,8 +80,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Indicateur de chargement pour la réponse de l'IA
     private val _isWaitingForAiResponse = MutableStateFlow(false)
     val isWaitingForAiResponse: StateFlow<Boolean> = _isWaitingForAiResponse.asStateFlow()
+    private val _isOnDeviceModelReady = MutableStateFlow(false)
+    val isOnDeviceModelReady: StateFlow<Boolean> = _isOnDeviceModelReady.asStateFlow()
+    private val _onDeviceModelStatus = MutableStateFlow("")
+    val onDeviceModelStatus: StateFlow<String> = _onDeviceModelStatus.asStateFlow()
+    private val _onDeviceModelProvisioningState =
+        MutableStateFlow<OnDeviceModelProvisioningState>(
+            OnDeviceModelProvisioningState.Checking("Preparation du modele local...")
+        )
+    val onDeviceModelProvisioningState: StateFlow<OnDeviceModelProvisioningState> =
+        _onDeviceModelProvisioningState.asStateFlow()
     private val _realtimeError = MutableStateFlow<String?>(null)
     val realtimeError: StateFlow<String?> = _realtimeError.asStateFlow()
+    private var onDeviceProvisioningJob: Job? = null
 
     /**
      * Charge le contexte système (tâches, mémoire, historique, calendrier) pour enrichir le prompt voice-to-voice
@@ -264,44 +276,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * Peut être appelée au démarrage ou quand on arrive sur l'écran du chat
      */
     fun loadRecentMessages() {
-        viewModelScope.launch {
-            try {
-                Log.d(TAG, "Chargement des messages récents...")
-
-                val response = apiService.getRecentMessages()
-
-                // Extrait la liste de messages depuis response.text.data
-                val apiMessages = response.text.data
-                Log.d(TAG, "Nombre de messages dans text.data = ${apiMessages.size}")
-
-                if (apiMessages.isEmpty()) {
-                    Log.w(TAG, "Aucun message dans text.data")
-                    return@launch
-                }
-
-                // Convertit les messages API en objets Message de l'app
-                // Trie par ID croissant : les plus anciens en haut, les plus récents en bas
-                val messages = apiMessages
-                    .sortedBy { it.id }
-                    .map { apiMessage ->
-                        Log.d(TAG, "Mapping message ${apiMessage.id}: type=${apiMessage.message.type}, content=${apiMessage.message.content.take(50)}...")
-                        Message(
-                            id = apiMessage.id.toString(),
-                            content = apiMessage.message.content,
-                            isFromUser = apiMessage.message.type == "human"
-                        )
-                    }
-
-                _messages.value = messages
-                Log.d(TAG, "Messages récents chargés et affichés: ${messages.size}")
-                Log.d(TAG, "Premier message: ${messages.firstOrNull()?.content?.take(50)}")
-
-            } catch (e: Exception) {
-                Log.e(TAG, "Erreur lors du chargement des messages récents", e)
-                Log.e(TAG, "Stack trace:", e)
-                // En cas d'erreur, on garde la liste vide (pas de messages)
-            }
-        }
+        ensureOnDeviceModelAvailable()
     }
 
     /**
@@ -326,71 +301,89 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Envoie le message à l'API et récupère la réponse
         viewModelScope.launch {
+            val aiMessageId = UUID.randomUUID().toString()
+            var startedStreaming = false
+            var latestPartialResponse = ""
+
             try {
-                Log.d(TAG, "Envoi du message: $content, avec image: ${imageUri != null}")
+                Log.d(TAG, "Envoi du message au moteur local: $content, avec image: ${imageUri != null}")
+                val modelReady = awaitOnDeviceModelAvailable()
 
-                // Prépare la requête avec ou sans image
-                val base64Image = if (imageUri != null) {
-                    withContext(Dispatchers.IO) {
-                        convertImageToBase64(imageUri)
-                    }.also { 
-                        Log.d(TAG, "Image convertie en Base64, taille: ${it?.length ?: 0} caractères")
+                val responseText = when {
+                    !modelReady -> {
+                        "Le modele local n'est pas pret. ${buildProvisioningStatusMessage()}"
                     }
-                } else null
-                
-                val request = com.max.aiassistant.data.api.ChatMessageRequest(
-                    text = content.ifBlank { if (base64Image != null) "Analyse cette image" else "" },
-                    image = base64Image
-                )
-                
-                val httpResponse = apiService.sendMessage(request)
 
-                // Vérifie que la requête a réussi
-                if (!httpResponse.isSuccessful) {
-                    Log.e(TAG, "Erreur HTTP: ${httpResponse.code()}")
-                    throw Exception("Erreur HTTP: ${httpResponse.code()}")
-                }
+                    imageUri != null -> {
+                        "Le mode chat local est branche sur le modele on-device, mais l'analyse d'image n'est pas encore connectee. Envoie un message texte ou ajoute ensuite l'entree vision dans la session LiteRT."
+                    }
 
-                // Récupère le corps de la réponse
-                val rawBody = httpResponse.body()?.string()
-                Log.d(TAG, "Corps de la réponse brut: ${rawBody ?: "(vide)"}")
-
-                // Parse la réponse (gère corps vide, JSON et texte brut)
-                val webhookResponse = parseWebhookResponse(rawBody)
-                Log.d(TAG, "Réponse parsée: text=${webhookResponse.text}")
-
-                // Vérifie si la réponse contient du texte
-                val responseText = webhookResponse.text
-                if (responseText.isNullOrBlank()) {
-                    Log.w(TAG, "Réponse vide du webhook - le workflow n8n ne retourne pas de données")
-
-                    val errorMessage = Message(
-                        id = UUID.randomUUID().toString(),
-                        content = "Le serveur a reçu votre message mais n'a pas renvoyé de réponse. Veuillez vérifier la configuration du webhook n8n.",
-                        isFromUser = false
-                    )
-                    _messages.value = _messages.value + errorMessage
-                    return@launch
+                    else -> {
+                        val readiness = onDeviceChatEngine.getRuntimeReadiness()
+                        if (!readiness.canRun) {
+                            readiness.reason
+                        } else {
+                            onDeviceChatEngine.generateResponseStreaming(
+                                userMessage = content,
+                                systemInstruction = buildOnDeviceSystemInstruction()
+                            ) { partialText ->
+                                latestPartialResponse = partialText
+                                startedStreaming = true
+                                upsertAssistantMessage(
+                                    messageId = aiMessageId,
+                                    content = partialText
+                                )
+                            }
+                        }
+                    }
                 }
 
                 // Ajoute la réponse de Max
-                val aiResponse = Message(
-                    id = UUID.randomUUID().toString(),
-                    content = responseText,
-                    isFromUser = false
-                )
-                _messages.value = _messages.value + aiResponse
+                val finalResponseText = responseText.ifBlank {
+                    "Le modele local n'a pas retourne de texte exploitable."
+                }
+
+                if (startedStreaming) {
+                    upsertAssistantMessage(
+                        messageId = aiMessageId,
+                        content = finalResponseText
+                    )
+                } else {
+                    val aiResponse = Message(
+                        id = aiMessageId,
+                        content = finalResponseText,
+                        isFromUser = false
+                    )
+                    _messages.value = _messages.value + aiResponse
+                }
 
             } catch (e: Exception) {
                 Log.e(TAG, "Erreur lors de l'envoi du message", e)
+                ensureOnDeviceModelAvailable()
+                val rawReason = e.message?.takeIf { it.isNotBlank() }
+                    ?: buildProvisioningStatusMessage()
+                val userFacingReason = if (
+                    rawReason.contains("Input token ids are too long", ignoreCase = true) ||
+                    rawReason.contains("maximum number of tokens allowed", ignoreCase = true)
+                ) {
+                    "Le contexte envoye au modele etait trop long pour sa fenetre actuelle. La build a ete ajustee pour compresser davantage le contexte."
+                } else {
+                    rawReason
+                }
 
-                // Message d'erreur pour l'utilisateur
-                val errorMessage = Message(
-                    id = UUID.randomUUID().toString(),
-                    content = "Désolé, une erreur s'est produite. Veuillez réessayer.",
-                    isFromUser = false
-                )
-                _messages.value = _messages.value + errorMessage
+                if (latestPartialResponse.isNotBlank()) {
+                    upsertAssistantMessage(
+                        messageId = aiMessageId,
+                        content = latestPartialResponse
+                    )
+                } else {
+                    val errorMessage = Message(
+                        id = aiMessageId,
+                        content = "Impossible d'interroger le modele local pour l'instant. $userFacingReason",
+                        isFromUser = false
+                    )
+                    _messages.value = _messages.value + errorMessage
+                }
             } finally {
                 // Désactive l'indicateur de chargement
                 _isWaitingForAiResponse.value = false
@@ -398,22 +391,124 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    /**
-     * Convertit une image URI en chaîne Base64
-     */
-    private fun convertImageToBase64(uri: Uri): String? {
-        return try {
-            val context = getApplication<Application>()
-            val inputStream = context.contentResolver.openInputStream(uri)
-            val bytes = inputStream?.readBytes()
-            inputStream?.close()
-            
-            bytes?.let {
-                Base64.encodeToString(it, Base64.NO_WRAP)
+    private fun upsertAssistantMessage(
+        messageId: String,
+        content: String
+    ) {
+        val currentMessages = _messages.value
+        val messageIndex = currentMessages.indexOfFirst { it.id == messageId }
+
+        val updatedMessage = if (messageIndex >= 0) {
+            Message(
+                id = messageId,
+                content = content,
+                isFromUser = false,
+                timestamp = currentMessages[messageIndex].timestamp
+            )
+        } else {
+            Message(
+                id = messageId,
+                content = content,
+                isFromUser = false
+            )
+        }
+
+        _messages.value = if (messageIndex >= 0) {
+            currentMessages.mapIndexed { index, message ->
+                if (index == messageIndex) updatedMessage else message
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Erreur lors de la conversion de l'image en Base64", e)
-            null
+        } else {
+            currentMessages + updatedMessage
+        }
+    }
+
+    fun retryOnDeviceModelDownload() {
+        ensureOnDeviceModelAvailable(forceDownload = true)
+    }
+
+    private suspend fun awaitOnDeviceModelAvailable(forceDownload: Boolean = false): Boolean {
+        ensureOnDeviceModelAvailable(forceDownload = forceDownload)
+        onDeviceProvisioningJob?.join()
+        return _isOnDeviceModelReady.value
+    }
+
+    private fun ensureOnDeviceModelAvailable(forceDownload: Boolean = false) {
+        if (onDeviceProvisioningJob?.isActive == true && !forceDownload) {
+            return
+        }
+
+        if (_isOnDeviceModelReady.value && !forceDownload) {
+            return
+        }
+
+        onDeviceProvisioningJob?.cancel()
+        onDeviceProvisioningJob = viewModelScope.launch {
+            try {
+                val availability = onDeviceModelManager.prepareModel(forceDownload) { state ->
+                    _onDeviceModelProvisioningState.value = state
+                    syncOnDeviceUiState(state)
+                }
+                _isOnDeviceModelReady.value = availability.isAvailable
+                _onDeviceModelStatus.value = availability.statusMessage
+            } catch (e: Exception) {
+                Log.e(TAG, "Provisioning du modele local impossible", e)
+                val state = OnDeviceModelProvisioningState.Error(
+                    "Le telechargement du modele a echoue. Verifie la connexion reseau puis reessaie."
+                )
+                _onDeviceModelProvisioningState.value = state
+                syncOnDeviceUiState(state)
+            }
+        }
+    }
+
+    private fun syncOnDeviceUiState(state: OnDeviceModelProvisioningState) {
+        when (state) {
+            is OnDeviceModelProvisioningState.Checking -> {
+                _isOnDeviceModelReady.value = false
+                _onDeviceModelStatus.value = state.message
+            }
+
+            is OnDeviceModelProvisioningState.Downloading -> {
+                _isOnDeviceModelReady.value = false
+                _onDeviceModelStatus.value = state.message
+            }
+
+            is OnDeviceModelProvisioningState.Verifying -> {
+                _isOnDeviceModelReady.value = false
+                _onDeviceModelStatus.value = state.message
+            }
+
+            is OnDeviceModelProvisioningState.Ready -> {
+                _isOnDeviceModelReady.value = true
+                _onDeviceModelStatus.value = state.message
+            }
+
+            is OnDeviceModelProvisioningState.Error -> {
+                _isOnDeviceModelReady.value = false
+                _onDeviceModelStatus.value = state.message
+            }
+        }
+    }
+
+    private fun buildProvisioningStatusMessage(): String {
+        return when (val state = _onDeviceModelProvisioningState.value) {
+            is OnDeviceModelProvisioningState.Checking -> state.message
+            is OnDeviceModelProvisioningState.Downloading -> state.message
+            is OnDeviceModelProvisioningState.Verifying -> state.message
+            is OnDeviceModelProvisioningState.Ready -> state.message
+            is OnDeviceModelProvisioningState.Error -> state.message
+        }
+    }
+
+    private fun buildOnDeviceSystemInstruction(): String {
+        return buildString {
+            appendLine("Tu es Max, un assistant personnel utile, fiable et concis.")
+            appendLine("Reponds en francais avec un ton naturel et des reponses courtes.")
+            if (systemContext.isNotBlank()) {
+                appendLine()
+                appendLine("Contexte utile:")
+                appendLine(systemContext.take(1_200))
+            }
         }
     }
 
@@ -1341,8 +1436,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * Bloc d'initialisation : charge les messages, tâches, événements et météo au démarrage
      */
     init {
+        val cachedAvailability = onDeviceModelManager.getCachedAvailability()
+        _isOnDeviceModelReady.value = cachedAvailability.isAvailable
+        _onDeviceModelStatus.value = cachedAvailability.statusMessage
         loadSystemContext()
         loadRecentMessages()
+        ensureOnDeviceModelAvailable()
         refreshTasks()
         refreshCalendarEvents()
         refreshWeather()
@@ -1373,6 +1472,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     override fun onCleared() {
         super.onCleared()
+        onDeviceChatEngine.close()
         audioManager?.cleanup()
         realtimeService?.cleanup()
     }

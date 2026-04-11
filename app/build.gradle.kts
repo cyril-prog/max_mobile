@@ -119,6 +119,9 @@ dependencies {
     // Coil pour le chargement d'images dans Compose
     implementation("io.coil-kt:coil-compose:2.5.0")
 
+    // LiteRT-LM runtime used by Google AI Edge Gallery for Gemma 4 on Android
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.10.0")
+
     // Debugging
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

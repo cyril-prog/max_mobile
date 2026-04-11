@@ -1,0 +1,746 @@
+2026-04-11 19:09:53.345  4772-4772  JobService              system_server                        W  onNetworkChanged() not implemented in com.android.server.content.SyncJobService. Must override in a subclass.
+2026-04-11 19:09:53.346  4772-6231  OplusSlaFastSwitch      system_server                        D  Network Capabiliteis changed 134
+2026-04-11 19:09:53.347  6596-6700  OPLUS_LOG_LOAD          com.android.systemui                 W  ==LOGS PROG INFO, prog(com.android.systemui) ==
+2026-04-11 19:09:53.347  6596-6700  WifiStatusTracker       com.android.systemui                 D  mNetworkCallback onCapabilitiesChanged network:134 mPrimaryNetworkId:134
+2026-04-11 19:09:53.347  6930-6930  SubsysEven...nerManager com.oplus.subsys                     D  onCapabilitiesChanged
+2026-04-11 19:09:53.347  6930-6930  DataStateTracker        com.oplus.subsys                     D  getCurDataChannel, channel:1
+2026-04-11 19:09:53.349  4772-6231  OplusSlaNetworkManager  system_server                        D  isPrimaryWifi:true network:134
+2026-04-11 19:09:53.350  6596-6783  WifiPickerTracker       com.android.systemui                 D  handleNetworkCapabilitiesChanged network:134
+2026-04-11 19:09:53.351  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390837378732695
+2026-04-11 19:09:53.352  6874-8149  QCNEJ/Nati...lConnector .qtidataservices                     D  -> SND notifyDefaultNetworkChanged(1)
+2026-04-11 19:09:53.352  6874-8149  cneJni                  .qtidataservices                     D  sendDefaultNwMsg start
+2026-04-11 19:09:53.352  6763-7504  SmartDataS...hValidator com.oplus.nas                        I  unexpected network onCapabilitiesChanged
+2026-04-11 19:09:53.352 10403-30848 PTC.DISC.W...tyObserver com.heytap.accessory                 I  Receive NetworkCapabilitiesChanged.
+2026-04-11 19:09:53.352  6874-8149  cneJni                  .qtidataservices                     D  sendWifiStatus start
+2026-04-11 19:09:53.353  6596-6783  WifiPickerTracker       com.android.systemui                 I  wifi connected status realConnectedWifiEntry not null: true
+2026-04-11 19:09:53.353  6797-8138  txpwrJni                .qms                                 D  sendNetworkInfo start
+2026-04-11 19:09:53.353  6797-8138  txpwrJni                .qms                                 D  sendNetworkInfo RatType 0
+2026-04-11 19:09:53.353  6596-6700  WifiStatusTracker       com.android.systemui                 D  mNetworkCallback onCapabilitiesChanged network:134 mPrimaryNetworkId:134
+2026-04-11 19:09:53.354  6930-6930  SubsysEven...nerManager com.oplus.subsys                     D  mDefaultNetworkCb onCapabilitiesChanged
+2026-04-11 19:09:53.354  6930-6930  NetworkService[0]       com.oplus.subsys                     D  default onCapabilitiesChanged
+2026-04-11 19:09:53.354  6930-6930  VendorWifiService       com.oplus.subsys                     D  onEvent event:9,action:1
+2026-04-11 19:09:53.355 27536-27600 Track.TrackUpload       com.oplus.aiunit                     D  onCapabilitiesChanged is calling.
+2026-04-11 19:09:53.355 27536-27600 AIUnit-NetworkPublisher com.oplus.aiunit                     I  onNetworkChanged [onCapabilitiesChanged, 134]
+2026-04-11 19:09:53.355 10403-30848 PTC.DISC.N...terCentral com.heytap.accessory                 W  registerLanInfo failed. msg=Account not logged in desc=wlanAvailable(repeat=0)
+2026-04-11 19:09:53.355  4772-6188  MultiNetwo...atsMonitor system_server                        D  wifi network 134 nc changed, primary=true, iface=wlan0
+2026-04-11 19:09:53.356  4772-6188  OplusInterfaceMonitor   system_server                        D  interface:wlan0 primary:true
+2026-04-11 19:09:53.356 22398-22476 BugleRcsEngine          com...le.android.apps.messaging:rcs  I  Connected state: [1], networkType: [WIFI] [CONTEXT thread_id=377 ]
+2026-04-11 19:09:53.356 22398-22480 BugleRcsEngine          com...le.android.apps.messaging:rcs  I  handleMessage processing message:[NOTIFY_UPTIME_IGNORE_STATE_CHANGED] with [non-null]:RcsEngineImpl reference [CONTEXT log_prefix="RcsEngineImpl[DUAL_REG]:[8eb55363-6712]>Handler" thread_id=380 ]
+2026-04-11 19:09:53.356  4772-6188  ScorerUtils             system_server                        D  isLowTraffic: txTputKBps=0, rxTputKBps=0
+2026-04-11 19:09:53.357 22398-22480 BugleRcsEngine          com...le.android.apps.messaging:rcs  I  Cannot use CS.apk as it's battery optimized [CONTEXT thread_id=380 ]
+2026-04-11 19:09:53.357  4772-6188  OplusWifiP...ggerCenter system_server                        D  mComponentCallback: wifistat
+2026-04-11 19:09:53.357  6596-6700  SystemUi--Statusbar     com.android.systemui                 I  NetworkController.WifiSignalController-->handleStatusUpdated state=3 enabled=true connected=true isDefaultNetwork=true rssi=-45 level=4 statusLabel=null isDirty=false
+2026-04-11 19:09:53.358 18478-18558 AIUnit-NetworkPublisher com.oplus.aiunit:worker84            I  onNetworkChanged [onCapabilitiesChanged, 134]
+2026-04-11 19:09:53.358  6596-6700  SystemUi--Statusbar     com.android.systemui                 I  NetworkController.WifiSignalController-->handleStatusUpdated state=3 enabled=true connected=true isDefaultNetwork=true rssi=-45 level=4 statusLabel=null isDirty=false
+2026-04-11 19:09:53.358  6596-6700  SystemUi--Statusbar     com.android.systemui                 I  NetworkController.WifiSignalController-->handleStatusUpdated state=3 enabled=true connected=true isDefaultNetwork=true rssi=-45 level=4 statusLabel=null isDirty=false
+2026-04-11 19:09:53.358  9865-9948  AIUnit-NetworkPublisher com.oplus.aiunit:worker73            I  onNetworkChanged [onCapabilitiesChanged, 134]
+2026-04-11 19:09:53.358 30685-30717 AIUnit-NetworkPublisher com.oplus.aiunit:worker53            I  onNetworkChanged [onCapabilitiesChanged, 134]
+2026-04-11 19:09:53.359  9687-9732  AIUnit-NetworkPublisher com.oplus.aiunit:worker74            I  onNetworkChanged [onCapabilitiesChanged, 134]
+2026-04-11 19:09:53.361  4687-4792  NetWorkMonitor          com.heytap.mydevices:cards           D  postOnNetStateChange : old state =WIFI,new state =WIFI
+2026-04-11 19:09:53.361  4605-4652  NetWorkMonitor          com.heytap.mydevices                 D  postOnNetStateChange : old state =WIFI,new state =WIFI
+2026-04-11 19:09:53.362 22398-22480 BugleRcsEngine          com...le.android.apps.messaging:rcs  I  Rcs is enabled from user settings: true [CONTEXT log_prefix="ProvisioningEngineDataRetriever" thread_id=380 ]
+2026-04-11 19:09:53.374  4772-5626  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:53.374 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:53.374 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:53.374  4772-5626  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:53.375 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{39bdceb com.max.aiassistant}
+2026-04-11 19:09:53.375 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:53.375  4772-5626  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:53.375 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:53.375 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:53.422  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390837450676288
+2026-04-11 19:09:53.437  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2672.42, 1429.00, 860.81, 3792.48],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:53.498  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390837526150663
+2026-04-11 19:09:53.573  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390837601138372
+2026-04-11 19:09:53.584  3131-3715  VRR [OTI]               surfaceflinger                       D  handleIdle from 0 to 1
+2026-04-11 19:09:53.584  3131-3715  VRR [OTI-HW]            surfaceflinger                       D  isStateReady 0
+2026-04-11 19:09:53.584  3131-3715  VRR [OTI-HW]            surfaceflinger                       D  keep rate.
+2026-04-11 19:09:53.619  2992-3084  BatteryChargeControl    ven....hardware.charger-V10-service  D  bcc get no support from charging protocol
+2026-04-11 19:09:53.642  6637-6785  loros.securepay         com.coloros.securepay                W  userfaultfd: MOVE ioctl seems unsupported: Connection timed out
+2026-04-11 19:09:53.646  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2672.42, 1429.00, 860.81, 3819.76],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:53.646  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith AVG_RGB:/61/67/77
+2026-04-11 19:09:53.646  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith RGB:/16/25/38
+2026-04-11 19:09:53.648  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390837676167695
+2026-04-11 19:09:53.649  4772-5773  FusionLightNextGen      system_server                        D  calculate_silibals_compensation_value: comped_ir_ratio =  0.190881 comped_lux = 11.42860
+2026-04-11 19:09:53.649  4772-5773  FusionLightNextGen      system_server                        D  LECENT_AI::raw_lux -1.0, raw_cct -1.0, r/g/b/c: 2672.4/1429.0/860.8/3819.8, compensate r/g/b/c: 1822.54/801.30/609.52/2340.03 bri 697.0, lux: 11.428596, cct: -1.0, comped_lux:11.429 comped_cct:-1 ir: 0.190881, cnt: 0
+2026-04-11 19:09:53.649  4772-5773  CwbClient               system_server                        I  setCWBDisplayType set mFeatureID = CWB_RGB_VALUE
+2026-04-11 19:09:53.676 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:53.677  4772-6571  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:53.677 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:53.678  4772-6571  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:53.678 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{f6eda48 com.max.aiassistant}
+2026-04-11 19:09:53.678 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:53.678  4772-6571  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:53.679 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:53.679 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:53.723  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390837751048111
+2026-04-11 19:09:53.730  2912-3098  PERFHAL-PERFCTRL        ven...ti.hardware.perf2-hal-service  E  PERFHAL-PERFCTRL: chk_core_online_poll_loop() 747: poll() has timed out for /sys/kernel/msm_performance/events/cpu_hotplug
+2026-04-11 19:09:53.730  2912-3098  PERFHAL-PERFCTRL        ven...ti.hardware.perf2-hal-service  E  PERFHAL-PERFCTRL: chk_core_online_poll_loop() 742: Block on poll()
+2026-04-11 19:09:53.769  4132-4162  .oplus.pscanvas         com.oplus.pscanvas                   W  userfaultfd: MOVE ioctl seems unsupported: Connection timed out
+2026-04-11 19:09:53.798  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390837826061757
+2026-04-11 19:09:53.831  6930-9360  CommonApp-134-10514     com.oplus.subsys                     D  transport layer data is invalid
+2026-04-11 19:09:53.831  6930-9360  ScorePolicy             com.oplus.subsys                     D  handleScoreChanged: []
+2026-04-11 19:09:53.831  6930-9360  ScorePolicy             com.oplus.subsys                     D  handleScoreChanged: []
+2026-04-11 19:09:53.831  6930-9360  ScorePolicy             com.oplus.subsys                     D  handleScoreChanged: []
+2026-04-11 19:09:53.853  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2672.42, 1429.00, 860.81, 3819.76],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:53.859 11693-2766  NearbySharing           com.google.android.gms.persistent    I  Network state changed: NetworkState(isRestricted=false, isOnline=true, isCongested=false, isMetered=false, isWifiConnected=true)
+2026-04-11 19:09:53.872  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390837900967695
+2026-04-11 19:09:53.947  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390837976059934
+2026-04-11 19:09:53.980 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:53.980  4772-5626  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:53.981 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:53.981  4772-5626  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:53.982 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{46510e1 com.max.aiassistant}
+2026-04-11 19:09:53.982 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:53.983  4772-5626  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:53.983 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:53.983 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:54.009  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  I  ProcessIbsCmd: Received IBS_WAKE_IND: 0xFD
+2026-04-11 19:09:54.009  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  D  SerialClockVote: vote for UART CLK ON
+2026-04-11 19:09:54.009  2872-14043 vendor.qti...-wake_lock and...re.bluetooth@aidl-service-qti  D  Acquire wakelock is acquired 
+2026-04-11 19:09:54.009  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  I  ProcessIbsCmd: Writing IBS_WAKE_ACK
+2026-04-11 19:09:54.023  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390838051133215
+2026-04-11 19:09:54.050  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  I  ProcessIbsCmd: Received IBS_SLEEP_IND: 0xFE
+2026-04-11 19:09:54.050  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  D  SerialClockVote: vote for UART CLK OFF
+2026-04-11 19:09:54.061  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2699.15, 1429.00, 860.81, 3819.76],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:54.062  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith AVG_RGB:/61/67/77
+2026-04-11 19:09:54.062  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith RGB:/16/25/38
+2026-04-11 19:09:54.066  4772-5773  FusionLightNextGen      system_server                        D  calculate_silibals_compensation_value: comped_ir_ratio =  0.196650 comped_lux = 10.89953
+2026-04-11 19:09:54.066  4772-5773  FusionLightNextGen      system_server                        D  LECENT_AI::raw_lux -1.0, raw_cct -1.0, r/g/b/c: 2699.1/1429.0/860.8/3819.8, compensate r/g/b/c: 1849.54/801.30/609.52/2340.03 bri 697.0, lux: 10.899527, cct: -1.0, comped_lux:10.900 comped_cct:-1 ir: 0.196650, cnt: 0
+2026-04-11 19:09:54.066  4772-5773  CwbClient               system_server                        I  setCWBDisplayType set mFeatureID = CWB_RGB_VALUE
+2026-04-11 19:09:54.078  4772-5780  AlarmManager            system_server                        V  sending alarm Alarm{2ff4e10 type 1 origWhen 1775927394078 whenElapsed 390838106 android} uid 1000 whenElapsed 390838106 windowLength 0 maxWhenElapsed 390838106 repeatInterval 0 action null component null tag StorgaeBandInfoAlarmTag flags 0x9 procName system_server
+2026-04-11 19:09:54.078  4772-2488  OplusStora...SBandwidth system_server                        E  storage_io_metrics_path is /proc/oplus_storage/io_metrics/forever/
+2026-04-11 19:09:54.079  4772-2488  OplusStora...SBandwidth system_server                        E  Bandwidth - Read: 0,00 MB/s, Write: 0,50 MB/s
+2026-04-11 19:09:54.079  4772-2488  OplusStora...SBandwidth system_server                        E  Task time: 1ms
+2026-04-11 19:09:54.081  4772-2488  OplusStora...SBandwidth system_server                        E  Alarm set to trigger in 10 seconds
+2026-04-11 19:09:54.097  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390838126034413
+2026-04-11 19:09:54.172  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390838200965715
+2026-04-11 19:09:54.200  2872-14035 vendor.qti...-wake_lock and...re.bluetooth@aidl-service-qti  D  Release wakelock is released 
+2026-04-11 19:09:54.247  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390838275858892
+2026-04-11 19:09:54.269  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2725.87, 1457.02, 890.49, 3847.04],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:54.284 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:54.284  4772-6571  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:54.285 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:54.285  4772-5626  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:54.286 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{932ee06 com.max.aiassistant}
+2026-04-11 19:09:54.286 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:54.286  4772-5626  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:54.287 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:54.287 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:54.322  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390838350958476
+2026-04-11 19:09:54.397  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390838425927434
+2026-04-11 19:09:54.472  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390838501039517
+2026-04-11 19:09:54.477  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2725.87, 1457.02, 890.49, 3847.04],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:54.477  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:217, high_pwm_light:lux 21.2,cct 5300.0,brl/algo/ir 697.0/2.0/159.4,pwm/dc 0.0/0.0,rgbc 2725.872559/1457.022827/890.488159/3847.043213,ts 390838501335993,cnt 16324,flag 0
+2026-04-11 19:09:54.477  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith AVG_RGB:/61/67/77
+2026-04-11 19:09:54.477  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith RGB:/16/25/38
+2026-04-11 19:09:54.481  4772-5773  FusionLightNextGen      system_server                        D  calculate_silibals_compensation_value: comped_ir_ratio =  0.206149 comped_lux = 10.56135
+2026-04-11 19:09:54.482  4772-5773  FusionLightNextGen      system_server                        D  LECENT_AI::raw_lux -1.0, raw_cct -1.0, r/g/b/c: 2725.9/1457.0/890.5/3847.0, compensate r/g/b/c: 1875.54/829.30/639.52/2368.03 bri 697.0, lux: 10.561346, cct: -1.0, comped_lux:10.561 comped_cct:-1 ir: 0.206149, cnt: 0
+2026-04-11 19:09:54.482  4772-5773  CwbClient               system_server                        I  setCWBDisplayType set mFeatureID = CWB_RGB_VALUE
+2026-04-11 19:09:54.496  2992-3077  vendor.opl...10-service ven....hardware.charger-V10-service  D  ret_value:127, read content:,286,286,4091,4091,-66,67,69,1,1,0,494,5072,69,1,4530,300,500,0,0,11000,0,0,1,0,2,0,0,0,1,6944,98,10928,4298,6510,0,0,0,0,0,71
+2026-04-11 19:09:54.496  2992-3077  vendor.opl...10-service ven....hardware.charger-V10-service  D  gmtime: 2026-04-11-19-09-54
+2026-04-11 19:09:54.496  2992-3077  vendor.opl...10-service ven....hardware.charger-V10-service  D  usb_online:1, ac_online:-2147483648, wireless_online:0
+2026-04-11 19:09:54.547  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390838575944986
+2026-04-11 19:09:54.587 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:54.587  4772-5626  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:54.588 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:54.588  4772-5626  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:54.589 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{dd95cc7 com.max.aiassistant}
+2026-04-11 19:09:54.589 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:54.589  4772-5626  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:54.590 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:54.590 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:54.619  2992-3084  BatteryChargeControl    ven....hardware.charger-V10-service  D  bcc get no support from charging protocol
+2026-04-11 19:09:54.622  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390838650848267
+2026-04-11 19:09:54.686  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2725.87, 1457.02, 920.17, 3874.33],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:54.697  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390838725976236
+2026-04-11 19:09:54.772  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390838801026965
+2026-04-11 19:09:54.833  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  I  ProcessIbsCmd: Received IBS_WAKE_IND: 0xFD
+2026-04-11 19:09:54.833  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  D  SerialClockVote: vote for UART CLK ON
+2026-04-11 19:09:54.833  2872-14043 vendor.qti...-wake_lock and...re.bluetooth@aidl-service-qti  D  Acquire wakelock is acquired 
+2026-04-11 19:09:54.833  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  I  ProcessIbsCmd: Writing IBS_WAKE_ACK
+2026-04-11 19:09:54.848  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390838876235767
+2026-04-11 19:09:54.855  6930-9360  CommonApp-134-10514     com.oplus.subsys                     D  transport layer data is invalid
+2026-04-11 19:09:54.856  6930-9360  ScorePolicy             com.oplus.subsys                     D  handleScoreChanged: []
+2026-04-11 19:09:54.856  6930-9360  ScorePolicy             com.oplus.subsys                     D  handleScoreChanged: []
+2026-04-11 19:09:54.856  6930-9360  ScorePolicy             com.oplus.subsys                     D  handleScoreChanged: []
+2026-04-11 19:09:54.874  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  I  ProcessIbsCmd: Received IBS_SLEEP_IND: 0xFE
+2026-04-11 19:09:54.874  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  D  SerialClockVote: vote for UART CLK OFF
+2026-04-11 19:09:54.877  5853-5891  phone:satellite         com.android.phone:satellite          W  userfaultfd: MOVE ioctl seems unsupported: Connection timed out
+2026-04-11 19:09:54.890 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:54.891  4772-4843  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:54.892 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:54.892  4772-4843  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:54.893 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{8bb52f4 com.max.aiassistant}
+2026-04-11 19:09:54.893 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:54.893  4772-4843  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:54.893  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2725.87, 1429.00, 890.49, 3874.33],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:54.893 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:54.893  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith AVG_RGB:/61/67/77
+2026-04-11 19:09:54.893  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith RGB:/16/25/38
+2026-04-11 19:09:54.893 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:54.897  4772-5773  FusionLightNextGen      system_server                        D  calculate_silibals_compensation_value: comped_ir_ratio =  0.192343 comped_lux = 11.59136
+2026-04-11 19:09:54.897  4772-5773  FusionLightNextGen      system_server                        D  LECENT_AI::raw_lux -1.0, raw_cct -1.0, r/g/b/c: 2725.9/1429.0/890.5/3874.3, compensate r/g/b/c: 1875.54/801.30/639.52/2395.03 bri 697.0, lux: 11.591356, cct: -1.0, comped_lux:11.591 comped_cct:-1 ir: 0.192343, cnt: 0
+2026-04-11 19:09:54.897  4772-5773  CwbClient               system_server                        I  setCWBDisplayType set mFeatureID = CWB_RGB_VALUE
+2026-04-11 19:09:54.913  4772-4928  ActivityManager         system_server                        I  Killing 30124:com.google.android.apps.tachyon/u0a202 (adj 995): empty #65
+2026-04-11 19:09:54.922  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390838951014205
+2026-04-11 19:09:54.959  9777-9777  adbd                    adbd                                 I  Remote process closed the socket (on MSG_PEEK)
+2026-04-11 19:09:54.959  4772-4930  libprocessgroup         system_server                        I  Removed cgroup /sys/fs/cgroup/apps/uid_10202/pid_30124
+2026-04-11 19:09:54.959  2734-2734  Zygote                  zygote64                             I  Process 30124 exited due to signal 9 (Killed)
+2026-04-11 19:09:54.960  4772-5627  ActivityManager         system_server                        I  Death received, pid = 30124, processName = com.google.android.apps.tachyon for thread android.os.BinderProxy@9a8bb0e
+2026-04-11 19:09:54.961  4772-6080  ConnectivityService     system_server                        D  releasing NetworkRequest [ REQUEST id=20332, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10202 RequestorUid: 10202 RequestorPkg: com.google.android.apps.tachyon UnderlyingNetworks: Null] ] (release request)
+2026-04-11 19:09:54.961  2912-3016  PERFHAL-BOOSTCONFIG     ven...ti.hardware.perf2-hal-service  E  PERFHAL-BOOSTCONFIG: GetBoostConfig() 1872: Not able to fetch object
+2026-04-11 19:09:54.962  4772-7313  Athena                  system_server                        W  athena_optimize: recordTime, mLastDeathTime: 389281
+2026-04-11 19:09:54.962  4772-7313  Athena                  system_server                        W  athena_optimize: recordInterval,  intervalTime: 1146
+2026-04-11 19:09:54.962  4772-6503  WindowProc...lerExtImpl system_server                        E  shouldMakeAbnormalActivityFinishing, list may empty, mHasActivities: false
+2026-04-11 19:09:54.962  4772-7313  Athena                  system_server                        E  athena_optimize: pkg: com.google.android.apps.tachyon, processName: com.google.android.apps.tachyongetPercentage: 10
+2026-04-11 19:09:54.963  4772-4895  IModule                 system_server                        D  notifyEvent: GAME_PROCESS_DIE
+2026-04-11 19:09:54.963  4772-8124  OStatsMana...atsManager system_server                        I  updateStateTime: PkgName = com.google.android.apps.tachyon, uid = 10202, state to em, mForegroundCnt = 0, isFg = false
+2026-04-11 19:09:54.964  3520-3520  HoloAudio:...rvice_Aidl atlasservice                         D  callClient:clientID:1 exist:1, event:18, isOneWay:0
+2026-04-11 19:09:54.964  3520-3520  HoloAudio:...rvice_Aidl atlasservice                         D  getMssEnable --- com.google.android.apps.tachyon[0]
+2026-04-11 19:09:54.964  6930-9383  ActivityAdapter         com.oplus.subsys                     D  ugc uid gone, uid=10202
+2026-04-11 19:09:54.965  6763-7494  OplusLinkB...eneManager com.oplus.nas                        D  sceneStateUpdate: 5023,com.google.android.apps.tachyon,switch:[false, true, true, false]
+2026-04-11 19:09:54.965  6763-7494  OplusLinkBoostCommon    com.oplus.nas                        D  onSceneUpdated: 5023,com.google.android.apps.tachyon
+2026-04-11 19:09:54.965  6582-8129  OsAgent                 com.qualcomm.location                V  broadcastSystemEvent - 7
+2026-04-11 19:09:54.967 22870-22892 APS_ALOG                com.oplus.camera                     I  flushRoutine g_immediateFlush=0 g_pendingCount=0 g_oobCount=0
+2026-04-11 19:09:54.979  3850-3850  cnss-daemon             cnss-daemon                          I  nl80211 response handler invoked
+2026-04-11 19:09:54.979  2888-3015  WifiHAL                 android.hardware.wifi-service        I  event received NL80211_CMD_VENDOR, vendor_id = 0x1374, subcmd = 0xb6
+2026-04-11 19:09:54.979  3850-3850  cnss-daemon             cnss-daemon                          I  nl80211_response_handler: cmd 103, vendorID 4980, subcmd 182  received
+2026-04-11 19:09:54.998  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390839026371861
+2026-04-11 19:09:55.025  2872-14035 vendor.qti...-wake_lock and...re.bluetooth@aidl-service-qti  D  Release wakelock is released 
+2026-04-11 19:09:55.073  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390839101046132
+2026-04-11 19:09:55.101  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2832.77, 1485.04, 920.17, 4010.75],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:55.145  2888-3015  WifiHAL                 android.hardware.wifi-service        I  event received NL80211_CMD_VENDOR, vendor_id = 0x1374, subcmd = 0xd
+2026-04-11 19:09:55.145  3850-3850  cnss-daemon             cnss-daemon                          I  nl80211 response handler invoked
+2026-04-11 19:09:55.145  3850-3850  cnss-daemon             cnss-daemon                          I  nl80211_response_handler: cmd 103, vendorID 4980, subcmd 13  received
+2026-04-11 19:09:55.147  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390839175905402
+2026-04-11 19:09:55.194 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:55.195  4772-7308  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:55.196 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:55.196  4772-5627  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:55.197 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{7c0da1d com.max.aiassistant}
+2026-04-11 19:09:55.197 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:55.197  4772-5627  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:55.198 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:55.198 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:55.223  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390839251100819
+2026-04-11 19:09:55.297  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390839326021548
+2026-04-11 19:09:55.308  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2886.22, 1513.06, 949.85, 4092.60],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:55.308  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith AVG_RGB:/61/67/77
+2026-04-11 19:09:55.308  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith RGB:/16/25/38
+2026-04-11 19:09:55.312  4772-5773  FusionLightNextGen      system_server                        D  calculate_silibals_compensation_value: comped_ir_ratio =  0.192752 comped_lux = 12.70271
+2026-04-11 19:09:55.312  4772-5773  FusionLightNextGen      system_server                        D  LECENT_AI::raw_lux -1.0, raw_cct -1.0, r/g/b/c: 2886.2/1513.1/949.9/4092.6, compensate r/g/b/c: 2036.54/885.30/698.52/2613.03 bri 697.0, lux: 12.702706, cct: -1.0, comped_lux:12.703 comped_cct:-1 ir: 0.192752, cnt: 0
+2026-04-11 19:09:55.312  4772-5773  CwbClient               system_server                        I  setCWBDisplayType set mFeatureID = CWB_RGB_VALUE
+2026-04-11 19:09:55.372  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390839401023631
+2026-04-11 19:09:55.447  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390839475922538
+2026-04-11 19:09:55.499 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:55.500  4772-5627  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:55.500 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:55.501  4772-5627  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:55.501 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{effe492 com.max.aiassistant}
+2026-04-11 19:09:55.501 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:55.502  4772-5627  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:55.502 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:55.502 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:55.516  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2806.05, 1485.04, 890.49, 3983.46],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:55.523  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390839550982329
+2026-04-11 19:09:55.560  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  I  ProcessIbsCmd: Received IBS_WAKE_IND: 0xFD
+2026-04-11 19:09:55.560  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  D  SerialClockVote: vote for UART CLK ON
+2026-04-11 19:09:55.560  2872-14043 vendor.qti...-wake_lock and...re.bluetooth@aidl-service-qti  D  Acquire wakelock is acquired 
+2026-04-11 19:09:55.561  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  I  ProcessIbsCmd: Writing IBS_WAKE_ACK
+2026-04-11 19:09:55.597  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390839625906027
+2026-04-11 19:09:55.601  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  I  ProcessIbsCmd: Received IBS_SLEEP_IND: 0xFE
+2026-04-11 19:09:55.601  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  D  SerialClockVote: vote for UART CLK OFF
+2026-04-11 19:09:55.619  2992-3084  BatteryChargeControl    ven....hardware.charger-V10-service  D  bcc get no support from charging protocol
+2026-04-11 19:09:55.672  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390839700976808
+2026-04-11 19:09:55.724  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2725.87, 1429.00, 890.49, 3874.33],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:55.724  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith AVG_RGB:/61/67/77
+2026-04-11 19:09:55.724  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith RGB:/16/25/38
+2026-04-11 19:09:55.728  4772-5773  FusionLightNextGen      system_server                        D  calculate_silibals_compensation_value: comped_ir_ratio =  0.192343 comped_lux = 11.59136
+2026-04-11 19:09:55.728  4772-5773  FusionLightNextGen      system_server                        D  LECENT_AI::raw_lux -1.0, raw_cct -1.0, r/g/b/c: 2725.9/1429.0/890.5/3874.3, compensate r/g/b/c: 1875.54/801.30/639.52/2395.03 bri 697.0, lux: 11.591356, cct: -1.0, comped_lux:11.591 comped_cct:-1 ir: 0.192343, cnt: 0
+2026-04-11 19:09:55.728  4772-5773  CwbClient               system_server                        I  setCWBDisplayType set mFeatureID = CWB_RGB_VALUE
+2026-04-11 19:09:55.747  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390839775878683
+2026-04-11 19:09:55.752  2872-14035 vendor.qti...-wake_lock and...re.bluetooth@aidl-service-qti  D  Release wakelock is released 
+2026-04-11 19:09:55.802 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:55.803  4772-5627  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:55.804 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:55.804  4772-5627  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:55.805 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{584fe63 com.max.aiassistant}
+2026-04-11 19:09:55.805 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:55.805  4772-5627  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:55.806 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:55.806 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:55.822  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390839850971079
+2026-04-11 19:09:55.879  6930-9360  CommonApp-134-10514     com.oplus.subsys                     D  transport layer data is invalid
+2026-04-11 19:09:55.880  6930-9360  ScorePolicy             com.oplus.subsys                     D  handleScoreChanged: []
+2026-04-11 19:09:55.880  6930-9360  ScorePolicy             com.oplus.subsys                     D  handleScoreChanged: []
+2026-04-11 19:09:55.880  6930-9360  ScorePolicy             com.oplus.subsys                     D  handleScoreChanged: []
+2026-04-11 19:09:55.897  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390839925579152
+2026-04-11 19:09:55.916  4772-4928  ActivityManager         system_server                        I  Killing 13065:com.google.android.gms.unstable/u0a147 (adj 985): empty #65
+2026-04-11 19:09:55.918  4772-4928  ActivityManager         system_server                        I  Killing 30280:com.google.android.projection.gearhead:provider/u0a120 (adj 985): empty #66
+2026-04-11 19:09:55.919  2912-3016  PERF_APPCLASSIFIER      ven...ti.hardware.perf2-hal-service  E  PERF_APPCLASSIFIER: getData() 195: DBQuery failed for appName:com.google.android.gms.unstable
+2026-04-11 19:09:55.921  2912-3016  PERF_APPCLASSIFIER      ven...ti.hardware.perf2-hal-service  E  PERF_APPCLASSIFIER: getData() 195: DBQuery failed for appName:com.google.android.projection.gearhead:provider
+2026-04-11 19:09:55.931  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2752.60, 1457.02, 920.17, 3901.61],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:55.939  4772-5632  resRelease              system_server                        I  policy type is 1
+2026-04-11 19:09:55.949  9777-9777  adbd                    adbd                                 I  Remote process closed the socket (on MSG_PEEK)
+2026-04-11 19:09:55.950  4772-5627  ActivityManager         system_server                        I  Death received, pid = 30280, processName = com.google.android.projection.gearhead:provider for thread android.os.BinderProxy@aa192f
+2026-04-11 19:09:55.950  2734-2734  Zygote                  zygote64                             I  Process 30280 exited due to signal 9 (Killed)
+2026-04-11 19:09:55.950  2912-3016  PERF_APPCLASSIFIER      ven...ti.hardware.perf2-hal-service  E  PERF_APPCLASSIFIER: getData() 195: DBQuery failed for appName:com.google.android.projection.gearhead:provider
+2026-04-11 19:09:55.950  2912-3016  PERFHAL-BOOSTCONFIG     ven...ti.hardware.perf2-hal-service  E  PERFHAL-BOOSTCONFIG: GetBoostConfig() 1872: Not able to fetch object
+2026-04-11 19:09:55.952  4772-9629  WindowProc...lerExtImpl system_server                        E  shouldMakeAbnormalActivityFinishing, list may empty, mHasActivities: false
+2026-04-11 19:09:55.952  4772-7313  Athena                  system_server                        W  athena_optimize: recordTime, mLastDeathTime: 389276
+2026-04-11 19:09:55.952  4772-7313  Athena                  system_server                        W  athena_optimize: recordInterval,  intervalTime: 1151
+2026-04-11 19:09:55.952  4772-7313  Athena                  system_server                        E  athena_optimize: pkg: com.google.android.projection.gearhead, processName: com.google.android.projection.gearhead:providergetPercentage: 6
+2026-04-11 19:09:55.952  4772-4895  IModule                 system_server                        D  notifyEvent: GAME_PROCESS_DIE
+2026-04-11 19:09:55.953  3520-3520  HoloAudio:...rvice_Aidl atlasservice                         D  callClient:clientID:1 exist:1, event:18, isOneWay:0
+2026-04-11 19:09:55.953  3520-3520  HoloAudio:...rvice_Aidl atlasservice                         D  getMssEnable --- com.google.android.projection.gearhead[0]
+2026-04-11 19:09:55.962  4772-4930  libprocessgroup         system_server                        I  Removed cgroup /sys/fs/cgroup/apps/uid_10147/pid_13065
+2026-04-11 19:09:55.962  2734-2734  Zygote                  zygote64                             I  Process 13065 exited due to signal 9 (Killed)
+2026-04-11 19:09:55.962  4772-7315  ActivityManager         system_server                        I  Death received, pid = 13065, processName = com.google.android.gms.unstable for thread android.os.BinderProxy@5733b3c
+2026-04-11 19:09:55.962  4772-4930  libprocessgroup         system_server                        I  Removed cgroup /sys/fs/cgroup/apps/uid_10120/pid_30280
+2026-04-11 19:09:55.962  2912-3016  PERF_APPCLASSIFIER      ven...ti.hardware.perf2-hal-service  E  PERF_APPCLASSIFIER: getData() 195: DBQuery failed for appName:com.google.android.gms.unstable
+2026-04-11 19:09:55.962  2912-3016  PERFHAL-BOOSTCONFIG     ven...ti.hardware.perf2-hal-service  E  PERFHAL-BOOSTCONFIG: GetBoostConfig() 1872: Not able to fetch object
+2026-04-11 19:09:55.963  4772-6503  WindowProc...lerExtImpl system_server                        E  shouldMakeAbnormalActivityFinishing, list may empty, mHasActivities: false
+2026-04-11 19:09:55.963  4772-4895  IModule                 system_server                        D  notifyEvent: GAME_PROCESS_DIE
+2026-04-11 19:09:55.963  4772-7313  Athena                  system_server                        W  athena_optimize: recordTime, mLastDeathTime: 374010
+2026-04-11 19:09:55.963  4772-7313  Athena                  system_server                        W  athena_optimize: recordInterval,  intervalTime: 6708
+2026-04-11 19:09:55.963  4772-7313  Athena                  system_server                        E  athena_optimize: pkg: com.google.android.gms, processName: com.google.android.gms.unstablegetPercentage: 13
+2026-04-11 19:09:55.963  3520-3520  HoloAudio:...rvice_Aidl atlasservice                         D  callClient:clientID:1 exist:1, event:18, isOneWay:0
+2026-04-11 19:09:55.964  3520-3520  HoloAudio:...rvice_Aidl atlasservice                         D  getMssEnable --- com.google.android.gms[0]
+2026-04-11 19:09:55.972  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390840000598892
+2026-04-11 19:09:56.047  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390840076012746
+2026-04-11 19:09:56.075  6930-7488  RadioProxyJ[0]          com.oplus.subsys                     D  [24679]> getRRCStatus
+2026-04-11 19:09:56.076  3487-3609  QmiNasClient            subsys_daemon                        D  getRRCStatus - enter
+2026-04-11 19:09:56.077  3487-5194  QmiNasClient            subsys_daemon                        D  getRRCStatus callback - enter
+2026-04-11 19:09:56.077  3487-5194  QmiNasClient            subsys_daemon                        D  getRRCStatus result.rsp.rrcStatusInfo.rrcStatus = 0
+2026-04-11 19:09:56.077  3487-3609  NasProxy                subsys_daemon                        D  handleMessage msg is 4001
+2026-04-11 19:09:56.077  3487-3609  RadioProxy              subsys_daemon                        D  getRRCStatus : response cb for instance 0
+2026-04-11 19:09:56.077  6930-7612  RadioProxyJ[0]          com.oplus.subsys                     D  [24679]< getRRCStatusResponse 0
+2026-04-11 19:09:56.077  6930-7488  CoexRfService           com.oplus.subsys                     D  report RRC state:false
+2026-04-11 19:09:56.079  4772-5780  AlarmManager            system_server                        V  sending alarm Alarm{a84b0c5 type 1 origWhen 1775927396079 whenElapsed 390840107 android} uid 1000 whenElapsed 390840107 windowLength 0 maxWhenElapsed 390840107 repeatInterval 0 action null component null tag StorgaeBandInfoAlarmTag flags 0x9 procName system_server
+2026-04-11 19:09:56.079  4772-2488  OplusStora...SBandwidth system_server                        E  storage_io_metrics_path is /proc/oplus_storage/io_metrics/forever/
+2026-04-11 19:09:56.080  4772-2488  OplusStora...SBandwidth system_server                        E  Bandwidth - Read: 0,00 MB/s, Write: 0,00 MB/s
+2026-04-11 19:09:56.080  4772-2488  OplusStora...SBandwidth system_server                        E  Task time: 1ms
+2026-04-11 19:09:56.083  4772-2488  OplusStora...SBandwidth system_server                        E  Alarm set to trigger in 10 seconds
+2026-04-11 19:09:56.106 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:56.107  4772-5626  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:56.108 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:56.108  4772-5626  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:56.109 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{2b4aa60 com.max.aiassistant}
+2026-04-11 19:09:56.109 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:56.109  4772-5626  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:56.109 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:56.109 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:56.123  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390840151513735
+2026-04-11 19:09:56.140  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2645.70, 1429.00, 890.49, 3765.19],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:56.140  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith AVG_RGB:/61/67/77
+2026-04-11 19:09:56.140  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith RGB:/16/25/38
+2026-04-11 19:09:56.144  4772-5773  FusionLightNextGen      system_server                        D  calculate_silibals_compensation_value: comped_ir_ratio =  0.207857 comped_lux = 10.30671
+2026-04-11 19:09:56.144  4772-5773  FusionLightNextGen      system_server                        D  LECENT_AI::raw_lux -1.0, raw_cct -1.0, r/g/b/c: 2645.7/1429.0/890.5/3765.2, compensate r/g/b/c: 1795.54/801.30/639.52/2286.03 bri 697.0, lux: 10.306708, cct: -1.0, comped_lux:10.307 comped_cct:-1 ir: 0.207857, cnt: 0
+2026-04-11 19:09:56.144  4772-5773  CwbClient               system_server                        I  setCWBDisplayType set mFeatureID = CWB_RGB_VALUE
+2026-04-11 19:09:56.198  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390840226233631
+2026-04-11 19:09:56.273  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390840301219673
+2026-04-11 19:09:56.347  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390840375862433
+2026-04-11 19:09:56.348  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2645.70, 1400.98, 890.49, 3737.91],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:56.365  4772-6231  OplusSlaFastSwitch      system_server                        D  Network Capabiliteis changed 134
+2026-04-11 19:09:56.366  4772-4772  JobService              system_server                        W  onNetworkChanged() not implemented in com.android.server.content.SyncJobService. Must override in a subclass.
+2026-04-11 19:09:56.368  6930-6930  SubsysEven...nerManager com.oplus.subsys                     D  onCapabilitiesChanged
+2026-04-11 19:09:56.368  6930-6930  DataStateTracker        com.oplus.subsys                     D  getCurDataChannel, channel:1
+2026-04-11 19:09:56.369  4772-6231  OplusSlaNetworkManager  system_server                        D  isPrimaryWifi:true network:134
+2026-04-11 19:09:56.370  6874-8149  QCNEJ/Nati...lConnector .qtidataservices                     D  -> SND notifyDefaultNetworkChanged(1)
+2026-04-11 19:09:56.366  6596-6700  WifiStatusTracker       com.android.systemui                 D  mNetworkCallback onCapabilitiesChanged network:134 mPrimaryNetworkId:134
+2026-04-11 19:09:56.371  6874-8149  cneJni                  .qtidataservices                     D  sendDefaultNwMsg start
+2026-04-11 19:09:56.371  6596-6783  WifiPickerTracker       com.android.systemui                 D  handleNetworkCapabilitiesChanged network:134
+2026-04-11 19:09:56.372  6930-6930  SubsysEven...nerManager com.oplus.subsys                     D  mDefaultNetworkCb onCapabilitiesChanged
+2026-04-11 19:09:56.372  6930-6930  NetworkService[0]       com.oplus.subsys                     D  default onCapabilitiesChanged
+2026-04-11 19:09:56.372  6930-6930  VendorWifiService       com.oplus.subsys                     D  onEvent event:9,action:1
+2026-04-11 19:09:56.373  6874-8149  cneJni                  .qtidataservices                     D  sendWifiStatus start
+2026-04-11 19:09:56.373  6763-7504  SmartDataS...hValidator com.oplus.nas                        I  unexpected network onCapabilitiesChanged
+2026-04-11 19:09:56.377  6596-6700  WifiStatusTracker       com.android.systemui                 D  mNetworkCallback onCapabilitiesChanged network:134 mPrimaryNetworkId:134
+2026-04-11 19:09:56.377  6596-6783  WifiPickerTracker       com.android.systemui                 I  wifi connected status realConnectedWifiEntry not null: true
+2026-04-11 19:09:56.379  6797-8138  txpwrJni                .qms                                 D  sendNetworkInfo start
+2026-04-11 19:09:56.380 22398-22476 BugleRcsEngine          com...le.android.apps.messaging:rcs  I  Connected state: [1], networkType: [WIFI] [CONTEXT thread_id=377 ]
+2026-04-11 19:09:56.381 22398-22480 BugleRcsEngine          com...le.android.apps.messaging:rcs  I  handleMessage processing message:[NOTIFY_UPTIME_IGNORE_STATE_CHANGED] with [non-null]:RcsEngineImpl reference [CONTEXT log_prefix="RcsEngineImpl[DUAL_REG]:[8eb55363-6712]>Handler" thread_id=380 ]
+2026-04-11 19:09:56.381  6596-6700  SystemUi--Statusbar     com.android.systemui                 I  NetworkController.WifiSignalController-->handleStatusUpdated state=3 enabled=true connected=true isDefaultNetwork=true rssi=-45 level=4 statusLabel=null isDirty=false
+2026-04-11 19:09:56.381  6596-6700  SystemUi--Statusbar     com.android.systemui                 I  NetworkController.WifiSignalController-->handleStatusUpdated state=3 enabled=true connected=true isDefaultNetwork=true rssi=-45 level=4 statusLabel=null isDirty=false
+2026-04-11 19:09:56.381  6596-6700  SystemUi--Statusbar     com.android.systemui                 I  NetworkController.WifiSignalController-->handleStatusUpdated state=3 enabled=true connected=true isDefaultNetwork=true rssi=-45 level=4 statusLabel=null isDirty=false
+2026-04-11 19:09:56.381  6797-8138  txpwrJni                .qms                                 D  sendNetworkInfo RatType 0
+2026-04-11 19:09:56.381 10403-30848 PTC.DISC.W...tyObserver com.heytap.accessory                 I  Receive NetworkCapabilitiesChanged.
+2026-04-11 19:09:56.382 22398-22480 BugleRcsEngine          com...le.android.apps.messaging:rcs  I  Cannot use CS.apk as it's battery optimized [CONTEXT thread_id=380 ]
+2026-04-11 19:09:56.382 30685-30717 AIUnit-NetworkPublisher com.oplus.aiunit:worker53            I  onNetworkChanged [onCapabilitiesChanged, 134]
+2026-04-11 19:09:56.380 27536-27600 AIUnit-NetworkPublisher com.oplus.aiunit                     I  onNetworkChanged [onCapabilitiesChanged, 134]
+2026-04-11 19:09:56.383  9687-9732  AIUnit-NetworkPublisher com.oplus.aiunit:worker74            I  onNetworkChanged [onCapabilitiesChanged, 134]
+2026-04-11 19:09:56.384  4772-6188  MultiNetwo...atsMonitor system_server                        D  wifi network 134 nc changed, primary=true, iface=wlan0
+2026-04-11 19:09:56.384  4772-6188  OplusInterfaceMonitor   system_server                        D  interface:wlan0 primary:true
+2026-04-11 19:09:56.384  4772-6188  ScorerUtils             system_server                        D  isLowTraffic: txTputKBps=0, rxTputKBps=0
+2026-04-11 19:09:56.385 27536-27600 Track.TrackUpload       com.oplus.aiunit                     D  onCapabilitiesChanged is calling.
+2026-04-11 19:09:56.385  4772-6188  OplusWifiP...ggerCenter system_server                        D  mComponentCallback: wifistat
+2026-04-11 19:09:56.385  4605-4652  NetWorkMonitor          com.heytap.mydevices                 D  postOnNetStateChange : old state =WIFI,new state =WIFI
+2026-04-11 19:09:56.386  9865-9948  AIUnit-NetworkPublisher com.oplus.aiunit:worker73            I  onNetworkChanged [onCapabilitiesChanged, 134]
+2026-04-11 19:09:56.386 18478-18558 AIUnit-NetworkPublisher com.oplus.aiunit:worker84            I  onNetworkChanged [onCapabilitiesChanged, 134]
+2026-04-11 19:09:56.386  4687-4792  NetWorkMonitor          com.heytap.mydevices:cards           D  postOnNetStateChange : old state =WIFI,new state =WIFI
+2026-04-11 19:09:56.387 10403-30848 PTC.DISC.N...terCentral com.heytap.accessory                 W  registerLanInfo failed. msg=Account not logged in desc=wlanAvailable(repeat=0)
+2026-04-11 19:09:56.388 22398-22480 BugleRcsEngine          com...le.android.apps.messaging:rcs  I  Rcs is enabled from user settings: true [CONTEXT log_prefix="ProvisioningEngineDataRetriever" thread_id=380 ]
+2026-04-11 19:09:56.411 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:56.411  4772-7308  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:56.411 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:56.412  4772-7308  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:56.412 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{915fb19 com.max.aiassistant}
+2026-04-11 19:09:56.412 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:56.413  4772-7308  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:56.413 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:56.413 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:56.422  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390840450856027
+2026-04-11 19:09:56.468 11011-11011 WM-DelayedWorkTracker   com.oplus.dmp:main                   D  Scheduling work ff6590ff-ea11-45c2-8c9d-817e1f65db42
+2026-04-11 19:09:56.468 11011-11011 WM-GreedyScheduler      com.oplus.dmp:main                   D  Starting tracking for ff6590ff-ea11-45c2-8c9d-817e1f65db42
+2026-04-11 19:09:56.469 11011-11064 WM-ConstraintTracker    com.oplus.dmp:main                   D  c: initial state = true
+2026-04-11 19:09:56.469 11011-11064 WM-BrdcstRcvrCnstrntTrc com.oplus.dmp:main                   D  c: registering receiver
+2026-04-11 19:09:56.470 11011-11064 WM-GreedyScheduler      com.oplus.dmp:main                   D  Constraints met: Scheduling work ID WorkGenerationalId(workSpecId=ff6590ff-ea11-45c2-8c9d-817e1f65db42, generation=0)
+2026-04-11 19:09:56.472 11011-11064 WM-Processor            com.oplus.dmp:main                   D  s: processing WorkGenerationalId(workSpecId=ff6590ff-ea11-45c2-8c9d-817e1f65db42, generation=0)
+2026-04-11 19:09:56.473 11011-11011 WM-WorkerWrapper        com.oplus.dmp:main                   D  Starting work for com.oplus.oss.bussiness.localapp.work.LocalAppOneTimeWorker
+2026-04-11 19:09:56.474 11011-11068 DMP-AppInitializer      com.oplus.dmp:main                   I  isAppAvailable for work, caller: null
+2026-04-11 19:09:56.474 11011-11068 DMP-OFreez...tectWorker com.oplus.dmp:main                   I  takeProtectionFromFrozen, no need to protect
+2026-04-11 19:09:56.474 11011-11068 DMP-AbstractWorker      com.oplus.dmp:main                   I  parseData, resource: localApp, method1:onReceive, work: completeKeywordIndexWork, extras: Bundle[{action=android.intent.action.PACKAGE_ADDED, package=com.max.aiassistant}], initIndexCount:5000
+2026-04-11 19:09:56.475 11011-11068 DMP-AbstractWorker      com.oplus.dmp:main                   I  doWork started, resource: localApp, method3:onReceive, work:Work{mWorkName=completeKeywordIndexWork, mWorkTerm=long, mReportId=false, mCreate=Create{mIndexStatus=null, mQueryTime=0, mInterval=0, mDeletedDocs=null, mNeedRebuildFlag=0, mIndexCheckFlag=false, mDrop=Drop{mCount=4, mInterval=10000, mDelay=60000}, mHighTemperature=41, mMinPower=null, mScreen=null, mDeletedConditions=null}, mEntry=null, mMoreBatch=MoreBatch{mPowerConsumed=2, mHighTemperatureValue=0, mLowTemperatureValue=0, mPower=[full|charging], mScreen=null, mTemperatureConsumed=0}, mChained=true, mInitialDelay=10, mWorkOneTimeLimit=0}
+2026-04-11 19:09:56.476 11011-11068 DMP-PowerUtils          com.oplus.dmp:main                   I  getHoraeTemperature:30
+2026-04-11 19:09:56.476 11011-11068 DMP-AbstractWorker      com.oplus.dmp:main                   I  dispatchWork: completeKeywordIndexWork for [localApp]
+2026-04-11 19:09:56.476 11011-11068 DMP-SAUWor...figManager com.oplus.dmp:main                   I  sau work config not found
+2026-04-11 19:09:56.476 11011-11068 DMP-PowerUtils          com.oplus.dmp:main                   I  getHoraeTemperature:30
+2026-04-11 19:09:56.476 11011-11068 DMP-AbstractWorker      com.oplus.dmp:main                   I  doCompleteKeywordIndex work for [localApp]
+2026-04-11 19:09:56.477 11011-11068 DMP-AbstractWorker      com.oplus.dmp:main                   I  No data need do complete keyword index for [localApp]
+2026-04-11 19:09:56.477 11011-11068 DMP-AbstractWorker      com.oplus.dmp:main                   I  setIndexFailCount method:onReceive, count:0, all:initResource=0,dailyTask=0,onReceive=0,rearrange=0
+2026-04-11 19:09:56.480 11011-11068 DMP-AbstractWorker      com.oplus.dmp:main                   I  doWork finished, resource: localApp, method5:onReceive, work:Work{mWorkName=completeKeywordIndexWork, mWorkTerm=long, mReportId=false, mCreate=Create{mIndexStatus=null, mQueryTime=0, mInterval=0, mDeletedDocs=null, mNeedRebuildFlag=0, mIndexCheckFlag=false, mDrop=Drop{mCount=4, mInterval=10000, mDelay=60000}, mHighTemperature=41, mMinPower=null, mScreen=null, mDeletedConditions=null}, mEntry=null, mMoreBatch=MoreBatch{mPowerConsumed=2, mHighTemperatureValue=0, mLowTemperatureValue=0, mPower=[full|charging], mScreen=null, mTemperatureConsumed=0}, mChained=true, mInitialDelay=10, mWorkOneTimeLimit=0}
+2026-04-11 19:09:56.480 11011-11068 DMP-IndexEventManager   com.oplus.dmp:main                   I  addEvent:InternalIndexEvent{mEvent=null, mEventTime=null, mEventData=null, mEventDropReason=null, mResource=null, mWork=null, mWorkId=ff6590ff-ea11-45c2-8c9d-817e1f65db42, mWorkTime=1775927396, mCursorSize=null, mResult=0}
+2026-04-11 19:09:56.480 11011-11068 DMP-IndexEventManager   com.oplus.dmp:main                   I  addInternalEvent:result=0 workId=ff6590ff-ea11-45c2-8c9d-817e1f65db42 workTime=1775927396
+2026-04-11 19:09:56.481 11011-11068 DMP-IndexEventManager   com.oplus.dmp:main                   I  addInternalEvent update:0
+2026-04-11 19:09:56.481 11011-11068 DMP-IndexEventManager   com.oplus.dmp:main                   I  addInternalEvent insert:9545
+2026-04-11 19:09:56.481 11011-11068 DMP-FrozenHelper        com.oplus.dmp:main                   I  deleteKeepRequest, no more quest
+2026-04-11 19:09:56.482 11011-11046 WM-WorkerWrapper        com.oplus.dmp:main                   I  Worker result SUCCESS for Work [ id=ff6590ff-ea11-45c2-8c9d-817e1f65db42, tags={ com.oplus.oss.bussiness.localapp.work.LocalAppOneTimeWorker,localApp_onReceive__OneTimeWork,completeKeywordIndexWork } ]
+2026-04-11 19:09:56.483 11011-11011 WM-Processor            com.oplus.dmp:main                   D  s ff6590ff-ea11-45c2-8c9d-817e1f65db42 executed; reschedule = false
+2026-04-11 19:09:56.483 11011-11011 WM-GreedyScheduler      com.oplus.dmp:main                   D  Stopping tracking for WorkGenerationalId(workSpecId=ff6590ff-ea11-45c2-8c9d-817e1f65db42, generation=0)
+2026-04-11 19:09:56.487 11011-11046 WM-GreedyScheduler      com.oplus.dmp:main                   D  Cancelling work ID ff6590ff-ea11-45c2-8c9d-817e1f65db42
+2026-04-11 19:09:56.488 11011-11046 WM-BrdcstRcvrCnstrntTrc com.oplus.dmp:main                   D  c: unregistering receiver
+2026-04-11 19:09:56.491  4772-7308  PackageManager          system_server                        W  package com.oplus.dmp uid 10181 pid 11011 call SetEnabledSetting(com.oplus.dmp component = androidx.work.impl.background.systemalarm.RescheduleReceiver, 2, 0)
+2026-04-11 19:09:56.492 11011-11046 WM-PackageManagerHelper com.oplus.dmp:main                   D  androidx.work.impl.background.systemalarm.RescheduleReceiver disabled
+2026-04-11 19:09:56.497  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390840525869881
+2026-04-11 19:09:56.556  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2618.98, 1400.98, 860.81, 3737.91],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:56.556  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:217, high_pwm_light:lux 20.7,cct 5300.0,brl/algo/ir 697.0/2.0/152.9,pwm/dc 0.0/0.0,rgbc 2618.975586/1400.983521/860.805176/3737.907227,ts 390840580096931,cnt 16334,flag 0
+2026-04-11 19:09:56.556  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith AVG_RGB:/61/67/77
+2026-04-11 19:09:56.556  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith RGB:/16/25/38
+2026-04-11 19:09:56.560  4772-5773  FusionLightNextGen      system_server                        D  calculate_silibals_compensation_value: comped_ir_ratio =  0.197591 comped_lux = 10.67604
+2026-04-11 19:09:56.561  4772-5773  FusionLightNextGen      system_server                        D  LECENT_AI::raw_lux -1.0, raw_cct -1.0, r/g/b/c: 2619.0/1401.0/860.8/3737.9, compensate r/g/b/c: 1768.54/772.30/609.52/2258.03 bri 697.0, lux: 10.676037, cct: -1.0, comped_lux:10.676 comped_cct:-1 ir: 0.197591, cnt: 0
+2026-04-11 19:09:56.561  4772-5773  CwbClient               system_server                        I  setCWBDisplayType set mFeatureID = CWB_RGB_VALUE
+2026-04-11 19:09:56.572  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390840600931131
+2026-04-11 19:09:56.577 18977-19771 Bugsnag                 com.amazon.mShop.android.shopping    D  Skipping RetryDeliveryTask - no connectivity.
+2026-04-11 19:09:56.620  2992-3084  BatteryChargeControl    ven....hardware.charger-V10-service  D  bcc get no support from charging protocol
+2026-04-11 19:09:56.647  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390840675822537
+2026-04-11 19:09:56.714 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:56.716  4772-7308  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:56.716 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:56.717  4772-7308  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:56.717 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{f33b7de com.max.aiassistant}
+2026-04-11 19:09:56.718 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:56.718  4772-7308  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:56.718 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:56.718 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:56.722  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390840750984881
+2026-04-11 19:09:56.731  2912-3098  PERFHAL-PERFCTRL        ven...ti.hardware.perf2-hal-service  E  PERFHAL-PERFCTRL: chk_core_online_poll_loop() 747: poll() has timed out for /sys/kernel/msm_performance/events/cpu_hotplug
+2026-04-11 19:09:56.731  2912-3098  PERFHAL-PERFCTRL        ven...ti.hardware.perf2-hal-service  E  PERFHAL-PERFCTRL: chk_core_online_poll_loop() 742: Block on poll()
+2026-04-11 19:09:56.765  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2672.42, 1400.98, 860.81, 3765.19],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:56.798  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390840826220246
+2026-04-11 19:09:56.873  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390840901122641
+2026-04-11 19:09:56.885 11693-2766  NearbySharing           com.google.android.gms.persistent    I  Network state changed: NetworkState(isRestricted=false, isOnline=true, isCongested=false, isMetered=false, isWifiConnected=true)
+2026-04-11 19:09:56.903  6930-9360  CommonApp-134-10514     com.oplus.subsys                     D  transport layer data is invalid
+2026-04-11 19:09:56.903  6930-9360  ScorePolicy             com.oplus.subsys                     D  handleScoreChanged: []
+2026-04-11 19:09:56.904  6930-9360  ScorePolicy             com.oplus.subsys                     D  handleScoreChanged: []
+2026-04-11 19:09:56.904  6930-9360  ScorePolicy             com.oplus.subsys                     D  handleScoreChanged: []
+2026-04-11 19:09:56.934  4037-4037  synaLib                 touchDaemon                          I  tcm: STATUS: Exit DOZE mode
+2026-04-11 19:09:56.934  4037-4037  OplusTouchDaemon        touchDaemon                          E  [prevent][curved_large_handle_V2][3008]: id:0 pos:3 center_down:1 (20742 28353)(0 2 0 0) 
+2026-04-11 19:09:56.934  4037-4037  OplusTouchDaemon        touchDaemon                          E  [prevent][large_exit_matched][1823]: large_exit_matched: exit matched(0) (20742 28353 0 2 0 0)
+2026-04-11 19:09:56.934  4037-4037  OplusTouchDaemon        touchDaemon                          E  [prevent][large_exit_matched][1823]: large_exit_matched: exit matched(0) (20742 28353 0 2 0 0)
+2026-04-11 19:09:56.934  4037-4037  OplusTouchDaemon        touchDaemon                          E  [prevent][large_shape_judged_V2][2311]: large_shape_judged_V2: id(0) judge long press under detect time.
+2026-04-11 19:09:56.934  4037-4037  OplusTouchDaemon        touchDaemon                          E  [touchEvent][ts_report_touch_data][649]: first touch point id 0 [20742 28353    7    2    0    0    0]
+2026-04-11 19:09:56.936  3131-3715  VRR [OTI]               surfaceflinger                       D  handleIdle from 1 to 0
+2026-04-11 19:09:56.936  3131-3715  VRR [OTI-HW]            surfaceflinger                       D  isStateReady 0
+2026-04-11 19:09:56.936  3131-3715  VRR [OTI-HW]            surfaceflinger                       D  keep rate.
+2026-04-11 19:09:56.936  4772-6489  [UAH_CLIENT]            system_server                        I  UahEventAcquire, cmdid:37, pkg:none, identity:OplusUAwareInputHelper
+2026-04-11 19:09:56.937  6986-6986  DynamicFra...peedAware] com.max.aiassistant                  I  onEventHandled: info: InputEventInfo: mX = 0, mY = 0, mAction = 0, mVsyncTime = 106125218, mIsMoving = true, mUpdated = true
+2026-04-11 19:09:56.937  6986-6986  IJankManager            com.max.aiassistant                  E  slideSceneEnd unknown scene 1000 mScene:-1
+2026-04-11 19:09:56.937  6986-6986  AutofillManager         com.max.aiassistant                  V  requestHideFillUi(null): anchor = null
+2026-04-11 19:09:56.937  4772-4954  PowerManagerService     system_server                        D  userActivityNoUpdateLocked: groupId=0, eventTime=106125213, event=touch, flags=0x0, uid=1000
+2026-04-11 19:09:56.937  4772-6213  GestureLog...erDetector system_server                        D  onTouchEvent------>start, mCurNumPointers=1, mCurrStatus=0 mIsDownIntervalTimeout=true, action=0 downTime=106125213 deviceId=6
+2026-04-11 19:09:56.938  4772-4954  PowerManagerService     system_server                        D  userActivityNoUpdateLocked: groupId=0, eventTime=106125213, event=touch, flags=0x0, uid=1000
+2026-04-11 19:09:56.938  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  I  ProcessIbsCmd: Received IBS_WAKE_IND: 0xFD
+2026-04-11 19:09:56.938  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  D  SerialClockVote: vote for UART CLK ON
+2026-04-11 19:09:56.938  2872-14043 vendor.qti...-wake_lock and...re.bluetooth@aidl-service-qti  D  Acquire wakelock is acquired 
+2026-04-11 19:09:56.938  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  I  ProcessIbsCmd: Writing IBS_WAKE_ACK
+2026-04-11 19:09:56.947  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390840975333370
+2026-04-11 19:09:56.972  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2699.15, 1429.00, 890.49, 3819.76],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:56.972  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith AVG_RGB:/61/67/77
+2026-04-11 19:09:56.972  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith RGB:/16/25/38
+2026-04-11 19:09:56.974  4772-5773  FusionLightNextGen      system_server                        D  calculate_silibals_compensation_value: comped_ir_ratio =  0.203060 comped_lux = 10.66162
+2026-04-11 19:09:56.974  4772-5773  FusionLightNextGen      system_server                        D  LECENT_AI::raw_lux -1.0, raw_cct -1.0, r/g/b/c: 2699.1/1429.0/890.5/3819.8, compensate r/g/b/c: 1849.54/801.30/639.52/2340.03 bri 697.0, lux: 10.661617, cct: -1.0, comped_lux:10.662 comped_cct:-1 ir: 0.203060, cnt: 0
+2026-04-11 19:09:56.974  4772-5773  CwbClient               system_server                        I  setCWBDisplayType set mFeatureID = CWB_RGB_VALUE
+2026-04-11 19:09:56.979  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  I  ProcessIbsCmd: Received IBS_SLEEP_IND: 0xFE
+2026-04-11 19:09:56.979  2872-14043 vendor.qti...bs_handler and...re.bluetooth@aidl-service-qti  D  SerialClockVote: vote for UART CLK OFF
+2026-04-11 19:09:56.987  4037-4037  OplusTouchDaemon        touchDaemon                          E  [prevent][curved_large_handle_V2][3082]: up id(0) status: 3, 1, 1, 0.
+2026-04-11 19:09:56.988  4772-6489  UAH-UahAdaptHelper      system_server                        D  adaptSetNotification identity = OplusUAwareInputHelpersrc = 1000 , type 1 ,p1 = -1 ,p2 = -1 ,p3 = -1 ,p4 =
+2026-04-11 19:09:56.988  4772-6489  [UAH_CLIENT]            system_server                        I  uahRuleCtl, ruleId:1000, status:1
+2026-04-11 19:09:56.988  6986-6986  DynamicFra...peedAware] com.max.aiassistant                  I  onEventHandled: info: InputEventInfo: mX = 0, mY = 0, mAction = 1, mVsyncTime = 106125269, mIsMoving = false, mUpdated = true
+2026-04-11 19:09:56.990  6986-6986  MainViewModel           com.max.aiassistant                  D  Envoi du message au moteur local: Test, avec image: false
+2026-04-11 19:09:56.992  6986-6986  ViewRootImplExtImpl     com.max.aiassistant                  D  the up motion event handled by client, just return
+2026-04-11 19:09:56.999  4772-5815  InputMetho...gerService system_server                        D  isSecurity: attribute.packageName = com.max.aiassistant mCurMethodId = com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME isSecurity = false ( enable = true needShow = false inBlackList = false isExist = true )
+2026-04-11 19:09:57.000  4772-5815  ImeTracker              system_server                        I  com.max.aiassistant:84c3a248: onRequestShow at ORIGIN_SERVER reason ATTACH_NEW_INPUT fromUser false
+2026-04-11 19:09:57.000  4772-5815  FlexibleTaskController  system_server                        I  onShowImeRequested
+2026-04-11 19:09:57.000  4772-4923  UserAwareMgr            system_server                        I  fg app status not changed, beforeVisible: true, currentVisible: true
+2026-04-11 19:09:57.000  4772-5626  AutofillIn...estSession system_server                        V  onInputMethodStartInput() received on 1073741824
+2026-04-11 19:09:57.000 10807-10807 GoogleInpu...hodService com...gle.android.inputmethod.latin  I  GoogleInputMethodService.onStartInput():1434 onStartInput(EditorInfo{EditorInfo{packageName=com.max.aiassistant, inputType=2c001, inputTypeString=Normal[MultiLine|CapSentences|AutoCorrect], enableLearning=true, autoCorrection=true, autoComplete=true, imeOptions=42000000, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=0, initialSelEnd=0, initialCapsMode=0, label=null, fieldId=-1, fieldName=null, extras=Bundle[{android.support.text.emoji.emojiCompat_metadataVersion=12, androidx.core.view.inputmethod.EditorInfoCompat.STYLUS_HANDWRITING_ENABLED=true, android.support.text.emoji.emojiCompat_replaceAll=false, com.oplus.im.WINDOW_MODE=1, com.oplus.im.SCENES=0}], hintText=null, hintLocales=[]}}, true)
+2026-04-11 19:09:57.001 10807-10807 SessionManager          com...gle.android.inputmethod.latin  W  SessionManager.beginSession():53 Try to begin an already begun session [INPUT_SESSION], end it first
+2026-04-11 19:09:57.001 10807-10807 SessionManager          com...gle.android.inputmethod.latin  W  SessionManager.endSession():96 Child session [INPUT_VIEW_SESSION] is not ended while ending session [{INPUT_VIEW_SESSION=1775927387693, TRAINING_CACHE_SESSION=1775927387699, INPUT_SESSION=1775927387690, IME_SESSION=1775927387699}], ending it now.
+2026-04-11 19:09:57.001 10807-10807 SessionManager          com...gle.android.inputmethod.latin  W  SessionManager.endSession():96 Child session [IME_SESSION] is not ended while ending session [{INPUT_VIEW_SESSION=1775927387693, TRAINING_CACHE_SESSION=1775927387699, INPUT_SESSION=1775927387690, IME_SESSION=1775927387699}], ending it now.
+2026-04-11 19:09:57.001 10807-10807 AndroidIME              com...gle.android.inputmethod.latin  I  LatinIMEBase.updateInputViewCoverNavigation():312 Update input view padding, isNavbarOverInputWindow=true, bottom inset=132
+2026-04-11 19:09:57.001 10807-10807 Module                  com...gle.android.inputmethod.latin  I  DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():103 repeatCheckTimes = 1, locked = false
+2026-04-11 19:09:57.001  4772-5626  AutofillIn...estSession system_server                        V  onInputMethodStartInputView() received
+2026-04-11 19:09:57.001 10807-10807 GoogleInpu...hodService com...gle.android.inputmethod.latin  I  GoogleInputMethodService.onStartInputView():1519 onStartInputView(EditorInfo{EditorInfo{packageName=com.max.aiassistant, inputType=2c001, inputTypeString=Normal[MultiLine|CapSentences|AutoCorrect], enableLearning=true, autoCorrection=true, autoComplete=true, imeOptions=42000000, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=0, initialSelEnd=0, initialCapsMode=0, label=null, fieldId=-1, fieldName=null, extras=Bundle[{android.support.text.emoji.emojiCompat_metadataVersion=12, androidx.core.view.inputmethod.EditorInfoCompat.STYLUS_HANDWRITING_ENABLED=true, android.support.text.emoji.emojiCompat_replaceAll=false, com.oplus.im.WINDOW_MODE=1, com.oplus.im.SCENES=0}], hintText=null, hintLocales=[]}}, true)
+2026-04-11 19:09:57.001  4772-7308  PackageConfigPersister  system_server                        W  App-specific configuration not found for packageName: com.max.aiassistant and userId: 0
+2026-04-11 19:09:57.002 10807-10807 InputBundle             com...gle.android.inputmethod.latin  I  InputBundle.consumeEvent():1041 Skip consuming an event as keyboard status is INACTIVE
+2026-04-11 19:09:57.002 10807-10807 AndroidIME              com...gle.android.inputmethod.latin  I  AbstractIme.onDeactivate():213 LatinIme.onDeactivate()
+2026-04-11 19:09:57.002 10807-10807 SessionManager          com...gle.android.inputmethod.latin  W  SessionManager.endSession():88 Try to end a not begun session [IME_SESSION].
+2026-04-11 19:09:57.002 10807-11368 NebulaeTra...sProcessor com...gle.android.inputmethod.latin  I  NebulaeTrainingCacheMetricsProcessor.processEndSession():659 End training cache session: com.whatsapp_2131431584/
+2026-04-11 19:09:57.002 10807-10807 KeyboardHeightUtil      com...gle.android.inputmethod.latin  I  KeyboardHeightUtil.getOemKeyboardHeightRatio():81 systemKeyboardHeightRatio:1.000000.
+2026-04-11 19:09:57.005 10807-11368 ModuleManager           com...gle.android.inputmethod.latin  W  ModuleManager.loadModule():634 Module pte is not available
+2026-04-11 19:09:57.006 10807-11368 OnDeviceWmrCalculator   com...gle.android.inputmethod.latin  I  OnDeviceWmrCalculator.calculateWmr():94 WMR: 0.0000 (0 / 1)
+2026-04-11 19:09:57.013  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390841041976912
+2026-04-11 19:09:57.019 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:57.019  4772-7308  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:57.019 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:57.019  4772-7308  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:57.019 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{ebf1dbf com.max.aiassistant}
+2026-04-11 19:09:57.019 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:57.019  4772-7308  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:57.020 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:57.020 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:57.030  6986-6986  MainViewModel           com.max.aiassistant                  E  Erreur lors de l'envoi du message (Fix with AI)
+                                                                                                    java.lang.IllegalStateException: Le modele gemma-4-E2B-it.litertlm est bien telecharge, mais son initialisation native fait encore planter cette build sur ce telephone. Je bloque donc le lancement du moteur pour eviter un crash complet de l'application.
+                                                                                                    	at com.max.aiassistant.data.local.OnDeviceChatEngine$generateResponse$2.invokeSuspend(OnDeviceChatEngine.kt:98)
+                                                                                                    	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:33)
+                                                                                                    	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:101)
+                                                                                                    	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:113)
+                                                                                                    	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:589)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:823)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:720)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:707)
+2026-04-11 19:09:57.050 10807-10807 AndroidIME              com...gle.android.inputmethod.latin  I  InputBundleManager.loadActiveInputBundleId():531 loadActiveInputBundleId: fr, ime_french
+2026-04-11 19:09:57.050 10807-10807 AndroidIME              com...gle.android.inputmethod.latin  I  AbstractIme.onActivate():95 LatinIme.onActivate() : EditorInfo = EditorInfo{packageName=com.max.aiassistant, inputType=2c001, inputTypeString=Normal[MultiLine|CapSentences|AutoCorrect], enableLearning=true, autoCorrection=true, autoComplete=true, imeOptions=42000000, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=0, initialSelEnd=0, initialCapsMode=0, label=null, fieldId=-1, fieldName=null, extras=Bundle[{android.support.text.emoji.emojiCompat_metadataVersion=12, androidx.core.view.inputmethod.EditorInfoCompat.STYLUS_HANDWRITING_ENABLED=true, android.support.text.emoji.emojiCompat_replaceAll=false, com.oplus.im.WINDOW_MODE=1, com.oplus.im.SCENES=0}], hintText=null, hintLocales=[]}, IncognitoMode = false, DeviceLocked = false
+2026-04-11 19:09:57.050 10807-11368 NebulaeTra...sProcessor com...gle.android.inputmethod.latin  I  NebulaeTrainingCacheMetricsProcessor.processBeginSession():293 Begin training cache session: com.whatsapp_2131431584/
+2026-04-11 19:09:57.050 10807-10807 Delight5Facilitator     com...gle.android.inputmethod.latin  I  Delight5Facilitator.initializeForIme():745 initializeForIme() : Locale = [fr], layout = azerty
+2026-04-11 19:09:57.051 10807-10807 LatinIme                com...gle.android.inputmethod.latin  I  LatinIme.updateEnableInlineSuggestionsOnDecoderSideFlags():1271 inline flag updated to:false
+2026-04-11 19:09:57.051 10807-10807 LatinIme                com...gle.android.inputmethod.latin  I  LatinIme.updateEnableInlineSuggestionsOnDecoderSideFlags():1271 inline flag updated to:false
+2026-04-11 19:09:57.054 10807-10807 LatinIme                com...gle.android.inputmethod.latin  I  LatinIme.resetInputContext():2263 resetInputContext(): reason=1, externalEditsInfo=ExternalEditsInfo{action=0, offset=-1, text=null, originalText=null, edits=null}
+2026-04-11 19:09:57.055 10807-10807 InputBundle             com...gle.android.inputmethod.latin  I  InputBundle.consumeEvent():1041 Skip consuming an event as keyboard status is INACTIVE
+2026-04-11 19:09:57.055 10807-10807 KeyboardWrapper         com...gle.android.inputmethod.latin  I  KeyboardWrapper.activateKeyboard():582 activateKeyboard(): type=prime, status=INACTIVE, imeDef=nxy{stringId=ime_french, language=fr, languageTag=fr, processedConditions={writing_helper_enable_by_word_revert=true, true=true, enable_dynamic_diacritic_key=false, enable_number_row=false, device=phone, enable_pk_simulator=false}, className=com.google.android.apps.inputmethod.libs.edittracker.EditTrackingImeWrapper, label=0, keyEventInterpreter=null, inlineComposing=true, autoCapital=true, announceAutoSelectedCandidate=true, statusIcon=0, indicatorIcon=0, indicatorLabel=null, displayAppCompletions=true, extraValues=nxr{#0x7f0b02e3=TypedValue{t=0x3/d=0x0 "com.google.android.apps.inputmethod.libs.latin5.LatinIme"}}, processors=nzr@70243c4, unacceptableMetaKeys=4098, languageSpecificSettings=0, asciiCapable=true, alwaysShowSuggestions=false, useAsciiPasswordKeyboard=false, keyboardGroupDef=nza@957d1d1, phenotypeFlagId=0, localizationLanguageTag=null, supportsInlineSuggestion=true}
+2026-04-11 19:09:57.056 10807-10807 KeyboardManager         com...gle.android.inputmethod.latin  I  KeyboardManager.requestKeyboard():249 Creating keyboard prime, imeId=ime_french, cacheKey=theme,!gsf,!pgsans,!pgsf,!use_system_font,BORDER,FLAVOR_DPI=XXXHDPI,KEYBOARD_WIDTH_CATEGORY=NORMAL,KEY_BORDER_SHAPE=1,LIGHT_THEME=false,PHYSICAL_DIAGONAL=5.165753,POPUP,SCREEN_SHORTEST_WIDTH=360,SCREEN_SHORTEST_WIDTH_NO_SCALE=360,XXXHDPI,bottom4dp,enable_popup_on_keypress=true,keyboard_redesign_google_sans=true,non_linear_scale,noshadow,overlay_builtin_dynamic_color_dark_base.binarypb:gm3-dark-ff0f131c-ffaec6ff-52946fe90fbc83349ef01af751f4f0ca,silkpopup
+2026-04-11 19:09:57.056 10807-10807 KeyboardWrapper         com...gle.android.inputmethod.latin  I  KeyboardWrapper.onKeyboardReady():224 onKeyboardReady(): type=prime(prime), kb=com.google.android.apps.inputmethod.latin.keyboard.LatinPrimeKeyboard@efc37df
+2026-04-11 19:09:57.056 10807-10807 KeyboardWrapper         com...gle.android.inputmethod.latin  I  KeyboardWrapper.doActivateKeyboard():612 doActivateKeyboard(): prime
+2026-04-11 19:09:57.057 10807-10807 BaseKeyboardSizeHelper  com...gle.android.inputmethod.latin  I  BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 291 height for app when ime window height:2100, header height:132 and isFullscreenMode:false, so the max keyboard body height is:1677
+2026-04-11 19:09:57.057 10807-10807 TooltipLifecycleManager com...gle.android.inputmethod.latin  W  TooltipLifecycleManager.dismissTooltips():153 Tooltip with id undo_access_point_promotion_banner not found in tooltipManager.
+2026-04-11 19:09:57.058 10807-10807 GlobeKeyExtension       com...gle.android.inputmethod.latin  I  GlobeKeyExtension.getKeyboardInitialStates():185 
+2026-04-11 19:09:57.058 10807-10807 Keyboard                com...gle.android.inputmethod.latin  W  Keyboard.getKeyboardViewHelper():607 null helper is returned: keyboardDef=nyt{processedConditions={enable_dynamic_diacritic_key=false, show_comma_key=true, enable_more_candidates_view_for_multilingual=false, layout_9key_split=false, enable_secondary_symbols=false, pref_enable_flick_symbols=false, enable_scrub_move=true, language=fr-FR, deprecate_long_press_space_for_ime_picker=false, expressions=normal, android_software_xr_api_spatial=false, variant=azerty, free_cursor=false, show_period_key=true, device=phone, keyboard_mode=normal, show_secondary_digits=true, enable_pk_simulator=false, enable_preemptive_decode=true}, globalConditions={global_theme_key=theme,!gsf,!pgsans,!pgsf,!use_system_font,BORDER,FLAVOR_DPI=XXXHDPI,KEYBOARD_WIDTH_CATEGORY=NORMAL,KEY_BORDER_SHAPE=1,LIGHT_THEME=false,PHYSICAL_DIAGONAL=5.165753,POPUP,SCREEN_SHORTEST_WIDTH=360,SCREEN_SHORTEST_WIDTH_NO_SCALE=360,XXXHDPI,bottom4dp,enable_popup_on_keypress=true,keyboard_redesign_google_sans=true,non_linear_scale,noshadow,overlay_builtin_dynamic_color_dark_base.binarypb:gm3-dark-ff0f131c-ffaec6ff-52946fe90fbc83349ef01af751f4f0ca,silkpopup, global_locale=fr_FR, global_density_dpi=480, global_orientation=1}, className=.latin.keyboard.LatinPrimeKeyboard, resourceIds=[#0x7f17060a, #0x7f1707d1], initialStates=0, keyboardViewDefs=[nzi{direction=null, id=#0x7f0b0226, isScalable=true, layoutId=#0x7f0e029b, type=BODY, touchable=true, defaultShow=true}, nzi{direction=null, id=#0x7f0b0226, isScalable=false, layoutId=#0x7f0e0210, type=FLOATING_CANDIDATES, touchable=false, defaultShow=false}, nzi{direction=LOCALE, id=#0x7f0b0226, isScalable=false, layoutId=#0x7f0e0518, type=HEADER, touchable=true, defaultShow=true}], persistentStates=0, persistentStatesPrefKey=null, popupBubbleLayoutId=#0x7f0e0609, recentKeyLayoutId=#0x0, recentKeyPopupLayoutId=#0x0, recentKeyType=null, rememberRecentKey=NONE, sessionStates=17592186044419}, type=WIDGET, helpersCreated={HEADER=njq@797f874, BODY=njq@720519d, FLOATING_CANDIDATES=njq@e0ec612}, context.getResources().getConfiguration(): {1.0 ??mcc??mnc [fr_FR] ldltr sw360dp w360dp h784dp 480dpi nrml long hdr widecg port night finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1080, 2352) mAppBounds=Rect(0, 103 - 1080, 2220) mMaxBounds=Rect(0, 0 - 1080, 2352) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0} s.17 fontWeightAdjustment=0mThemeChanged= 0, mThemeChangedFlags= 0, mFlipFont= 0, mScenario= 0, mAccessibleChanged= -1, mUxIconConfig= 1e177015180021, mMaterialColor= 0, mUserId= 0, mFontUserId= 0, mFontVariationSettings= 1226, mFoldingAngle = -1.0, mIconPackName= , mDarkModeBackgroundMaxL= 0.0, mDarkModeDialogBgMaxL= 27.0, mDarkModeForegroundMinL= 100.0, mOplusConfigType= 1, mOplusChangedConfigs= 0, OpSans= -1, mBurmeseFontFlag= 2, mFlag= 0, mExtraFlag= 0, mFlexibleActivitySuitable= -1, mPuttDisplayFlag= -1}
+2026-04-11 19:09:57.059 10807-10807 BaseKeyboardSizeHelper  com...gle.android.inputmethod.latin  I  BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 291 height for app when ime window height:2100, header height:132 and isFullscreenMode:false, so the max keyboard body height is:1677
+2026-04-11 19:09:57.063 10807-10807 AndroidIME              com...gle.android.inputmethod.latin  I  InputBundleManager.startInput():361 startInput() with nze[keyboardType=prime, payload=null]
+2026-04-11 19:09:57.063 10807-10807 GlobeKeyExtension       com...gle.android.inputmethod.latin  I  GlobeKeyExtension.onDeactivate():153 
+2026-04-11 19:09:57.063 10807-10807 JarvisExtension         com...gle.android.inputmethod.latin  I  JarvisExtension.onDeactivate():1064 onDeactivate
+2026-04-11 19:09:57.063 10807-10807 JarvisTriggersManager   com...gle.android.inputmethod.latin  I  JarvisTriggersManager.onDeactivate():765 onDeactivate
+2026-04-11 19:09:57.064 10807-10807 VoiceInput...gerWrapper com...gle.android.inputmethod.latin  I  VoiceInputManagerWrapper.shutdown():131 shutdown()
+2026-04-11 19:09:57.064 10807-10807 PkModeUpdater           com...gle.android.inputmethod.latin  I  PkModeUpdater.onActivate():76 onActivate false true
+2026-04-11 19:09:57.064 10807-10807 AccessoryI...odeManager com...gle.android.inputmethod.latin  I  AccessoryInputModeManager.onModeStarted():346 Accessory input mode started: null
+2026-04-11 19:09:57.064 10807-10807 Supplement...rdsWrapper com...gle.android.inputmethod.latin  W  SupplementaryKeyboardsWrapper.deactivateKeyboard():162 keyboard accessory_candidates_consumer is not activated before!
+2026-04-11 19:09:57.065 10807-10807 GlobeKeyExtension       com...gle.android.inputmethod.latin  I  GlobeKeyExtension.onActivate():129 
+2026-04-11 19:09:57.065 10807-10807 JarvisAcce...ModeHelper com...gle.android.inputmethod.latin  I  JarvisAccessPointCooperativeModeHelper.onActivate():158 onActivate
+2026-04-11 19:09:57.065 10807-10807 JarvisTriggersManager   com...gle.android.inputmethod.latin  I  JarvisTriggersManager.onActivate():223 onActivate
+2026-04-11 19:09:57.065 10807-10807 JarvisHelper            com...gle.android.inputmethod.latin  I  JarvisHelper.activateAutoFixItChipForEditor():126 Auto fix it is allowed in app
+2026-04-11 19:09:57.065 10807-10807 JarvisExtension         com...gle.android.inputmethod.latin  I  JarvisExtension.onActivate():339 onActivate
+2026-04-11 19:09:57.065 10807-8298  KeyboardGroupDefParser  com...gle.android.inputmethod.latin  I  KeyboardGroupDefParser.parseKeyboardGroupDef():86 parseKeyboardGroupDef() 2132214002 -> 0_resource_name_obfuscated : WaitTime = 0 ms : RunTime = 0 ms
+2026-04-11 19:09:57.065 10807-10807 KeyboardModeUtils       com...gle.android.inputmethod.latin  I  KeyboardModeUtils.getKeyboardBottomOffset():432 inch: 0.000000 ydpi: 380.514648 adjustKeyboardBottomByDisplaySize: false currentDensityDpi: 480 defaultDensityDpi: 480 keyboardBottomToScreenPx: 0 keyboardBottomToNavBarPx: -132 navBarHeight: 132
+2026-04-11 19:09:57.065 10807-10807 BaseKeyboardSizeHelper  com...gle.android.inputmethod.latin  I  BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 291 height for app when ime window height:2100, header height:132 and isFullscreenMode:false, so the max keyboard body height is:1677
+2026-04-11 19:09:57.065 10807-10807 BaseKeyboardSizeHelper  com...gle.android.inputmethod.latin  I  BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 291 height for app when ime window height:2100, header height:132 and isFullscreenMode:false, so the max keyboard body height is:1677
+2026-04-11 19:09:57.065 10807-10807 BaseKeyboardSizeHelper  com...gle.android.inputmethod.latin  I  BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 291 height for app when ime window height:2100, header height:132 and isFullscreenMode:false, so the max keyboard body height is:1677
+2026-04-11 19:09:57.065 10807-10807 BaseKeyboardSizeHelper  com...gle.android.inputmethod.latin  I  BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 291 height for app when ime window height:2100, header height:132 and isFullscreenMode:false, so the max keyboard body height is:1677
+2026-04-11 19:09:57.065 10807-10807 ExtensionWrapper        com...gle.android.inputmethod.latin  W  ExtensionWrapper.setExtensionViewVisibility():878 interface nni is not activate
+2026-04-11 19:09:57.066 10807-10807 VoiceInput...gerWrapper com...gle.android.inputmethod.latin  I  VoiceInputManagerWrapper.cancelShutdown():109 cancelShutdown()
+2026-04-11 19:09:57.066 10807-10807 VoiceInput...gerWrapper com...gle.android.inputmethod.latin  I  VoiceInputManagerWrapper.syncLanguagePacks():121 syncLanguagePacks()
+2026-04-11 19:09:57.066 10807-10807 VoiceInputManager       com...gle.android.inputmethod.latin  I  VoiceInputManager.onKeyboardActivated():1191 onKeyboardActivated() [UD]
+2026-04-11 19:09:57.066 10807-27812 SpeechFactory           com...gle.android.inputmethod.latin  I  SpeechRecognitionFactory.maybeScheduleAutoPackDownloadForFallback():217 maybeScheduleAutoPackDownloadForFallback()
+2026-04-11 19:09:57.066 10807-27812 FallbackOn...onProvider com...gle.android.inputmethod.latin  I  FallbackOnDeviceRecognitionProvider.maybeScheduleAutoPackDownload():213 maybeScheduleAutoPackDownload() for language tag fr-FR
+2026-04-11 19:09:57.066 10807-10807 Module                  com...gle.android.inputmethod.latin  I  DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():103 repeatCheckTimes = 1, locked = false
+2026-04-11 19:09:57.066 10807-10807 VoiceImeExtension       com...gle.android.inputmethod.latin  I  VoiceImeExtension.shouldStartVoiceInputAutomaticallyInCurrentInputBox():384 No private IME option set to start voice input.
+2026-04-11 19:09:57.067 10807-10807 StylusModule            com...gle.android.inputmethod.latin  I  StylusModule.onUpdateToolType():774 Update tool type = 1
+2026-04-11 19:09:57.067  4772-4923  UserAwareMgr            system_server                        I  fg app status not changed, beforeVisible: true, currentVisible: true
+2026-04-11 19:09:57.067  4772-5626  AutofillIn...estSession system_server                        V  onInputMethodShowInputRequested() received: true
+2026-04-11 19:09:57.071 10807-10807 GoogleInpu...hodService com...gle.android.inputmethod.latin  I  GoogleInputMethodService$1.onKeyboardViewShown():338 onKeyboardViewShown: keyboardType=prime, keyboardViewType=HEADER keyboardView=com.google.android.libraries.inputmethod.widgets.SoftKeyboardView{861b263 V.E...... ........ 0,0-1080,132 alpha=1.0 viewInfo = }
+2026-04-11 19:09:57.071 10807-10807 BaseKeyboardSizeHelper  com...gle.android.inputmethod.latin  I  BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 291 height for app when ime window height:2100, header height:132 and isFullscreenMode:false, so the max keyboard body height is:1677
+2026-04-11 19:09:57.071 10807-10807 GoogleInpu...hodService com...gle.android.inputmethod.latin  I  GoogleInputMethodService$1.onKeyboardViewShown():338 onKeyboardViewShown: keyboardType=prime, keyboardViewType=BODY keyboardView=com.google.android.libraries.inputmethod.widgets.SoftKeyboardView{7e05b20 V.E...... ........ 0,0-1080,633 alpha=1.0 viewInfo = }
+2026-04-11 19:09:57.071 10807-10807 BaseKeyboardSizeHelper  com...gle.android.inputmethod.latin  I  BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 291 height for app when ime window height:2100, header height:132 and isFullscreenMode:false, so the max keyboard body height is:1677
+2026-04-11 19:09:57.071 10807-10807 GlobeKeyExtension       com...gle.android.inputmethod.latin  I  GlobeKeyExtension$1.onKeyboardViewShown():76 maybeDisableLanguageSwitchKeyPref when the keyboard is shown
+2026-04-11 19:09:57.071 10807-10807 GlobeKeyExtension       com...gle.android.inputmethod.latin  I  GlobeKeyExtension.maybeDisableLanguageSwitchKeyPref():210 maybeDisableLanguageSwitchKeyPref hasGlobeKeyBeenDisabled: true, shouldDisableLanguageSwitchKey: true
+2026-04-11 19:09:57.072 10807-10807 NewLanguag...tExtension com...gle.android.inputmethod.latin  I  NewLanguagePromptExtension$1.onKeyboardViewShown():98 Not show new language banner: no change in enabled input method entries
+2026-04-11 19:09:57.072 10807-10807 DynamicLayoutHandler    com...gle.android.inputmethod.latin  I  DynamicLayoutHandler.loadDynamicKeys():92 This isn't a dynamic layout.
+2026-04-11 19:09:57.072 10807-11551 Delight5Decoder         com...gle.android.inputmethod.latin  I  Delight5DecoderWrapper.setKeyboardLayout():552 setKeyboardLayout()
+2026-04-11 19:09:57.072 10807-10807 KeyboardModeUtils       com...gle.android.inputmethod.latin  I  KeyboardModeUtils.getKeyboardBottomOffset():432 inch: 0.000000 ydpi: 380.514648 adjustKeyboardBottomByDisplaySize: false currentDensityDpi: 480 defaultDensityDpi: 480 keyboardBottomToScreenPx: 0 keyboardBottomToNavBarPx: -132 navBarHeight: 132
+2026-04-11 19:09:57.072 10807-10807 BaseKeyboardSizeHelper  com...gle.android.inputmethod.latin  I  BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 291 height for app when ime window height:2100, header height:132 and isFullscreenMode:false, so the max keyboard body height is:1677
+2026-04-11 19:09:57.072 10807-10807 BaseKeyboardSizeHelper  com...gle.android.inputmethod.latin  I  BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 291 height for app when ime window height:2100, header height:132 and isFullscreenMode:false, so the max keyboard body height is:1677
+2026-04-11 19:09:57.089  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390841117156183
+2026-04-11 19:09:57.129  2872-14035 vendor.qti...-wake_lock and...re.bluetooth@aidl-service-qti  D  Release wakelock is released 
+2026-04-11 19:09:57.161  2888-3015  WifiHAL                 android.hardware.wifi-service        I  event received NL80211_CMD_VENDOR, vendor_id = 0x1374, subcmd = 0xb6
+2026-04-11 19:09:57.161  3850-3850  cnss-daemon             cnss-daemon                          I  nl80211 response handler invoked
+2026-04-11 19:09:57.161  3850-3850  cnss-daemon             cnss-daemon                          I  nl80211_response_handler: cmd 103, vendorID 4980, subcmd 182  received
+2026-04-11 19:09:57.164  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390841192328735
+2026-04-11 19:09:57.170  2888-3015  WifiHAL                 android.hardware.wifi-service        I  event received NL80211_CMD_VENDOR, vendor_id = 0x1374, subcmd = 0xd
+2026-04-11 19:09:57.170  3850-3850  cnss-daemon             cnss-daemon                          I  nl80211 response handler invoked
+2026-04-11 19:09:57.170  3850-3850  cnss-daemon             cnss-daemon                          I  nl80211_response_handler: cmd 103, vendorID 4980, subcmd 13  received
+2026-04-11 19:09:57.181  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2699.15, 1429.00, 860.81, 3819.76],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:57.239  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390841267577120
+2026-04-11 19:09:57.256 10807-10807 TooltipLifecycleManager com...gle.android.inputmethod.latin  W  TooltipLifecycleManager.dismissTooltips():153 Tooltip with id spell_check_add_to_dictionary not found in tooltipManager.
+2026-04-11 19:09:57.275  4037-4037  OplusTouchDaemon        touchDaemon                          I  ts_run_service: shellback temperature updated 30 (30382)
+2026-04-11 19:09:57.291  4037-4037  synaLib                 touchDaemon                          I  tcm: STATUS: Enter DOZE mode
+2026-04-11 19:09:57.314  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390841342645506
+2026-04-11 19:09:57.320 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:57.321  4772-7308  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:57.322 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:57.322  4772-7308  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:57.323 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{32a0c8c com.max.aiassistant}
+2026-04-11 19:09:57.323 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:57.323  4772-7308  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:57.324 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:57.324 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:57.389  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2672.42, 1400.98, 860.81, 3765.19],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:57.390  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390841418047277
+2026-04-11 19:09:57.390  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith AVG_RGB:/61/67/77
+2026-04-11 19:09:57.390  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith RGB:/16/25/38
+2026-04-11 19:09:57.394  4772-5773  FusionLightNextGen      system_server                        D  calculate_silibals_compensation_value: comped_ir_ratio =  0.200858 comped_lux = 10.35059
+2026-04-11 19:09:57.394  4772-5773  FusionLightNextGen      system_server                        D  LECENT_AI::raw_lux -1.0, raw_cct -1.0, r/g/b/c: 2672.4/1401.0/860.8/3765.2, compensate r/g/b/c: 1822.54/772.30/609.52/2286.03 bri 697.0, lux: 10.350590, cct: -1.0, comped_lux:10.351 comped_cct:-1 ir: 0.200858, cnt: 0
+2026-04-11 19:09:57.394  4772-5773  CwbClient               system_server                        I  setCWBDisplayType set mFeatureID = CWB_RGB_VALUE
+2026-04-11 19:09:57.493  4772-5018  AppsFilter              system_server                        I  interaction: PackageSetting{d52b944 com.android.microdroid.empty_payload/10330} -> PackageSetting{d768a79 com.oplus.dmp/10181} BLOCKED
+2026-04-11 19:09:57.493  4772-5018  AppsFilter              system_server                        I  interaction: PackageSetting{344fb62 com.oplus.locationproxy/10230} -> PackageSetting{d768a79 com.oplus.dmp/10181} BLOCKED
+2026-04-11 19:09:57.493  4772-5018  AppsFilter              system_server                        I  interaction: PackageSetting{8c314f3 com.android.certinstaller/10285} -> PackageSetting{d768a79 com.oplus.dmp/10181} BLOCKED
+2026-04-11 19:09:57.493  4772-5018  AppsFilter              system_server                        I  interaction: PackageSetting{26425b0 com.oplus.imsserviceentitlement/10121} -> PackageSetting{d768a79 com.oplus.dmp/10181} BLOCKED
+2026-04-11 19:09:57.493  4772-5018  AppsFilter              system_server                        I  interaction: PackageSetting{6bd4785 com.max.aiassistant/10514} -> PackageSetting{d768a79 com.oplus.dmp/10181} BLOCKED
+2026-04-11 19:09:57.494  4772-5018  AppsFilter              system_server                        I  interaction: PackageSetting{e3fdc29 com.oplus.location/10306} -> PackageSetting{d768a79 com.oplus.dmp/10181} BLOCKED
+2026-04-11 19:09:57.506  4772-5826  Accessibil...gerService system_server                        V  onUserStateChangedLocked for user 0 with forceUpdate: false mEnabledServices = [] mCrashedServices = [] hasMagnificationConnection=false
+2026-04-11 19:09:57.506  4772-5826  Magnificat...ionManager system_server                        W  requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+2026-04-11 19:09:57.506  4772-5815  VibrationE...tConvertor system_server                        I  onInputMethodListUpdated received, info.size = 4
+2026-04-11 19:09:57.506  4772-5815  VibrationE...tConvertor system_server                        I  userid = 0, packageName = com.google.android.tts
+2026-04-11 19:09:57.506  4772-5815  VibrationE...tConvertor system_server                        I  userid = 0, packageName = com.google.android.inputmethod.latin
+2026-04-11 19:09:57.506  4772-5815  VibrationE...tConvertor system_server                        I  userid = 0, packageName = com.touchtype.swiftkey.beta
+2026-04-11 19:09:57.506  4772-5815  VibrationE...tConvertor system_server                        I  userid = 0, packageName = com.oplus.securitykeyboard
+2026-04-11 19:09:57.506  4772-4772  LockSettingsService     system_server                        D  [getSeparateProfileChallengeEnabled] userId = 10
+2026-04-11 19:09:57.515  4772-4921  Searchables             system_server                        W  No web search activity found
+2026-04-11 19:09:57.516  4772-4921  AutofillManagerService  system_server                        V  onPackageModified(): com.oplus.dmp
+2026-04-11 19:09:57.549  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390841577694568
+2026-04-11 19:09:57.597  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2672.42, 1400.98, 860.81, 3765.19],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:57.621  2992-3084  BatteryChargeControl    ven....hardware.charger-V10-service  D  bcc get no support from charging protocol
+2026-04-11 19:09:57.624 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:57.626  4772-7315  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:57.627 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:57.627  4772-7315  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:57.628 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{9022fd5 com.max.aiassistant}
+2026-04-11 19:09:57.628 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:57.628  4772-7315  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:57.628 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:57.628 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:57.689  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390841718026651
+2026-04-11 19:09:57.806  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2699.15, 1429.00, 890.49, 3819.76],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:57.806  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith AVG_RGB:/61/67/77
+2026-04-11 19:09:57.806  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith RGB:/16/25/38
+2026-04-11 19:09:57.810  4772-5773  FusionLightNextGen      system_server                        D  calculate_silibals_compensation_value: comped_ir_ratio =  0.203060 comped_lux = 10.66162
+2026-04-11 19:09:57.810  4772-5773  FusionLightNextGen      system_server                        D  LECENT_AI::raw_lux -1.0, raw_cct -1.0, r/g/b/c: 2699.1/1429.0/890.5/3819.8, compensate r/g/b/c: 1849.54/801.30/639.52/2340.03 bri 697.0, lux: 10.661617, cct: -1.0, comped_lux:10.662 comped_cct:-1 ir: 0.203060, cnt: 0
+2026-04-11 19:09:57.810  4772-5773  CwbClient               system_server                        I  setCWBDisplayType set mFeatureID = CWB_RGB_VALUE
+2026-04-11 19:09:57.927  6930-9360  CommonApp-134-10514     com.oplus.subsys                     D  transport layer data is invalid
+2026-04-11 19:09:57.927  6930-9360  ScorePolicy             com.oplus.subsys                     D  handleScoreChanged: []
+2026-04-11 19:09:57.927  6930-9360  ScorePolicy             com.oplus.subsys                     D  handleScoreChanged: []
+2026-04-11 19:09:57.927  6930-9360  ScorePolicy             com.oplus.subsys                     D  handleScoreChanged: []
+2026-04-11 19:09:57.929 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:57.929  4772-7315  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:57.930 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:57.930  4772-7315  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:57.931 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{43f73ea com.max.aiassistant}
+2026-04-11 19:09:57.931 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:57.931  4772-7315  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:57.931 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:57.932 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:57.989  3131-3715  VRR [OTI]               surfaceflinger                       D  handleIdle from 0 to 1
+2026-04-11 19:09:57.989  3131-3715  VRR [OTI-HW]            surfaceflinger                       D  isStateReady 0
+2026-04-11 19:09:57.989  3131-3715  VRR [OTI-HW]            surfaceflinger                       D  keep rate.
+2026-04-11 19:09:57.992 10188-10680 gaia-GaiaConnectChecker com.oplus.olc                        D  start connect check++
+2026-04-11 19:09:58.014  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2699.15, 1429.00, 890.49, 3819.76],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:58.015  6930-6930  Subsys-Service          com.oplus.subsys                     I  runGcAutomatic dalvik memory info{max=16,44MB,free=9,44MB,allocated=7,00MB}
+2026-04-11 19:09:58.050  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390842078584880
+2026-04-11 19:09:58.061  2528-11824 TetherController        netd                                 E  property_get sys.radio.data.modem_share_flag return 0, 1!
+2026-04-11 19:09:58.071  4772-4940  BluetoothP...sCollector system_server                        E  Cannot acquire BluetoothActivityEnergyInfo (Fix with AI)
+                                                                                                    java.util.concurrent.ExecutionException: java.lang.RuntimeException: error: 11
+                                                                                                    	at java.util.concurrent.CompletableFuture.reportGet(CompletableFuture.java:372)
+                                                                                                    	at java.util.concurrent.CompletableFuture.get(CompletableFuture.java:2072)
+                                                                                                    	at com.android.server.power.stats.BluetoothPowerStatsCollector.collectBluetoothActivityInfo(BluetoothPowerStatsCollector.java:192)
+                                                                                                    	at com.android.server.power.stats.BluetoothPowerStatsCollector.collectStats(BluetoothPowerStatsCollector.java:155)
+                                                                                                    	at com.android.server.power.stats.PowerStatsCollector.collectAndDeliverStats(PowerStatsCollector.java:176)
+                                                                                                    	at com.android.server.power.stats.PowerStatsCollector$$ExternalSyntheticLambda0.run(D8$$SyntheticClass:0)
+                                                                                                    	at android.os.Handler.handleCallback(Handler.java:1027)
+                                                                                                    	at android.os.Handler.dispatchMessage(Handler.java:108)
+                                                                                                    	at android.os.Looper.loopOnce(Looper.java:302)
+                                                                                                    	at android.os.Looper.loop(Looper.java:412)
+                                                                                                    	at android.os.HandlerThread.run(HandlerThread.java:85)
+                                                                                                    Caused by: java.lang.RuntimeException: error: 11
+                                                                                                    	at com.android.server.power.stats.BluetoothPowerStatsCollector$1.onBluetoothActivityEnergyInfoError(BluetoothPowerStatsCollector.java:181)
+                                                                                                    	at android.bluetooth.BluetoothAdapter$OnBluetoothActivityEnergyInfoProxy.lambda$onBluetoothActivityEnergyInfoAvailable$0(BluetoothAdapter.java:1072)
+                                                                                                    	at android.bluetooth.BluetoothAdapter$OnBluetoothActivityEnergyInfoProxy$$ExternalSyntheticLambda1.run(D8$$SyntheticClass:0)
+                                                                                                    	at com.android.server.SystemServerInitThreadPool$$ExternalSyntheticLambda0.execute(D8$$SyntheticClass:0)
+                                                                                                    	at android.bluetooth.BluetoothAdapter$OnBluetoothActivityEnergyInfoProxy.onBluetoothActivityEnergyInfoAvailable(BluetoothAdapter.java:1070)
+                                                                                                    	at android.bluetooth.IBluetoothActivityEnergyInfoListener$Stub.onTransact(IBluetoothActivityEnergyInfoListener.java:98)
+                                                                                                    	at android.os.Binder.execTransactInternal(Binder.java:1444)
+                                                                                                    	at android.os.Binder.execTransact(Binder.java:1378)
+2026-04-11 19:09:58.076  8234-8282  horae                   horae                                E  0: back:26878,back_1:30977,back_2:28981,frame:29664,frame_1:30278,frame_2:28912,front:30726,front_1:28978, 2, +(1068), 1 ,28500,32274,39775,29402,33811,28500,32934,40028,29473,34545,28600,32758,39705,29593,33215,28600,32502,37304,29801,32870,28600,32354,36070,29795,32644, target_temp:30977, algo:0
+2026-04-11 19:09:58.081  4772-5780  OPLUS_LOG_LOAD          system_server                        W  ==LOGS PROG INFO, prog(system_server) ==
+2026-04-11 19:09:58.081  4772-5780  AlarmManager            system_server                        V  sending alarm Alarm{924d275 type 1 origWhen 1775927398080 whenElapsed 390842109 android} uid 1000 whenElapsed 390842109 windowLength 0 maxWhenElapsed 390842109 repeatInterval 0 action null component null tag StorgaeBandInfoAlarmTag flags 0x9 procName system_server
+2026-04-11 19:09:58.081  4772-2488  OplusStora...SBandwidth system_server                        E  storage_io_metrics_path is /proc/oplus_storage/io_metrics/forever/
+2026-04-11 19:09:58.082  4772-2488  OplusStora...SBandwidth system_server                        E  Bandwidth - Read: 0,00 MB/s, Write: 0,00 MB/s
+2026-04-11 19:09:58.082  4772-2488  OplusStora...SBandwidth system_server                        E  Task time: 1ms
+2026-04-11 19:09:58.084  4772-2488  OplusStora...SBandwidth system_server                        E  Alarm set to trigger in 10 seconds
+2026-04-11 19:09:58.189  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390842218023995
+2026-04-11 19:09:58.222  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2699.15, 1429.00, 890.49, 3819.76],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:58.222  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith AVG_RGB:/61/67/77
+2026-04-11 19:09:58.222  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith RGB:/16/25/38
+2026-04-11 19:09:58.226  4772-5773  FusionLightNextGen      system_server                        D  calculate_silibals_compensation_value: comped_ir_ratio =  0.203060 comped_lux = 10.66162
+2026-04-11 19:09:58.226  4772-5773  FusionLightNextGen      system_server                        D  LECENT_AI::raw_lux -1.0, raw_cct -1.0, r/g/b/c: 2699.1/1429.0/890.5/3819.8, compensate r/g/b/c: 1849.54/801.30/639.52/2340.03 bri 697.0, lux: 10.661617, cct: -1.0, comped_lux:10.662 comped_cct:-1 ir: 0.203060, cnt: 0
+2026-04-11 19:09:58.226  4772-5773  CwbClient               system_server                        I  setCWBDisplayType set mFeatureID = CWB_RGB_VALUE
+2026-04-11 19:09:58.232 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:58.233  4772-7308  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:58.233 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:58.234  4772-7308  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:58.234 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{551d6db com.max.aiassistant}
+2026-04-11 19:09:58.234 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:58.235  4772-7308  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:58.235 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:58.235 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:58.290  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390842318662172
+2026-04-11 19:09:58.391  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390842419393109
+2026-04-11 19:09:58.430  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2699.15, 1429.00, 860.81, 3819.76],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:58.492  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390842520373943
+2026-04-11 19:09:58.536 21904-21925 SmartSideb...ValueProxy com.coloros.smartsidebar:ui          D  (main)getOverlayShowVideoAssistant edge_panel_video_assistant =-1
+2026-04-11 19:09:58.536  4772-7308  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:58.536 21904-21904 VideoAssistantUtils     com.coloros.smartsidebar:ui          D  isInSplitScreenMode  === :false
+2026-04-11 19:09:58.537  4772-7308  FlexibleTaskController  system_server                        D  check task which not have enough child, isInSingleWhiteList:false isCloneTask:false
+2026-04-11 19:09:58.537 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopAppInfo() result: ApplicationInfo{bb16578 com.max.aiassistant}
+2026-04-11 19:09:58.537 21904-21925 SmartSideb...PanelUtils com.coloros.smartsidebar:ui          D  (main)getTopPkg() pkg: com.*****.aiassistant
+2026-04-11 19:09:58.538  4772-7308  ContentService          system_server                        W  Observer is already registered. Pid is 21904
+2026-04-11 19:09:58.538 21904-21925 SmartSideb...tPanelView com.coloros.smartsidebar:ui          D  (main)Registered app status observer for: com.max.aiassistant
+2026-04-11 19:09:58.538 21904-21925 SmartSideb...tusManager com.coloros.smartsidebar:ui          D  (main)isAppEnabled: com.max.aiassistant = true
+2026-04-11 19:09:58.558  4772-5803  CwbClient               system_server                        D  LECENT_AI::CwbClient::RGB||16||25||38, timestamp=390842586176547
+2026-04-11 19:09:58.621  2992-3084  BatteryChargeControl    ven....hardware.charger-V10-service  D  bcc get no support from charging protocol
+2026-04-11 19:09:58.638  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:191, wise_rgb: (r, g, b, c)[2725.87, 1429.00, 890.49, 3874.33],(r2,g2,b2,c2)[[0.00, 0.00, 0.00, 0.00], algo:2.0, flag :0
+2026-04-11 19:09:58.638  2885-2790  sensors-hal             and...ware.sensors-service.multihal  I  handle_oplus_wise_rgb_event:217, high_pwm_light:lux 21.1,cct 5300.0,brl/algo/ir 697.0/2.0/151.1,pwm/dc 0.0/0.0,rgbc 2725.872559/1429.003174/890.488159/3874.327148,ts 390842661954223,cnt 16344,flag 0
+2026-04-11 19:09:58.638  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith AVG_RGB:/61/67/77
+2026-04-11 19:09:58.638  4772-5773  AI_FusionLightNextGen   system_server                        D  LECENT_AI::RunArith RGB:/16/25/38
+2026-04-11 19:09:58.642  4772-5773  FusionLightNextGen      system_server                        D  calculate_silibals_compensation_value: comped_ir_ratio =  0.192343 comped_lux = 11.59136
+2026-04-11 19:09:58.642  4772-5773  FusionLightNextGen      system_server                        D  LECENT_AI::raw_lux -1.0, raw_cct -1.0, r/g/b/c: 2725.9/1429.0/890.5/3874.3, compensate r/g/b/c: 1875.54/801.30/639.52/2395.03 bri 697.0, lux: 11.591356, cct: -1.0, comped_lux:11.591 comped_cct:-1 ir: 0.192343, cnt: 0
+2026-04-11 19:09:58.642  4772-5773  CwbClient               system_server                        I  setCWBDisplayType set mFeatureID = CWB_RGB_VALUE

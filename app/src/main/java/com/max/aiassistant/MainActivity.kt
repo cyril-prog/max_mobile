@@ -78,6 +78,9 @@ class MainActivity : ComponentActivity() {
                 // États partagés
                 val messages by viewModel.messages.collectAsState()
                 val isWaitingForAiResponse by viewModel.isWaitingForAiResponse.collectAsState()
+                val isOnDeviceModelReady by viewModel.isOnDeviceModelReady.collectAsState()
+                val onDeviceModelStatus by viewModel.onDeviceModelStatus.collectAsState()
+                val onDeviceModelProvisioningState by viewModel.onDeviceModelProvisioningState.collectAsState()
                 val tasks by viewModel.tasks.collectAsState()
                 val events by viewModel.events.collectAsState()
                 val isLoadingTasks by viewModel.isLoadingTasks.collectAsState()
@@ -213,8 +216,14 @@ class MainActivity : ComponentActivity() {
                                 ChatScreen(
                                     messages = messages,
                                     isWaitingForAiResponse = isWaitingForAiResponse,
+                                    isOnDeviceModelReady = isOnDeviceModelReady,
+                                    onDeviceModelStatus = onDeviceModelStatus,
+                                    onDeviceModelProvisioningState = onDeviceModelProvisioningState,
                                     onSendMessage = { message, imageUri ->
                                         viewModel.sendMessage(message, imageUri)
+                                    },
+                                    onRetryModelDownload = {
+                                        viewModel.retryOnDeviceModelDownload()
                                     },
                                     onVoiceInput = {
                                         currentRoute = AppShellRoute.VOICE

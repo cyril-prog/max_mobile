@@ -80,10 +80,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
+import com.max.aiassistant.data.local.OnDeviceModelProvisioningState
 import com.max.aiassistant.model.Message
 import com.max.aiassistant.ui.common.EmptyStateView
+import com.max.aiassistant.ui.common.ErrorStateView
+import com.max.aiassistant.ui.common.InlineStatusBanner
+import com.max.aiassistant.ui.common.LoadingStateView
 import com.max.aiassistant.ui.common.NavigationScreen
 import com.max.aiassistant.ui.common.NavigationSidebarScaffold
+import com.max.aiassistant.ui.common.BannerTone
 import com.max.aiassistant.ui.common.rememberNavigationSidebarState
 import com.max.aiassistant.ui.theme.AccentBlue
 import com.max.aiassistant.ui.theme.DarkBackground
@@ -116,7 +121,11 @@ private val ComposerAction = Color(0xFF1D2A3D)
 fun ChatScreen(
     messages: List<Message>,
     isWaitingForAiResponse: Boolean,
+    isOnDeviceModelReady: Boolean,
+    onDeviceModelStatus: String,
+    onDeviceModelProvisioningState: OnDeviceModelProvisioningState,
     onSendMessage: (String, Uri?) -> Unit,
+    onRetryModelDownload: () -> Unit,
     onVoiceInput: () -> Unit,
     onNavigateToHome: () -> Unit,
     onNavigateToTasks: () -> Unit = {},
@@ -150,7 +159,11 @@ fun ChatScreen(
             ChatScreenContent(
                 messages = messages,
                 isWaitingForAiResponse = isWaitingForAiResponse,
+                isOnDeviceModelReady = isOnDeviceModelReady,
+                onDeviceModelStatus = onDeviceModelStatus,
+                onDeviceModelProvisioningState = onDeviceModelProvisioningState,
                 onSendMessage = onSendMessage,
+                onRetryModelDownload = onRetryModelDownload,
                 onVoiceInput = onVoiceInput,
                 showChrome = true,
                 initialText = initialText,
@@ -162,7 +175,11 @@ fun ChatScreen(
         ChatScreenContent(
             messages = messages,
             isWaitingForAiResponse = isWaitingForAiResponse,
+            isOnDeviceModelReady = isOnDeviceModelReady,
+            onDeviceModelStatus = onDeviceModelStatus,
+            onDeviceModelProvisioningState = onDeviceModelProvisioningState,
             onSendMessage = onSendMessage,
+            onRetryModelDownload = onRetryModelDownload,
             onVoiceInput = onVoiceInput,
             showChrome = false,
             initialText = initialText,
@@ -177,7 +194,11 @@ fun ChatScreen(
 private fun ChatScreenContent(
     messages: List<Message>,
     isWaitingForAiResponse: Boolean,
+    isOnDeviceModelReady: Boolean,
+    onDeviceModelStatus: String,
+    onDeviceModelProvisioningState: OnDeviceModelProvisioningState,
     onSendMessage: (String, Uri?) -> Unit,
+    onRetryModelDownload: () -> Unit,
     onVoiceInput: () -> Unit,
     showChrome: Boolean,
     initialText: String,
@@ -261,8 +282,16 @@ private fun ChatScreenContent(
                 )
             }
 
-            if (messages.isEmpty() && !isWaitingForAiResponse) {
+            if (!isOnDeviceModelReady && messages.isEmpty() && !isWaitingForAiResponse) {
+                ModelProvisioningView(
+                    state = onDeviceModelProvisioningState,
+                    onRetry = onRetryModelDownload,
+                    modifier = Modifier.weight(1f)
+                )
+            } else if (messages.isEmpty() && !isWaitingForAiResponse) {
                 ChatEmptyState(
+                    isOnDeviceModelReady = isOnDeviceModelReady,
+                    onDeviceModelStatus = onDeviceModelStatus,
                     onVoiceInput = onVoiceInput,
                     onPromptSelected = { suggestion -> messageText = suggestion },
                     modifier = Modifier.weight(1f)
@@ -277,6 +306,16 @@ private fun ChatScreenContent(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     contentPadding = PaddingValues(top = 20.dp, bottom = 16.dp)
                 ) {
+                    if (!isOnDeviceModelReady) {
+                        item("model-banner") {
+                            InlineStatusBanner(
+                                title = modelBannerTitle(onDeviceModelProvisioningState),
+                                subtitle = modelBannerSubtitle(onDeviceModelProvisioningState),
+                                tone = modelBannerTone(onDeviceModelProvisioningState)
+                            )
+                        }
+                    }
+
                     items(messages, key = { it.id }) { message ->
                         EditorialMessageBubble(
                             message = message,
@@ -301,12 +340,21 @@ private fun ChatScreenContent(
                         )
                     }
 
-                    if (isWaitingForAiResponse) {
+                    if (isWaitingForAiResponse && messages.lastOrNull()?.isFromUser != false) {
                         item("typing") {
                             TypingPanel()
                         }
                     }
                 }
+            }
+
+            if (!isOnDeviceModelReady) {
+                CompactModelStatus(
+                    status = onDeviceModelStatus,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
             }
 
             SmartComposer(
@@ -316,10 +364,10 @@ private fun ChatScreenContent(
                 onRemoveImage = { selectedImageUri = null },
                 onAddImageClick = { showImagePickerDialog = true },
                 onVoiceInput = onVoiceInput,
+                enabled = isOnDeviceModelReady,
                 onSend = {
                     if (messageText.isNotBlank() || selectedImageUri != null) {
                         onSendMessage(messageText, selectedImageUri)
-                        scope.launch { snackbarHostState.showSnackbar("Message envoye") }
                         messageText = ""
                         selectedImageUri = null
                     }
@@ -356,6 +404,8 @@ private fun ChatScreenContent(
 
 @Composable
 private fun ChatEmptyState(
+    isOnDeviceModelReady: Boolean,
+    onDeviceModelStatus: String,
     onVoiceInput: () -> Unit,
     onPromptSelected: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -440,6 +490,10 @@ private fun ChatEmptyState(
                     icon = Icons.Default.Mic,
                     onClick = onVoiceInput
                 )
+
+                if (!isOnDeviceModelReady) {
+                    CompactModelStatus(status = onDeviceModelStatus)
+                }
             }
         }
 
@@ -449,6 +503,69 @@ private fun ChatEmptyState(
             title = "Le chat est pret",
             subtitle = "Vous pouvez ecrire, joindre une image ou basculer en vocal.",
             modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun ModelProvisioningView(
+    state: OnDeviceModelProvisioningState,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val (title, subtitle) = when (state) {
+        is OnDeviceModelProvisioningState.Checking ->
+            "Preparation du chat local" to state.message
+
+        is OnDeviceModelProvisioningState.Downloading ->
+            "Telechargement du modele" to state.message
+
+        is OnDeviceModelProvisioningState.Verifying ->
+            "Verification du modele" to state.message
+
+        is OnDeviceModelProvisioningState.Ready ->
+            "Modele pret" to state.message
+
+        is OnDeviceModelProvisioningState.Error ->
+            "Telechargement interrompu" to state.message
+    }
+
+    when (state) {
+        is OnDeviceModelProvisioningState.Error -> ErrorStateView(
+            title = title,
+            subtitle = subtitle,
+            onRetry = onRetry,
+            modifier = modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+        )
+
+        else -> LoadingStateView(
+            title = title,
+            subtitle = subtitle,
+            modifier = modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+        )
+    }
+}
+
+@Composable
+private fun CompactModelStatus(
+    status: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.padding(bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(AccentBlue.copy(alpha = 0.9f))
+        )
+        Text(
+            text = status,
+            color = TextSecondary,
+            style = MaterialTheme.typography.bodySmall
         )
     }
 }
@@ -685,6 +802,7 @@ private fun SmartComposer(
     onRemoveImage: () -> Unit,
     onAddImageClick: () -> Unit,
     onVoiceInput: () -> Unit,
+    enabled: Boolean,
     onSend: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -713,11 +831,13 @@ private fun SmartComposer(
                 ComposerActionPill(
                     label = "Joindre",
                     icon = Icons.Default.AddPhotoAlternate,
+                    enabled = enabled,
                     onClick = onAddImageClick
                 )
                 ComposerActionPill(
                     label = "Vocal",
                     icon = Icons.Default.Mic,
+                    enabled = enabled,
                     onClick = onVoiceInput
                 )
             }
@@ -742,7 +862,10 @@ private fun SmartComposer(
                             .heightIn(min = 52.dp, max = 140.dp),
                         placeholder = {
                             Text(
-                                text = "Ecrire un message",
+                                text = when {
+                                    !enabled -> "Preparation du modele local..."
+                                    else -> "Ecrire un message"
+                                },
                                 color = TextSecondary
                             )
                         },
@@ -757,6 +880,7 @@ private fun SmartComposer(
                             disabledIndicatorColor = Color.Transparent
                         ),
                         shape = RoundedCornerShape(22.dp),
+                        enabled = enabled,
                         singleLine = false,
                         maxLines = 5,
                         textStyle = MaterialTheme.typography.bodyLarge,
@@ -766,7 +890,7 @@ private fun SmartComposer(
                         )
                     )
 
-                    val canSend = value.isNotBlank() || selectedImageUri != null
+                    val canSend = enabled && (value.isNotBlank() || selectedImageUri != null)
                     Box(
                         modifier = Modifier
                             .padding(start = 10.dp, bottom = 4.dp)
@@ -826,12 +950,13 @@ private fun SelectedImagePreview(
 private fun ComposerActionPill(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     Surface(
-        color = ComposerAction,
+        color = if (enabled) ComposerAction else ComposerAction.copy(alpha = 0.45f),
         shape = RoundedCornerShape(999.dp),
-        modifier = Modifier.clickable(onClick = onClick)
+        modifier = Modifier.clickable(enabled = enabled, onClick = onClick)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -841,16 +966,40 @@ private fun ComposerActionPill(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = AccentBlue,
+                tint = if (enabled) AccentBlue else TextSecondary,
                 modifier = Modifier.size(18.dp)
             )
             Text(
                 text = label,
-                color = TextPrimary,
+                color = if (enabled) TextPrimary else TextSecondary,
                 style = MaterialTheme.typography.labelLarge
             )
         }
     }
+}
+
+private fun modelBannerTitle(state: OnDeviceModelProvisioningState): String = when (state) {
+    is OnDeviceModelProvisioningState.Checking -> "Preparation du modele local"
+    is OnDeviceModelProvisioningState.Downloading -> "Telechargement du modele"
+    is OnDeviceModelProvisioningState.Verifying -> "Verification du modele"
+    is OnDeviceModelProvisioningState.Ready -> "Modele local pret"
+    is OnDeviceModelProvisioningState.Error -> "Modele local indisponible"
+}
+
+private fun modelBannerSubtitle(state: OnDeviceModelProvisioningState): String = when (state) {
+    is OnDeviceModelProvisioningState.Checking -> state.message
+    is OnDeviceModelProvisioningState.Downloading -> state.message
+    is OnDeviceModelProvisioningState.Verifying -> state.message
+    is OnDeviceModelProvisioningState.Ready -> state.message
+    is OnDeviceModelProvisioningState.Error -> state.message
+}
+
+private fun modelBannerTone(state: OnDeviceModelProvisioningState): BannerTone = when (state) {
+    is OnDeviceModelProvisioningState.Ready -> BannerTone.Success
+    is OnDeviceModelProvisioningState.Error -> BannerTone.Error
+    is OnDeviceModelProvisioningState.Checking,
+    is OnDeviceModelProvisioningState.Downloading,
+    is OnDeviceModelProvisioningState.Verifying -> BannerTone.Warning
 }
 
 @Composable
