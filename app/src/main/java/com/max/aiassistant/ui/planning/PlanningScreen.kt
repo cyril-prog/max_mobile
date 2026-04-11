@@ -85,7 +85,12 @@ private fun PlanningContent(events: List<Event>, isRefreshing: Boolean, errorMes
     val today = events.filter { isTodayEvent(it) }
     val next = events.filter { !isTodayEvent(it) }.sortedBy { it.startDateTime.ifBlank { it.date + it.startTime } }
     val visible = when (tab) { PlanTab.TODAY -> today; PlanTab.NEXT -> next.take(12); PlanTab.ALL -> events.sortedBy { it.startDateTime.ifBlank { it.date + it.startTime } } }
-    Box(modifier.fillMaxSize().background(PlanInk).windowInsetsPadding(WindowInsets.navigationBars)) {
+    Box(
+        modifier
+            .fillMaxSize()
+            .background(PlanInk)
+            .then(if (showChrome) Modifier.windowInsetsPadding(WindowInsets.navigationBars) else Modifier)
+    ) {
         Column(Modifier.fillMaxSize()) {
             if (showChrome) Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp, vertical = 14.dp)) {
                 Text("ORGANISER", color = PlanBlue, style = MaterialTheme.typography.labelMedium)

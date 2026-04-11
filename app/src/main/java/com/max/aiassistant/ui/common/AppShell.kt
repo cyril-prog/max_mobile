@@ -19,8 +19,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -106,6 +108,7 @@ private val primaryRoutes = listOf(
 @Composable
 fun MaxAppShell(
     currentRoute: AppShellRoute,
+    drawerSelectionRoute: AppShellRoute = currentRoute,
     isOffline: Boolean,
     isSyncing: Boolean,
     hasLocalData: Boolean,
@@ -128,48 +131,54 @@ fun MaxAppShell(
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 22.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
                 ) {
-                    Text(
-                        text = "Navigation",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Tous les ecrans sont accessibles ici",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
-                    )
-                }
-
-                HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
-
-                Column(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    listOf(
-                        AppShellRoute.HOME,
-                        AppShellRoute.CHAT,
-                        AppShellRoute.TASKS,
-                        AppShellRoute.NOTES,
-                        AppShellRoute.WEATHER,
-                        AppShellRoute.VOICE,
-                        AppShellRoute.PLANNING,
-                        AppShellRoute.ACTU,
-                        AppShellRoute.RADAR
-                    ).forEach { route ->
-                        DrawerEntry(
-                            route = route,
-                            selected = currentRoute == route,
-                            onClick = {
-                                queuedNavigation = route
-                                scope.launch { drawerState.close() }
-                            }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 22.dp),
+                        verticalArrangement = Arrangement.spacedBy(18.dp)
+                    ) {
+                        Text(
+                            text = "Navigation",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold
                         )
+                        Text(
+                            text = "Tous les ecrans sont accessibles ici",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                    }
+
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        listOf(
+                            AppShellRoute.HOME,
+                            AppShellRoute.CHAT,
+                            AppShellRoute.TASKS,
+                            AppShellRoute.NOTES,
+                            AppShellRoute.WEATHER,
+                            AppShellRoute.VOICE,
+                            AppShellRoute.PLANNING,
+                            AppShellRoute.ACTU,
+                            AppShellRoute.RADAR
+                        ).forEach { route ->
+                            DrawerEntry(
+                                route = route,
+                                selected = drawerSelectionRoute == route,
+                                onClick = {
+                                    queuedNavigation = route
+                                    scope.launch { drawerState.close() }
+                                }
+                            )
+                        }
                     }
                 }
 

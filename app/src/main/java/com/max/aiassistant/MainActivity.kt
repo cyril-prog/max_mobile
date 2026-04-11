@@ -24,14 +24,14 @@ import com.max.aiassistant.ui.chat.ChatScreen
 import com.max.aiassistant.ui.common.AppShellRoute
 import com.max.aiassistant.ui.common.MaxAppShell
 import com.max.aiassistant.ui.home.HomeScreen
-import com.max.aiassistant.ui.notes.NotesScreen
-import com.max.aiassistant.ui.planning.PlanningScreen
+import com.max.aiassistant.ui.tasks.OrgaMode
 import com.max.aiassistant.ui.tasks.TasksScreen
 import com.max.aiassistant.ui.theme.MaxTheme
 import com.max.aiassistant.ui.voice.VoiceScreen
 import com.max.aiassistant.ui.weather.WeatherScreen
 import com.max.aiassistant.ui.weather.RadarScreen
 import com.max.aiassistant.ui.actu.ActuScreen
+import com.max.aiassistant.ui.tasks.buildTaskNoteContent
 import com.max.aiassistant.viewmodel.MainViewModel
 import com.max.aiassistant.utils.PermissionHelper
 
@@ -103,6 +103,7 @@ class MainActivity : ComponentActivity() {
 
                 // Etat de navigation principal (shell)
                 var currentRoute by rememberSaveable { mutableStateOf(AppShellRoute.HOME) }
+                var orgaMode by rememberSaveable { mutableStateOf(OrgaMode.TASK) }
 
                 // Statuts globaux shell
                 val isOffline = !isNetworkAvailable(context)
@@ -157,6 +158,11 @@ class MainActivity : ComponentActivity() {
                 } else {
                     MaxAppShell(
                         currentRoute = currentRoute,
+                        drawerSelectionRoute = when {
+                            currentRoute == AppShellRoute.TASKS && orgaMode == OrgaMode.PLANNING -> AppShellRoute.PLANNING
+                            currentRoute == AppShellRoute.TASKS && orgaMode == OrgaMode.NOTE -> AppShellRoute.NOTES
+                            else -> currentRoute
+                        },
                         isOffline = isOffline,
                         isSyncing = isSyncing,
                         hasLocalData = hasLocalData,
@@ -164,11 +170,20 @@ class MainActivity : ComponentActivity() {
                             when (route) {
                                 AppShellRoute.HOME -> currentRoute = AppShellRoute.HOME
                                 AppShellRoute.CHAT -> currentRoute = AppShellRoute.CHAT
-                                AppShellRoute.TASKS -> currentRoute = AppShellRoute.TASKS
-                                AppShellRoute.NOTES -> currentRoute = AppShellRoute.NOTES
+                                AppShellRoute.TASKS -> {
+                                    orgaMode = OrgaMode.TASK
+                                    currentRoute = AppShellRoute.TASKS
+                                }
+                                AppShellRoute.NOTES -> {
+                                    orgaMode = OrgaMode.NOTE
+                                    currentRoute = AppShellRoute.TASKS
+                                }
                                 AppShellRoute.WEATHER -> currentRoute = AppShellRoute.WEATHER
                                 AppShellRoute.VOICE -> currentRoute = AppShellRoute.VOICE
-                                AppShellRoute.PLANNING -> currentRoute = AppShellRoute.PLANNING
+                                AppShellRoute.PLANNING -> {
+                                    orgaMode = OrgaMode.PLANNING
+                                    currentRoute = AppShellRoute.TASKS
+                                }
                                 AppShellRoute.ACTU -> currentRoute = AppShellRoute.ACTU
                                 AppShellRoute.RADAR -> currentRoute = AppShellRoute.RADAR
                             }
@@ -185,10 +200,10 @@ class MainActivity : ComponentActivity() {
                                     cityName = cityName,
                                     onNavigateToVoice = { currentRoute = AppShellRoute.VOICE },
                                     onNavigateToChat = { currentRoute = AppShellRoute.CHAT },
-                                    onNavigateToTasks = { currentRoute = AppShellRoute.TASKS },
-                                    onNavigateToPlanning = { currentRoute = AppShellRoute.PLANNING },
+                                    onNavigateToTasks = { orgaMode = OrgaMode.TASK; currentRoute = AppShellRoute.TASKS },
+                                    onNavigateToPlanning = { orgaMode = OrgaMode.PLANNING; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToWeather = { currentRoute = AppShellRoute.WEATHER },
-                                    onNavigateToNotes = { currentRoute = AppShellRoute.NOTES },
+                                    onNavigateToNotes = { orgaMode = OrgaMode.NOTE; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToActu = { currentRoute = AppShellRoute.ACTU },
                                     showChrome = false,
                                     modifier = modifier
@@ -205,10 +220,10 @@ class MainActivity : ComponentActivity() {
                                         currentRoute = AppShellRoute.VOICE
                                     },
                                     onNavigateToHome = { currentRoute = AppShellRoute.HOME },
-                                    onNavigateToTasks = { currentRoute = AppShellRoute.TASKS },
-                                    onNavigateToPlanning = { currentRoute = AppShellRoute.PLANNING },
+                                    onNavigateToTasks = { orgaMode = OrgaMode.TASK; currentRoute = AppShellRoute.TASKS },
+                                    onNavigateToPlanning = { orgaMode = OrgaMode.PLANNING; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToWeather = { currentRoute = AppShellRoute.WEATHER },
-                                    onNavigateToNotes = { currentRoute = AppShellRoute.NOTES },
+                                    onNavigateToNotes = { orgaMode = OrgaMode.NOTE; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToActu = { currentRoute = AppShellRoute.ACTU },
                                     showChrome = false,
                                     initialText = sharedText.orEmpty(),
@@ -220,10 +235,15 @@ class MainActivity : ComponentActivity() {
                             AppShellRoute.TASKS -> {
                                 TasksScreen(
                                     tasks = tasks,
+                                    events = events,
+                                    notes = notes,
                                     isRefreshing = isLoadingTasks,
+                                    isEventsRefreshing = isLoadingEvents,
                                     errorMessage = taskError,
+                                    eventsErrorMessage = eventsError,
                                     isOffline = isOffline,
                                     onRefresh = { viewModel.refreshTasks() },
+                                    onRefreshPlanning = { viewModel.refreshCalendarEvents() },
                                     onTaskStatusChange = { taskId, newStatus ->
                                         viewModel.updateTaskStatus(taskId, newStatus)
                                     },
@@ -261,27 +281,6 @@ class MainActivity : ComponentActivity() {
                                             dureeEstimee = dureeEstimee
                                         )
                                     },
-                                    onSubTaskCreate = { taskId, text ->
-                                        viewModel.createSubTask(taskId, text)
-                                    },
-                                    onSubTaskUpdate = { subTaskId, text, isCompleted ->
-                                        viewModel.updateSubTask(subTaskId, text, isCompleted)
-                                    },
-                                    onSubTaskDelete = { subTaskId ->
-                                        viewModel.deleteSubTask(subTaskId)
-                                    },
-                                    onNavigateToHome = { currentRoute = AppShellRoute.HOME },
-                                    onNavigateToChat = { currentRoute = AppShellRoute.CHAT },
-                                    onNavigateToPlanning = { currentRoute = AppShellRoute.PLANNING },
-                                    onNavigateToWeather = { currentRoute = AppShellRoute.WEATHER },
-                                    onNavigateToNotes = { currentRoute = AppShellRoute.NOTES },
-                                    onNavigateToActu = { currentRoute = AppShellRoute.ACTU },
-                                    showChrome = false
-                                )
-                            }
-                            AppShellRoute.NOTES -> {
-                                NotesScreen(
-                                    notes = notes,
                                     onAddNote = { title, content ->
                                         viewModel.addNote(title, content)
                                     },
@@ -291,11 +290,29 @@ class MainActivity : ComponentActivity() {
                                     onDeleteNote = { noteId ->
                                         viewModel.deleteNote(noteId)
                                     },
-                                    onNavigateBack = { currentRoute = AppShellRoute.HOME },
+                                    onSubTaskCreate = { taskId, text ->
+                                        viewModel.createSubTask(taskId, text)
+                                    },
+                                    onSubTaskUpdate = { subTaskId, text, isCompleted ->
+                                        viewModel.updateSubTask(subTaskId, text, isCompleted)
+                                    },
+                                    onSubTaskDelete = { subTaskId ->
+                                        viewModel.deleteSubTask(subTaskId)
+                                    },
+                                    onTaskScheduleRequested = {
+                                        orgaMode = OrgaMode.PLANNING
+                                    },
+                                    onTaskCreateNoteRequested = { task ->
+                                        viewModel.addNote(task.title, buildTaskNoteContent(task))
+                                        orgaMode = OrgaMode.NOTE
+                                    },
+                                    initialMode = orgaMode,
+                                    onModeChange = { orgaMode = it },
+                                    onNavigateToHome = { currentRoute = AppShellRoute.HOME },
                                     onNavigateToChat = { currentRoute = AppShellRoute.CHAT },
-                                    onNavigateToTasks = { currentRoute = AppShellRoute.TASKS },
-                                    onNavigateToPlanning = { currentRoute = AppShellRoute.PLANNING },
+                                    onNavigateToPlanning = { orgaMode = OrgaMode.PLANNING },
                                     onNavigateToWeather = { currentRoute = AppShellRoute.WEATHER },
+                                    onNavigateToNotes = { orgaMode = OrgaMode.NOTE },
                                     onNavigateToActu = { currentRoute = AppShellRoute.ACTU },
                                     showChrome = false
                                 )
@@ -316,9 +333,9 @@ class MainActivity : ComponentActivity() {
                                     onNavigateBack = { currentRoute = AppShellRoute.HOME },
                                     onRadarClick = { currentRoute = AppShellRoute.RADAR },
                                     onNavigateToChat = { currentRoute = AppShellRoute.CHAT },
-                                    onNavigateToTasks = { currentRoute = AppShellRoute.TASKS },
-                                    onNavigateToPlanning = { currentRoute = AppShellRoute.PLANNING },
-                                    onNavigateToNotes = { currentRoute = AppShellRoute.NOTES },
+                                    onNavigateToTasks = { orgaMode = OrgaMode.TASK; currentRoute = AppShellRoute.TASKS },
+                                    onNavigateToPlanning = { orgaMode = OrgaMode.PLANNING; currentRoute = AppShellRoute.TASKS },
+                                    onNavigateToNotes = { orgaMode = OrgaMode.NOTE; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToActu = { currentRoute = AppShellRoute.ACTU },
                                     showChrome = false
                                 )
@@ -338,26 +355,10 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onNavigateToHome = { currentRoute = AppShellRoute.HOME },
                                     onNavigateToChat = { currentRoute = AppShellRoute.CHAT },
-                                    onNavigateToTasks = { currentRoute = AppShellRoute.TASKS },
-                                    onNavigateToPlanning = { currentRoute = AppShellRoute.PLANNING },
+                                    onNavigateToTasks = { orgaMode = OrgaMode.TASK; currentRoute = AppShellRoute.TASKS },
+                                    onNavigateToPlanning = { orgaMode = OrgaMode.PLANNING; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToWeather = { currentRoute = AppShellRoute.WEATHER },
-                                    onNavigateToNotes = { currentRoute = AppShellRoute.NOTES },
-                                    onNavigateToActu = { currentRoute = AppShellRoute.ACTU },
-                                    showChrome = false
-                                )
-                            }
-                            AppShellRoute.PLANNING -> {
-                                PlanningScreen(
-                                    events = events,
-                                    isRefreshing = isLoadingEvents,
-                                    errorMessage = eventsError,
-                                    isOffline = isOffline,
-                                    onRefresh = { viewModel.refreshCalendarEvents() },
-                                    onNavigateToHome = { currentRoute = AppShellRoute.HOME },
-                                    onNavigateToChat = { currentRoute = AppShellRoute.CHAT },
-                                    onNavigateToTasks = { currentRoute = AppShellRoute.TASKS },
-                                    onNavigateToWeather = { currentRoute = AppShellRoute.WEATHER },
-                                    onNavigateToNotes = { currentRoute = AppShellRoute.NOTES },
+                                    onNavigateToNotes = { orgaMode = OrgaMode.NOTE; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToActu = { currentRoute = AppShellRoute.ACTU },
                                     showChrome = false
                                 )
@@ -373,13 +374,15 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToHome = { currentRoute = AppShellRoute.HOME },
                                     onNavigateToVoice = { currentRoute = AppShellRoute.VOICE },
                                     onNavigateToChat = { currentRoute = AppShellRoute.CHAT },
-                                    onNavigateToTasks = { currentRoute = AppShellRoute.TASKS },
-                                    onNavigateToPlanning = { currentRoute = AppShellRoute.PLANNING },
+                                    onNavigateToTasks = { orgaMode = OrgaMode.TASK; currentRoute = AppShellRoute.TASKS },
+                                    onNavigateToPlanning = { orgaMode = OrgaMode.PLANNING; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToWeather = { currentRoute = AppShellRoute.WEATHER },
-                                    onNavigateToNotes = { currentRoute = AppShellRoute.NOTES },
+                                    onNavigateToNotes = { orgaMode = OrgaMode.NOTE; currentRoute = AppShellRoute.TASKS },
                                     showChrome = false
                                 )
                             }
+                            AppShellRoute.NOTES -> Unit
+                            AppShellRoute.PLANNING -> Unit
                             AppShellRoute.RADAR -> Unit
                         }
                     }

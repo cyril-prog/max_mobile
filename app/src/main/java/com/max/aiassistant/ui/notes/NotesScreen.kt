@@ -100,7 +100,12 @@ private fun NotesContent(notes: List<Note>, onAddNote: (String, String) -> Unit,
         NoteDeck.TEXT -> !isChecklist(it)
         NoteDeck.LIST -> isChecklist(it)
     } } }
-    Box(modifier.fillMaxSize().background(NotesInk).windowInsetsPadding(WindowInsets.navigationBars)) {
+    Box(
+        modifier
+            .fillMaxSize()
+            .background(NotesInk)
+            .then(if (showChrome) Modifier.windowInsetsPadding(WindowInsets.navigationBars) else Modifier)
+    ) {
         Column(Modifier.fillMaxSize()) {
             if (showChrome) Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp, vertical = 14.dp)) {
                 Text("ORGANISER", color = NotesCyan, style = MaterialTheme.typography.labelMedium)
