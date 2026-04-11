@@ -10,8 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.SatelliteAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,7 +28,7 @@ import com.max.aiassistant.ui.theme.Spacing
 import com.max.aiassistant.ui.theme.TextPrimary
 
 /**
- * Écran affichant le radar de précipitations RainViewer sur une carte interactive
+ * Écran affichant la vue satellite RainViewer sur une carte interactive
  */
 @Composable
 fun RadarScreen(
@@ -65,14 +65,14 @@ fun RadarScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Radar,
+                        imageVector = Icons.Default.SatelliteAlt,
                         contentDescription = null,
                         tint = TextPrimary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
                 Text(
-                    text = "Radar — $cityName",
+                    text = "Vue satellite - $cityName",
                     style = MaterialTheme.typography.titleLarge,
                     color = TextPrimary,
                     fontWeight = FontWeight.Bold
@@ -334,7 +334,7 @@ private fun getRadarHtml(latitude: Double, longitude: Double): String {
 
                 // Initialisation de la carte centrée sur les coordonnées
                 console.log('📍 Création de la carte...');
-                const map = L.map('map').setView([$latitude, $longitude], 9);
+                const map = L.map('map').setView([$latitude, $longitude], 7);
                 console.log('✅ Carte créée');
 
                 // Forcer la mise à jour de la taille de la carte

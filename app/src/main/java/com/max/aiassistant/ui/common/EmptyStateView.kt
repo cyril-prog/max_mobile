@@ -36,17 +36,21 @@ fun EmptyStateView(
     subtitle: String? = null,
     modifier: Modifier = Modifier
 ) {
-    // Animation de pulsation douce sur le conteneur de l'icône
-    val infiniteTransition = rememberInfiniteTransition(label = "emptyStatePulse")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.06f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2200, easing = EaseInOut),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "iconScale"
-    )
+    val motionEnabled = rememberMotionEnabled()
+    val scale = if (motionEnabled) {
+        val infiniteTransition = rememberInfiniteTransition(label = "emptyStatePulse")
+        infiniteTransition.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.06f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 2200, easing = EaseInOut),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "iconScale"
+        ).value
+    } else {
+        1f
+    }
 
     Box(
         modifier = modifier.fillMaxSize(),

@@ -1,28 +1,36 @@
-package com.max.aiassistant.ui.chat
+﻿package com.max.aiassistant.ui.chat
 
 import android.Manifest
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
@@ -31,50 +39,78 @@ import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.max.aiassistant.model.Message
 import com.max.aiassistant.ui.common.EmptyStateView
-import com.max.aiassistant.ui.common.MiniFluidOrb
-import com.max.aiassistant.ui.common.NavigationSidebarScaffold
 import com.max.aiassistant.ui.common.NavigationScreen
+import com.max.aiassistant.ui.common.NavigationSidebarScaffold
 import com.max.aiassistant.ui.common.rememberNavigationSidebarState
-import com.max.aiassistant.ui.theme.*
+import com.max.aiassistant.ui.theme.AccentBlue
+import com.max.aiassistant.ui.theme.DarkBackground
+import com.max.aiassistant.ui.theme.DarkSurface
+import com.max.aiassistant.ui.theme.DarkSurfaceVariant
+import com.max.aiassistant.ui.theme.Spacing
+import com.max.aiassistant.ui.theme.TextPrimary
+import com.max.aiassistant.ui.theme.TextSecondary
+import com.max.aiassistant.ui.theme.UserMessageBg
 import kotlinx.coroutines.launch
 import java.io.File
 
-/**
- * ÉCRAN CENTRAL : Messenger
- *
- * Interface de chat avec Max
- * - Barre de titre avec logo et nom "Max"
- * - Zone de messages scrollable
- * - Barre d'entrée avec champ texte, bouton image et bouton envoi
- * - Sidebar de navigation accessible par swipe vers la gauche depuis le bord droit
- */
+private val ChatBackdrop = listOf(
+    Color(0xFF05070C),
+    Color(0xFF0A0F18),
+    Color(0xFF0C131D)
+)
+
+private val EditorialPanel = Color(0xFF121A27)
+private val EditorialPanelBorder = Color(0xFF25324A)
+private val EditorialPanelMuted = Color(0xFF1A2331)
+private val MaxBubbleColor = Color(0xFF151E2D)
+private val UserBubbleColor = Color(0xFF114A7A)
+private val ComposerShell = Color(0xFF0E141F)
+private val ComposerField = Color(0xFF172131)
+private val ComposerAction = Color(0xFF1D2A3D)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
@@ -90,32 +126,45 @@ fun ChatScreen(
     onNavigateToActu: () -> Unit = {},
     initialText: String = "",
     onInitialTextConsumed: () -> Unit = {},
+    showChrome: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val sidebarState = rememberNavigationSidebarState()
-    
-    NavigationSidebarScaffold(
-        currentScreen = NavigationScreen.CHAT,
-        onNavigateToScreen = { screen ->
-            when (screen) {
-                NavigationScreen.HOME -> onNavigateToHome()
-                NavigationScreen.VOICE -> onVoiceInput()
-                NavigationScreen.CHAT -> { /* Déjà sur cet écran */ }
-                NavigationScreen.TASKS -> onNavigateToTasks()
-                NavigationScreen.PLANNING -> onNavigateToPlanning()
-                NavigationScreen.WEATHER -> onNavigateToWeather()
-                NavigationScreen.NOTES -> onNavigateToNotes()
-                NavigationScreen.ACTU -> onNavigateToActu()
-            }
-        },
-        sidebarState = sidebarState
-    ) {
+    if (showChrome) {
+        val sidebarState = rememberNavigationSidebarState()
+        NavigationSidebarScaffold(
+            currentScreen = NavigationScreen.CHAT,
+            onNavigateToScreen = { screen ->
+                when (screen) {
+                    NavigationScreen.HOME -> onNavigateToHome()
+                    NavigationScreen.VOICE -> onVoiceInput()
+                    NavigationScreen.CHAT -> Unit
+                    NavigationScreen.TASKS -> onNavigateToTasks()
+                    NavigationScreen.PLANNING -> onNavigateToPlanning()
+                    NavigationScreen.WEATHER -> onNavigateToWeather()
+                    NavigationScreen.NOTES -> onNavigateToNotes()
+                    NavigationScreen.ACTU -> onNavigateToActu()
+                }
+            },
+            sidebarState = sidebarState
+        ) {
+            ChatScreenContent(
+                messages = messages,
+                isWaitingForAiResponse = isWaitingForAiResponse,
+                onSendMessage = onSendMessage,
+                onVoiceInput = onVoiceInput,
+                showChrome = true,
+                initialText = initialText,
+                onInitialTextConsumed = onInitialTextConsumed,
+                modifier = modifier
+            )
+        }
+    } else {
         ChatScreenContent(
             messages = messages,
             isWaitingForAiResponse = isWaitingForAiResponse,
             onSendMessage = onSendMessage,
             onVoiceInput = onVoiceInput,
-            onNavigateToHome = onNavigateToHome,
+            showChrome = false,
             initialText = initialText,
             onInitialTextConsumed = onInitialTextConsumed,
             modifier = modifier
@@ -123,9 +172,6 @@ fun ChatScreen(
     }
 }
 
-/**
- * Contenu de l'écran Chat
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatScreenContent(
@@ -133,170 +179,166 @@ private fun ChatScreenContent(
     isWaitingForAiResponse: Boolean,
     onSendMessage: (String, Uri?) -> Unit,
     onVoiceInput: () -> Unit,
-    onNavigateToHome: () -> Unit,
-    initialText: String = "",
-    onInitialTextConsumed: () -> Unit = {},
+    showChrome: Boolean,
+    initialText: String,
+    onInitialTextConsumed: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val listState = rememberLazyListState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
     var messageText by remember { mutableStateOf("") }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var showImagePickerDialog by remember { mutableStateOf(false) }
-    
-    // URI temporaire pour la photo prise avec la caméra
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
-    
-    // Launcher pour sélectionner une image depuis la galerie
+
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { selectedImageUri = it }
+    ) { uri ->
+        if (uri != null) {
+            selectedImageUri = uri
+        }
     }
-    
-    // Launcher pour prendre une photo avec la caméra
+
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
-    ) { success: Boolean ->
+    ) { success ->
         if (success) {
             selectedImageUri = tempCameraUri
         }
     }
-    
-    // Launcher pour demander la permission caméra
+
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            // Permission accordée, on peut lancer la caméra
+    ) { granted ->
+        if (granted) {
             val uri = createImageUri(context)
             tempCameraUri = uri
             cameraLauncher.launch(uri)
         }
     }
-    
-    // Gère le texte partagé depuis une autre application
+
     LaunchedEffect(initialText) {
-        if (initialText.isNotEmpty()) {
+        if (initialText.isNotBlank()) {
             messageText = initialText
             onInitialTextConsumed()
         }
     }
-    val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
 
-    // Auto-scroll vers le bas quand un nouveau message arrive ou quand l'état de chargement change
     LaunchedEffect(messages.size, isWaitingForAiResponse) {
-        // Calcule l'index du dernier élément (messages + typing indicator si présent)
         val itemCount = messages.size + if (isWaitingForAiResponse) 1 else 0
         if (itemCount > 0) {
-            // Défile directement vers le dernier élément
             listState.animateScrollToItem(itemCount - 1)
         }
     }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .background(DarkBackground)
+            .background(Brush.verticalGradient(ChatBackdrop))
     ) {
-        // TopBar harmonisé
-        Row(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(DarkBackground)
-                .statusBarsPadding()
-                .padding(horizontal = Spacing.md.dp, vertical = Spacing.sm.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .fillMaxSize()
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
-            ) {
-                Box(
+            if (showChrome) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "Chat",
+                            color = TextPrimary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        titleContentColor = TextPrimary
+                    ),
+                    modifier = Modifier.statusBarsPadding()
+                )
+            }
+
+            if (messages.isEmpty() && !isWaitingForAiResponse) {
+                ChatEmptyState(
+                    onVoiceInput = onVoiceInput,
+                    onPromptSelected = { suggestion -> messageText = suggestion },
+                    modifier = Modifier.weight(1f)
+                )
+            } else {
+                LazyColumn(
+                    state = listState,
                     modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Brush.linearGradient(GradientChat)),
-                    contentAlignment = Alignment.Center
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(top = 20.dp, bottom = 16.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.ChatBubbleOutline,
-                        contentDescription = null,
-                        tint = TextPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Text(
-                    text = "Chat",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
+                    items(messages, key = { it.id }) { message ->
+                        EditorialMessageBubble(
+                            message = message,
+                            onCopy = {
+                                clipboardManager.setText(AnnotatedString(message.content))
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Reponse copiee")
+                                }
+                            },
+                            onRetry = {
+                                onSendMessage(
+                                    "Peux-tu reformuler la derniere reponse de facon plus claire et plus concise ?",
+                                    null
+                                )
+                            },
+                            onSummarize = {
+                                onSendMessage(
+                                    "Resume la reponse precedente en trois points essentiels.",
+                                    null
+                                )
+                            }
+                        )
+                    }
 
-        // Zone de messages (se compresse quand le clavier apparaît)
-        if (messages.isEmpty() && !isWaitingForAiResponse) {
-            // État vide illustré
-            EmptyStateView(
-                icon = Icons.Default.ChatBubbleOutline,
-                iconTint = Color(0xFF0A84FF),
-                title = "Aucun message",
-                subtitle = "Commencez une conversation avec Max",
-                modifier = Modifier.weight(1f)
+                    if (isWaitingForAiResponse) {
+                        item("typing") {
+                            TypingPanel()
+                        }
+                    }
+                }
+            }
+
+            SmartComposer(
+                value = messageText,
+                onValueChange = { messageText = it },
+                selectedImageUri = selectedImageUri,
+                onRemoveImage = { selectedImageUri = null },
+                onAddImageClick = { showImagePickerDialog = true },
+                onVoiceInput = onVoiceInput,
+                onSend = {
+                    if (messageText.isNotBlank() || selectedImageUri != null) {
+                        onSendMessage(messageText, selectedImageUri)
+                        scope.launch { snackbarHostState.showSnackbar("Message envoye") }
+                        messageText = ""
+                        selectedImageUri = null
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding()
             )
-        } else {
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            state = listState,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
-        ) {
-            items(messages, key = { it.id }) { message ->
-                MessageBubble(
-                    message = message,
-                    modifier = Modifier.animateItem(
-                        fadeInSpec = tween(300),
-                        fadeOutSpec = tween(200),
-                        placementSpec = spring(stiffness = Spring.StiffnessMediumLow)
-                    )
-                )
-            }
-
-            // Indicateur de chargement si l'IA est en train de réfléchir
-            if (isWaitingForAiResponse) {
-                item(key = "typing_indicator") {
-                    TypingIndicator()
-                }
-            }
-        }
         }
 
-        // Barre d'entrée (monte avec le clavier et évite la barre Android)
-        MessageInputBar(
-            value = messageText,
-            onValueChange = { messageText = it },
-            selectedImageUri = selectedImageUri,
-            onRemoveImage = { selectedImageUri = null },
-            onAddImageClick = { showImagePickerDialog = true },
-            onSend = {
-                if (messageText.isNotBlank() || selectedImageUri != null) {
-                    onSendMessage(messageText, selectedImageUri)
-                    messageText = ""
-                    selectedImageUri = null
-                }
-            },
+        SnackbarHost(
+            hostState = snackbarHostState,
             modifier = Modifier
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .windowInsetsPadding(WindowInsets.ime)
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 20.dp, vertical = 88.dp)
+                .navigationBarsPadding()
         )
     }
-    
-    // Dialog pour choisir entre galerie et caméra
+
     if (showImagePickerDialog) {
         ImagePickerDialog(
             onDismiss = { showImagePickerDialog = false },
@@ -312,638 +354,593 @@ private fun ChatScreenContent(
     }
 }
 
-/**
- * Bulle de message
- * Utilisateur : droite, fond bleu accent (convention messenger standard)
- * Max (IA) : gauche, fond surface variante avec avatar + rendu markdown riche
- */
 @Composable
-fun MessageBubble(message: Message, modifier: Modifier = Modifier) {
-    val timeText = remember(message.timestamp) {
-        val cal = java.util.Calendar.getInstance().apply { timeInMillis = message.timestamp }
-        val h = cal.get(java.util.Calendar.HOUR_OF_DAY).toString().padStart(2, '0')
-        val m = cal.get(java.util.Calendar.MINUTE).toString().padStart(2, '0')
-        "$h:$m"
-    }
+private fun ChatEmptyState(
+    onVoiceInput: () -> Unit,
+    onPromptSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val suggestions = listOf(
+        "Donne-moi le plan de ma journee.",
+        "Resume les actualites importantes.",
+        "Aide-moi a preparer trois priorites."
+    )
 
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp),
-        horizontalArrangement = if (message.isFromUser) Arrangement.End else Arrangement.Start,
-        verticalAlignment = Alignment.Bottom
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        // Avatar Max (visible uniquement pour les messages IA, à gauche)
-        if (!message.isFromUser) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(Color(0xFF1E3A5F), Color(0xFF0A84FF))
-                        )
-                    ),
-                contentAlignment = Alignment.Center
+        Surface(
+            color = EditorialPanel,
+            shape = RoundedCornerShape(30.dp),
+            tonalElevation = 0.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, EditorialPanelBorder, RoundedCornerShape(30.dp))
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
-                Text(
-                    text = "M",
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-        }
-
-        val bubbleShape = if (message.isFromUser) {
-            RoundedCornerShape(
-                topStart = 18.dp,
-                topEnd = 18.dp,
-                bottomStart = 18.dp,
-                bottomEnd = 4.dp
-            )
-        } else {
-            RoundedCornerShape(
-                topStart = 4.dp,
-                topEnd = 18.dp,
-                bottomStart = 18.dp,
-                bottomEnd = 18.dp
-            )
-        }
-
-        Column(horizontalAlignment = if (message.isFromUser) Alignment.End else Alignment.Start) {
-            Surface(
-                shape = bubbleShape,
-                color = if (message.isFromUser) UserMessageBg else MaxMessageBg,
-                modifier = Modifier.widthIn(max = 280.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(
-                        horizontal = 12.dp,
-                        vertical = 10.dp
-                    )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Image si présente
-                    message.imageUri?.let { uri ->
-                        AsyncImage(
-                            model = uri,
-                            contentDescription = "Image attachée au message",
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(AccentBlue.copy(alpha = 0.16f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ChatBubbleOutline,
+                            contentDescription = null,
+                            tint = AccentBlue
+                        )
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "Commencer une vraie conversation",
+                            color = TextPrimary,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Ecrivez un prompt clair ou lancez directement le mode vocal.",
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    suggestions.forEach { suggestion ->
+                        Surface(
+                            color = EditorialPanelMuted,
+                            shape = RoundedCornerShape(18.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = 200.dp)
-                                .clip(RoundedCornerShape(10.dp)),
-                            contentScale = ContentScale.Fit
-                        )
-                        if (message.content.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(8.dp))
+                                .clickable { onPromptSelected(suggestion) }
+                        ) {
+                            Text(
+                                text = suggestion,
+                                color = TextPrimary,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+                            )
                         }
                     }
+                }
 
-                    // Texte : rendu markdown riche pour les messages IA
+                ComposerActionPill(
+                    label = "Passer en vocal",
+                    icon = Icons.Default.Mic,
+                    onClick = onVoiceInput
+                )
+            }
+        }
+
+        EmptyStateView(
+            icon = Icons.Default.ChatBubbleOutline,
+            iconTint = AccentBlue,
+            title = "Le chat est pret",
+            subtitle = "Vous pouvez ecrire, joindre une image ou basculer en vocal.",
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun EditorialMessageBubble(
+    message: Message,
+    onCopy: (() -> Unit)? = null,
+    onRetry: (() -> Unit)? = null,
+    onSummarize: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    val timeText = remember(message.timestamp) {
+        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = message.timestamp }
+        val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY).toString().padStart(2, '0')
+        val minute = calendar.get(java.util.Calendar.MINUTE).toString().padStart(2, '0')
+        "$hour:$minute"
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = if (message.isFromUser) "Vous" else "Max",
+            color = TextSecondary.copy(alpha = 0.88f),
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(start = if (message.isFromUser) 0.dp else 6.dp)
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = if (message.isFromUser) Arrangement.End else Arrangement.Start
+        ) {
+            val bubbleShape = if (message.isFromUser) {
+                RoundedCornerShape(26.dp, 26.dp, 10.dp, 26.dp)
+            } else {
+                RoundedCornerShape(26.dp, 26.dp, 26.dp, 10.dp)
+            }
+
+            Surface(
+                shape = bubbleShape,
+                color = if (message.isFromUser) UserBubbleColor else MaxBubbleColor,
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .widthIn(max = 440.dp)
+                    .border(
+                        width = 1.dp,
+                        color = if (message.isFromUser) {
+                            AccentBlue.copy(alpha = 0.28f)
+                        } else {
+                            EditorialPanelBorder
+                        },
+                        shape = bubbleShape
+                    )
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (message.imageUri != null) {
+                        AsyncImage(
+                            model = message.imageUri,
+                            contentDescription = "Image jointe",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 240.dp)
+                                .clip(RoundedCornerShape(18.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+
                     if (message.content.isNotBlank()) {
-                        if (message.isFromUser) {
-                            SelectionContainer {
+                        SelectionContainer {
+                            if (message.isFromUser) {
                                 Text(
                                     text = message.content,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextPrimary,
-                                    lineHeight = 21.sp
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    lineHeight = 24.sp
                                 )
-                            }
-                        } else {
-                            SelectionContainer {
+                            } else {
                                 MarkdownContent(text = message.content)
                             }
                         }
                     }
                 }
             }
+        }
 
-            // Timestamp sous la bulle
-            Text(
-                text = timeText,
-                style = MaterialTheme.typography.labelSmall,
-                color = TextSecondary.copy(alpha = 0.5f),
-                modifier = Modifier.padding(
-                    top = 3.dp,
-                    start = if (message.isFromUser) 0.dp else 4.dp,
-                    end = if (message.isFromUser) 4.dp else 0.dp
-                )
+        Text(
+            text = timeText,
+            color = TextSecondary.copy(alpha = 0.66f),
+            style = MaterialTheme.typography.labelSmall
+        )
+
+        if (!message.isFromUser) {
+            MessageActionRow(
+                onCopy = onCopy,
+                onRetry = onRetry,
+                onSummarize = onSummarize
             )
         }
+    }
+}
 
-        // Espace après bulle utilisateur (côté droit)
-        if (message.isFromUser) {
-            Spacer(modifier = Modifier.width(4.dp))
+@Composable
+private fun MessageActionRow(
+    onCopy: (() -> Unit)?,
+    onRetry: (() -> Unit)?,
+    onSummarize: (() -> Unit)?
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (onCopy != null) {
+            BubbleActionChip(label = "Copier", onClick = onCopy)
+        }
+        if (onRetry != null) {
+            BubbleActionChip(label = "Relancer", onClick = onRetry)
+        }
+        if (onSummarize != null) {
+            BubbleActionChip(label = "Resume", onClick = onSummarize)
         }
     }
 }
 
-/**
- * Rendu markdown ligne par ligne.
- * Supporte : # ## ### (titres), - / • (listes), **gras**, *italique*, `code`
- */
+@Composable
+private fun BubbleActionChip(
+    label: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        color = Color.Transparent,
+        shape = RoundedCornerShape(999.dp),
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .border(1.dp, EditorialPanelBorder, RoundedCornerShape(999.dp))
+    ) {
+        Text(
+            text = label,
+            color = TextSecondary,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
+        )
+    }
+}
+
 @Composable
 private fun MarkdownContent(text: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        val lines = text.split("\n")
-        var i = 0
-        while (i < lines.size) {
-            val line = lines[i]
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        text.split("\n").forEach { rawLine ->
+            val line = rawLine.trimEnd()
             when {
-                // Titres H1
-                line.startsWith("# ") -> {
+                line.startsWith("### ") -> Text(
+                    text = parseInlineMarkdown(line.removePrefix("### ")),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold
+                )
+                line.startsWith("## ") -> Text(
+                    text = parseInlineMarkdown(line.removePrefix("## ")),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold
+                )
+                line.startsWith("# ") -> Text(
+                    text = parseInlineMarkdown(line.removePrefix("# ")),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+                line.startsWith("- ") || line.startsWith("* ") -> Row(
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(
-                        text = parseInlineMarkdown(line.removePrefix("# ")),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = if (i > 0) 6.dp else 0.dp, bottom = 2.dp)
+                        text = "•",
+                        color = AccentBlue,
+                        style = MaterialTheme.typography.bodyLarge
                     )
-                }
-                // Titres H2
-                line.startsWith("## ") -> {
                     Text(
-                        text = parseInlineMarkdown(line.removePrefix("## ")),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = if (i > 0) 4.dp else 0.dp, bottom = 1.dp)
-                    )
-                }
-                // Titres H3
-                line.startsWith("### ") -> {
-                    Text(
-                        text = parseInlineMarkdown(line.removePrefix("### ")),
+                        text = parseInlineMarkdown(line.drop(2)),
+                        color = Color.White,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(top = if (i > 0) 4.dp else 0.dp)
+                        lineHeight = 24.sp
                     )
                 }
-                // Item de liste (- texte ou • texte)
-                line.startsWith("- ") || line.startsWith("• ") -> {
-                    Row(
-                        modifier = Modifier.padding(start = 4.dp),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Text(
-                            text = "•",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = AccentBlue,
-                            modifier = Modifier.padding(end = 6.dp, top = 1.dp)
-                        )
-                        Text(
-                            text = parseInlineMarkdown(
-                                if (line.startsWith("- ")) line.removePrefix("- ")
-                                else line.removePrefix("• ")
-                            ),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextPrimary,
-                            lineHeight = 20.sp
-                        )
-                    }
-                }
-                // Ligne de séparation ---
-                line.trim() == "---" || line.trim() == "***" -> {
-                    Spacer(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(Color.White.copy(alpha = 0.15f))
-                    )
-                }
-                // Ligne vide → espacement
-                line.isBlank() -> {
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-                // Texte normal
-                else -> {
-                    Text(
-                        text = parseInlineMarkdown(line),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextPrimary,
-                        lineHeight = 21.sp
-                    )
-                }
+                line.isBlank() -> Spacer(modifier = Modifier.height(2.dp))
+                else -> Text(
+                    text = parseInlineMarkdown(line),
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyLarge,
+                    lineHeight = 24.sp
+                )
             }
-            i++
         }
     }
 }
 
-/**
- * Parse le markdown inline (gras, italique, code) et retourne un AnnotatedString
- * Supporte : **gras**, *italique*, ***gras italique***, `code`
- */
 private fun parseInlineMarkdown(text: String): AnnotatedString {
-    return buildAnnotatedString {
-        var currentIndex = 0
-        val length = text.length
+    if (!text.contains("**")) return AnnotatedString(text)
 
-        while (currentIndex < length) {
-            when {
-                // Gras + Italique: ***texte***
-                currentIndex + 2 < length && text.substring(currentIndex, currentIndex + 3) == "***" -> {
-                    val endIndex = text.indexOf("***", currentIndex + 3)
-                    if (endIndex != -1) {
-                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic)) {
-                            append(text.substring(currentIndex + 3, endIndex))
-                        }
-                        currentIndex = endIndex + 3
-                    } else {
-                        append(text[currentIndex])
-                        currentIndex++
-                    }
-                }
-                // Gras: **texte**
-                currentIndex + 1 < length && text.substring(currentIndex, currentIndex + 2) == "**" -> {
-                    val endIndex = text.indexOf("**", currentIndex + 2)
-                    if (endIndex != -1) {
-                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                            append(text.substring(currentIndex + 2, endIndex))
-                        }
-                        currentIndex = endIndex + 2
-                    } else {
-                        append(text[currentIndex])
-                        currentIndex++
-                    }
-                }
-                // Italique: *texte*
-                text[currentIndex] == '*' && currentIndex + 1 < length && text[currentIndex + 1] != '*' -> {
-                    val endIndex = text.indexOf('*', currentIndex + 1)
-                    if (endIndex != -1 && endIndex > currentIndex + 1) {
-                        withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
-                            append(text.substring(currentIndex + 1, endIndex))
-                        }
-                        currentIndex = endIndex + 1
-                    } else {
-                        append(text[currentIndex])
-                        currentIndex++
-                    }
-                }
-                // Code inline: `code`
-                text[currentIndex] == '`' -> {
-                    val endIndex = text.indexOf('`', currentIndex + 1)
-                    if (endIndex != -1) {
-                        withStyle(SpanStyle(
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                            background = Color(0xFF2D2D2D)
-                        )) {
-                            append(text.substring(currentIndex + 1, endIndex))
-                        }
-                        currentIndex = endIndex + 1
-                    } else {
-                        append(text[currentIndex])
-                        currentIndex++
-                    }
-                }
-                // Texte normal
-                else -> {
-                    append(text[currentIndex])
-                    currentIndex++
-                }
+    return buildAnnotatedString {
+        var cursor = 0
+        while (cursor < text.length) {
+            val open = text.indexOf("**", startIndex = cursor)
+            if (open == -1) {
+                append(text.substring(cursor))
+                break
             }
+
+            if (open > cursor) {
+                append(text.substring(cursor, open))
+            }
+
+            val close = text.indexOf("**", startIndex = open + 2)
+            if (close == -1) {
+                append(text.substring(open))
+                break
+            }
+
+            withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                append(text.substring(open + 2, close))
+            }
+            cursor = close + 2
         }
     }
 }
 
-
-/**
- * Barre d'entrée de message avec champ texte, bouton image et bouton envoi
- */
 @Composable
-fun MessageInputBar(
+private fun SmartComposer(
     value: String,
     onValueChange: (String) -> Unit,
     selectedImageUri: Uri?,
     onRemoveImage: () -> Unit,
     onAddImageClick: () -> Unit,
+    onVoiceInput: () -> Unit,
     onSend: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val haptic = LocalHapticFeedback.current
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = DarkBackground,
-        tonalElevation = 0.dp
+        modifier = modifier,
+        color = ComposerShell,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Prévisualisation de l'image sélectionnée
-            selectedImageUri?.let { uri ->
-                Box(
+            if (selectedImageUri != null) {
+                SelectedImagePreview(
+                    imageUri = selectedImageUri,
+                    onRemove = onRemoveImage
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ComposerActionPill(
+                    label = "Joindre",
+                    icon = Icons.Default.AddPhotoAlternate,
+                    onClick = onAddImageClick
+                )
+                ComposerActionPill(
+                    label = "Vocal",
+                    icon = Icons.Default.Mic,
+                    onClick = onVoiceInput
+                )
+            }
+
+            Surface(
+                color = ComposerField,
+                shape = RoundedCornerShape(28.dp),
+                tonalElevation = 0.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
                     modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .fillMaxWidth()
+                        .padding(start = 18.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.Bottom
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = DarkSurfaceVariant,
-                        modifier = Modifier.size(80.dp)
-                    ) {
-                        AsyncImage(
-                            model = uri,
-                            contentDescription = "Image sélectionnée",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(12.dp)),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-                    
-                    // Bouton de suppression
-                    IconButton(
-                        onClick = onRemoveImage,
+                    TextField(
+                        value = value,
+                        onValueChange = onValueChange,
                         modifier = Modifier
-                            .size(24.dp)
-                            .align(Alignment.TopEnd)
-                            .offset(x = 8.dp, y = (-8).dp)
-                            .background(
-                                color = Color.Red.copy(alpha = 0.9f),
-                                shape = CircleShape
+                            .weight(1f)
+                            .heightIn(min = 52.dp, max = 140.dp),
+                        placeholder = {
+                            Text(
+                                text = "Ecrire un message",
+                                color = TextSecondary
                             )
+                        },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                            cursorColor = AccentBlue,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            disabledIndicatorColor = Color.Transparent
+                        ),
+                        shape = RoundedCornerShape(22.dp),
+                        singleLine = false,
+                        maxLines = 5,
+                        textStyle = MaterialTheme.typography.bodyLarge,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Sentences,
+                            imeAction = ImeAction.Default
+                        )
+                    )
+
+                    val canSend = value.isNotBlank() || selectedImageUri != null
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 10.dp, bottom = 4.dp)
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(if (canSend) AccentBlue else DarkSurfaceVariant)
+                            .clickable(enabled = canSend, onClick = onSend),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Supprimer l'image",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Envoyer",
+                            tint = if (canSend) Color.White else TextSecondary,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                }
-            }
-            
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Bouton d'ajout d'image
-                IconButton(
-                    onClick = onAddImageClick,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(DarkSurfaceVariant)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AddPhotoAlternate,
-                        contentDescription = "Ajouter une image",
-                        tint = AccentBlue
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                // Champ de texte multiligne (max 3 lignes visibles)
-                TextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(max = 120.dp),
-                    placeholder = {
-                        Text(
-                            text = "Message",
-                            color = TextSecondary
-                        )
-                    },
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = DarkSurface,
-                        unfocusedContainerColor = DarkSurface,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary,
-                        cursorColor = AccentBlue,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        disabledIndicatorColor = Color.Transparent
-                    ),
-                    shape = RoundedCornerShape(24.dp),
-                    singleLine = false,
-                    maxLines = 5,
-                    textStyle = MaterialTheme.typography.bodyLarge,
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Sentences,
-                        imeAction = ImeAction.Default
-                    )
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Bouton d'envoi (activé si texte ou image présent)
-                val isEnabled = value.isNotBlank() || selectedImageUri != null
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isEnabled) AccentBlue else DarkSurfaceVariant
-                        )
-                        .clickable(enabled = isEnabled) {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onSend()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Envoyer le message",
-                        tint = if (isEnabled) Color.White else TextSecondary
-                    )
                 }
             }
         }
     }
 }
 
-/**
- * Dialog pour choisir entre galerie et caméra
- */
 @Composable
-fun ImagePickerDialog(
+private fun SelectedImagePreview(
+    imageUri: Uri,
+    onRemove: () -> Unit
+) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        AsyncImage(
+            model = imageUri,
+            contentDescription = "Image selectionnee",
+            modifier = Modifier
+                .size(96.dp)
+                .clip(RoundedCornerShape(18.dp)),
+            contentScale = ContentScale.Crop
+        )
+
+        IconButton(
+            onClick = onRemove,
+            modifier = Modifier
+                .size(48.dp)
+                .align(Alignment.TopStart)
+                .offset(x = 58.dp, y = (-8).dp)
+                .clip(CircleShape)
+                .background(Color(0xFFD9465F))
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Supprimer l'image",
+                tint = Color.White
+            )
+        }
+    }
+}
+
+@Composable
+private fun ComposerActionPill(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    Surface(
+        color = ComposerAction,
+        shape = RoundedCornerShape(999.dp),
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = AccentBlue,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = label,
+                color = TextPrimary,
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
+    }
+}
+
+@Composable
+private fun ImagePickerDialog(
     onDismiss: () -> Unit,
     onGalleryClick: () -> Unit,
     onCameraClick: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = DarkSurface,
-        title = {
-            Text(
-                text = "Ajouter une image",
-                color = TextPrimary,
-                fontWeight = FontWeight.Bold
-            )
-        },
+        title = { Text(text = "Ajouter une image") },
         text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Option Galerie
-                Surface(
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onGalleryClick() },
-                    shape = RoundedCornerShape(12.dp),
-                    color = DarkSurfaceVariant
+                        .clickable(onClick = onGalleryClick)
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PhotoLibrary,
-                            contentDescription = null,
-                            tint = AccentBlue,
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = "Choisir depuis la galerie",
-                            color = TextPrimary,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.AddPhotoAlternate,
+                        contentDescription = null,
+                        tint = AccentBlue
+                    )
+                    Text(text = "Galerie")
                 }
-                
-                // Option Caméra
-                Surface(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onCameraClick() },
-                    shape = RoundedCornerShape(12.dp),
-                    color = DarkSurfaceVariant
+                        .clickable(onClick = onCameraClick)
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CameraAlt,
-                            contentDescription = null,
-                            tint = AccentBlue,
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = "Prendre une photo",
-                            color = TextPrimary,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = null,
+                        tint = AccentBlue
+                    )
+                    Text(text = "Camera")
                 }
             }
         },
-        confirmButton = {},
-        dismissButton = {
+        confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Annuler", color = TextSecondary)
+                Text(text = "Fermer")
             }
         }
     )
 }
 
-/**
- * Crée un URI temporaire pour stocker la photo prise avec la caméra
- */
-fun createImageUri(context: Context): Uri {
-    val directory = File(context.cacheDir, "images")
-    directory.mkdirs()
-    val file = File(directory, "temp_camera_image_${System.currentTimeMillis()}.jpg")
+private fun createImageUri(context: Context): Uri {
+    val imagesDir = File(context.cacheDir, "images").apply { mkdirs() }
+    val imageFile = File.createTempFile("max_chat_", ".jpg", imagesDir)
     return FileProvider.getUriForFile(
         context,
         "${context.packageName}.fileprovider",
-        file
+        imageFile
     )
 }
 
-/**
- * Indicateur de saisie animé (typing indicator)
- * Affiche trois points qui rebondissent pour indiquer que l'IA est en train de réfléchir
- */
 @Composable
-fun TypingIndicator() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Start
+private fun TypingPanel() {
+    Surface(
+        color = MaxBubbleColor,
+        shape = RoundedCornerShape(24.dp),
+        modifier = Modifier
+            .widthIn(max = 124.dp)
+            .border(1.dp, EditorialPanelBorder, RoundedCornerShape(24.dp))
     ) {
-        val bubbleShape = RoundedCornerShape(
-            topStart = 20.dp,
-            topEnd = 20.dp,
-            bottomStart = 4.dp,
-            bottomEnd = 20.dp
-        )
-
-        Surface(
-            shape = bubbleShape,
-            color = MaxMessageBg,
-            tonalElevation = 2.dp,
-            shadowElevation = 4.dp,
-            modifier = Modifier
-                .widthIn(max = 280.dp)
-                .border(
-                    width = 0.5.dp,
-                    color = BorderColor.copy(alpha = 0.3f),
-                    shape = bubbleShape
-                )
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.padding(
-                    horizontal = 20.dp,
-                    vertical = 16.dp
-                ),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Animation de 3 points qui rebondissent en cascade
-                repeat(3) { index ->
-                    TypingDot(delayMillis = index * 150)
-                }
-            }
+            TypingDot()
+            TypingDot()
+            TypingDot()
         }
     }
 }
 
-/**
- * Un point animé pour le typing indicator
- * Rebondit verticalement avec un délai pour créer un effet de cascade
- */
 @Composable
-fun TypingDot(delayMillis: Int) {
-    // Animation infinie de translation verticale
-    val infiniteTransition = rememberInfiniteTransition(label = "typing_dot_$delayMillis")
-
-    val translateY by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = -8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = 600,
-                delayMillis = delayMillis,
-                easing = FastOutSlowInEasing
-            ),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "translate_y"
-    )
-
+private fun TypingDot() {
     Box(
         modifier = Modifier
             .size(8.dp)
-            .graphicsLayer {
-                translationY = translateY
-            }
-            .background(
-                color = TextSecondary.copy(alpha = 0.7f),
-                shape = CircleShape
-            )
+            .clip(CircleShape)
+            .background(AccentBlue.copy(alpha = 0.9f))
     )
 }

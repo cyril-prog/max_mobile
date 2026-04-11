@@ -95,6 +95,8 @@ data class HourlyUnits(
     val time: String,
     @SerializedName("temperature_2m")
     val temperature2m: String,
+    @SerializedName("relative_humidity_2m")
+    val relativeHumidity2m: String,
     @SerializedName("precipitation_probability")
     val precipitationProbability: String,
     @SerializedName("weather_code")
@@ -108,6 +110,8 @@ data class HourlyWeather(
     val time: List<String>,
     @SerializedName("temperature_2m")
     val temperature2m: List<Double>,
+    @SerializedName("relative_humidity_2m")
+    val relativeHumidity2m: List<Int>,
     @SerializedName("precipitation_probability")
     val precipitationProbability: List<Int>,
     @SerializedName("weather_code")
@@ -177,6 +181,7 @@ data class CurrentPollenData(
 data class HourlyForecast(
     val hour: String,          // Format: "14:00"
     val temperature: Double,   // Température en °C
+    val humidity: Int,         // Humidité relative en %
     val precipitationProb: Int, // Probabilité de précipitation (0-100%)
     val weatherCode: Int       // Code météo WMO
 )
@@ -220,6 +225,7 @@ fun WeatherApiResponse.toWeatherData(pollenData: CurrentPollenData? = null): Wea
             HourlyForecast(
                 hour = formatHour(timeString),
                 temperature = hourly.temperature2m.getOrNull(absoluteIndex) ?: 0.0,
+                humidity = hourly.relativeHumidity2m.getOrNull(absoluteIndex) ?: 0,
                 precipitationProb = hourly.precipitationProbability.getOrNull(absoluteIndex) ?: 0,
                 weatherCode = hourly.weatherCode.getOrNull(absoluteIndex) ?: 0
             )

@@ -1,296 +1,107 @@
-package com.max.aiassistant.ui.weather
+﻿package com.max.aiassistant.ui.weather
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material.icons.filled.Grass
-import androidx.compose.material.icons.filled.Park
-import androidx.compose.material.icons.filled.LocalFlorist
-import androidx.compose.material.icons.filled.Air
-import androidx.compose.material.icons.filled.Umbrella
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.max.aiassistant.data.api.CityResult
-import com.max.aiassistant.data.api.HourlyForecast
-import com.max.aiassistant.data.api.WeatherData
-import com.max.aiassistant.data.api.getWeatherDescription
-import com.max.aiassistant.data.api.getWeatherIcon
-import com.max.aiassistant.data.api.getPollenLevel
-import com.max.aiassistant.data.api.getPollenColor
-import com.max.aiassistant.ui.theme.AccentBlue
-import com.max.aiassistant.ui.theme.DarkBackground
-import com.max.aiassistant.ui.theme.DarkSurface
-import com.max.aiassistant.ui.theme.GradientWeather
-import com.max.aiassistant.ui.theme.Spacing
-import com.max.aiassistant.ui.theme.TextPrimary
-import com.max.aiassistant.ui.theme.TextSecondary
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.draw.clip
-import com.max.aiassistant.ui.common.NavigationSidebarScaffold
-import com.max.aiassistant.ui.common.NavigationScreen
-import com.max.aiassistant.ui.common.rememberNavigationSidebarState
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
-import androidx.compose.ui.geometry.Offset
-import java.util.Calendar
+import com.max.aiassistant.data.api.*
+import com.max.aiassistant.ui.common.*
+import com.max.aiassistant.ui.theme.*
 
-/**
- * Écran météo avec prévisions heure par heure
- * Affiche la température actuelle et les prévisions pour les 24 prochaines heures
- * - Sidebar de navigation accessible par swipe vers la gauche depuis le bord droit
- */
+private val WeatherBackdrop = Brush.verticalGradient(
+    listOf(
+        Color(0xFF09131E),
+        Color(0xFF0E1826),
+        Color(0xFF0C1420),
+        Color(0xFF081019)
+    )
+)
+private val WeatherCardSurface = Color(0xFF162234)
+private val WeatherCardSurfaceAlt = Color(0xFF1A2940)
+private val PollenGradient = Brush.linearGradient(
+    listOf(
+        Color(0xFF143126),
+        Color(0xFF1D4A38),
+        Color(0xFF2B6A4E)
+    )
+)
+private val PollenDialogBackground = Color(0xFF202734)
+private val PollenBadgeText = Color(0xFFF4FFF8)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeatherScreen(
-    weatherData: WeatherData?,
-    cityName: String,
-    citySearchResults: List<CityResult>,
-    showAllergies: Boolean,
-    isRefreshing: Boolean,
-    onRefresh: () -> Unit,
-    onSearchCity: (String) -> Unit,
-    onSelectCity: (CityResult) -> Unit,
-    onSetShowAllergies: (Boolean) -> Unit,
-    onNavigateBack: () -> Unit,
-    onRadarClick: () -> Unit,
-    onNavigateToChat: () -> Unit = {},
-    onNavigateToTasks: () -> Unit = {},
-    onNavigateToPlanning: () -> Unit = {},
-    onNavigateToNotes: () -> Unit = {},
-    onNavigateToActu: () -> Unit = {},
-    modifier: Modifier = Modifier
-) {
-    val sidebarState = rememberNavigationSidebarState()
-    
-    NavigationSidebarScaffold(
-        currentScreen = NavigationScreen.WEATHER,
-        onNavigateToScreen = { screen ->
-            when (screen) {
-                NavigationScreen.HOME -> onNavigateBack()
-                NavigationScreen.VOICE -> onNavigateBack() // Retourne à Home pour accéder à Voice
-                NavigationScreen.CHAT -> onNavigateToChat()
-                NavigationScreen.TASKS -> onNavigateToTasks()
-                NavigationScreen.PLANNING -> onNavigateToPlanning()
-                NavigationScreen.WEATHER -> { /* Déjà sur cet écran */ }
-                NavigationScreen.NOTES -> onNavigateToNotes()
-                NavigationScreen.ACTU -> onNavigateToActu()
+fun WeatherScreen(weatherData: WeatherData?, cityName: String, citySearchResults: List<CityResult>, showAllergies: Boolean, isRefreshing: Boolean, errorMessage: String? = null, isOffline: Boolean = false, onRefresh: () -> Unit, onSearchCity: (String) -> Unit, onSelectCity: (CityResult) -> Unit, onSetShowAllergies: (Boolean) -> Unit, onNavigateBack: () -> Unit, onRadarClick: () -> Unit, onNavigateToChat: () -> Unit = {}, onNavigateToTasks: () -> Unit = {}, onNavigateToPlanning: () -> Unit = {}, onNavigateToNotes: () -> Unit = {}, onNavigateToActu: () -> Unit = {}, showChrome: Boolean = true, modifier: Modifier = Modifier) {
+    val body: @Composable () -> Unit = {
+        WeatherBody(weatherData, cityName, citySearchResults, showAllergies, isRefreshing, errorMessage, isOffline, onRefresh, onSearchCity, onSelectCity, onSetShowAllergies, onRadarClick, showChrome, modifier)
+    }
+    if (!showChrome) body() else {
+        val sidebarState = rememberNavigationSidebarState()
+        NavigationSidebarScaffold(currentScreen = NavigationScreen.WEATHER, onNavigateToScreen = {
+            when (it) {
+                NavigationScreen.HOME -> onNavigateBack(); NavigationScreen.VOICE -> onNavigateBack(); NavigationScreen.CHAT -> onNavigateToChat(); NavigationScreen.TASKS -> onNavigateToTasks(); NavigationScreen.PLANNING -> onNavigateToPlanning(); NavigationScreen.WEATHER -> Unit; NavigationScreen.NOTES -> onNavigateToNotes(); NavigationScreen.ACTU -> onNavigateToActu()
             }
-        },
-        sidebarState = sidebarState
-    ) {
-        WeatherScreenContent(
+        }, sidebarState = sidebarState) { body() }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WeatherBody(weatherData: WeatherData?, cityName: String, citySearchResults: List<CityResult>, showAllergies: Boolean, isRefreshing: Boolean, errorMessage: String?, isOffline: Boolean, onRefresh: () -> Unit, onSearchCity: (String) -> Unit, onSelectCity: (CityResult) -> Unit, onSetShowAllergies: (Boolean) -> Unit, onRadarClick: () -> Unit, showChrome: Boolean, modifier: Modifier) {
+    var tab by remember { mutableIntStateOf(0) }
+    var showSettings by remember { mutableStateOf(false) }
+    var showPollenDetails by remember { mutableStateOf(false) }
+    if (showSettings) WeatherSettingsDialog(cityName, citySearchResults, showAllergies, { showSettings = false }, onSearchCity, { onSelectCity(it); showSettings = false }, onSetShowAllergies)
+    if (showPollenDetails && weatherData != null) {
+        PollenDetailsDialog(
             weatherData = weatherData,
-            cityName = cityName,
-            citySearchResults = citySearchResults,
-            showAllergies = showAllergies,
-            isRefreshing = isRefreshing,
-            onRefresh = onRefresh,
-            onSearchCity = onSearchCity,
-            onSelectCity = onSelectCity,
-            onSetShowAllergies = onSetShowAllergies,
-            onNavigateBack = onNavigateBack,
-            onRadarClick = onRadarClick,
-            modifier = modifier
+            onDismiss = { showPollenDetails = false }
         )
     }
-}
-
-/**
- * Contenu de l'écran Météo
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun WeatherScreenContent(
-    weatherData: WeatherData?,
-    cityName: String,
-    citySearchResults: List<CityResult>,
-    showAllergies: Boolean,
-    isRefreshing: Boolean,
-    onRefresh: () -> Unit,
-    onSearchCity: (String) -> Unit,
-    onSelectCity: (CityResult) -> Unit,
-    onSetShowAllergies: (Boolean) -> Unit,
-    onNavigateBack: () -> Unit,
-    onRadarClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    // État pour afficher/masquer le dialog des paramètres météo
-    var showSettingsDialog by remember { mutableStateOf(false) }
-
-    if (showSettingsDialog) {
-        WeatherSettingsDialog(
-            currentCity = cityName,
-            citySearchResults = citySearchResults,
-            showAllergies = showAllergies,
-            onDismiss = { showSettingsDialog = false },
-            onSearchCity = onSearchCity,
-            onSelectCity = { city ->
-                onSelectCity(city)
-                showSettingsDialog = false
-            },
-            onSetShowAllergies = onSetShowAllergies
-        )
-    }
-
-    Scaffold(
-        containerColor = DarkBackground,
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(DarkBackground)
-                    .statusBarsPadding()
-                    .padding(horizontal = Spacing.md.dp, vertical = Spacing.sm.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm.dp)
-            ) {
-                Box(
+    Scaffold(containerColor = Color.Transparent, contentWindowInsets = WindowInsets(0, 0, 0, 0), topBar = {
+        if (showChrome) Row(Modifier.fillMaxWidth().background(WeatherBackdrop).statusBarsPadding().padding(20.dp, 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column { Text("Weather board", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.Bold); Text(cityName, color = TextSecondary) }
+            IconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Tune, null, tint = TextPrimary) }
+        }
+    }) { pad ->
+        PullToRefreshBox(isRefreshing = isRefreshing, onRefresh = onRefresh, modifier = modifier.fillMaxSize().background(WeatherBackdrop).padding(pad)) {
+            when {
+                weatherData == null && isRefreshing -> LoadingStateView(title = "Chargement meteo", subtitle = "Preparation du tableau du jour.", modifier = Modifier.fillMaxSize().padding(24.dp))
+                weatherData == null && errorMessage != null -> ErrorStateView(title = "Meteo indisponible", subtitle = errorMessage, onRetry = onRefresh, modifier = Modifier.fillMaxSize().padding(24.dp))
+                weatherData == null && isOffline -> Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) { InlineStatusBanner(title = "Connexion indisponible", subtitle = "La meteo a besoin du reseau pour se rafraichir.", tone = BannerTone.Offline) }
+                weatherData == null -> ErrorStateView(title = "Aucune donnee meteo", subtitle = "Choisissez une ville ou relancez le chargement.", onRetry = onRefresh, modifier = Modifier.fillMaxSize().padding(24.dp))
+                else -> LazyColumn(
                     modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Brush.linearGradient(GradientWeather)),
-                    contentAlignment = Alignment.Center
+                        .fillMaxSize()
+                        .background(WeatherBackdrop),
+                    contentPadding = PaddingValues(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 28.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Air,
-                        contentDescription = null,
-                        tint = TextPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Text(
-                    text = "Météo",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-    ) { paddingValues ->
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = onRefresh
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-            ) {
-                if (weatherData == null) {
-                    // État de chargement initial
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = AccentBlue)
+                    item { WeatherHero(cityName, weatherData, onRadarClick, { showSettings = true }) }
+                    if (showAllergies) {
+                        item { PollenCard(weatherData, onClick = { showPollenDetails = true }) }
                     }
-                } else {
-                    // Affichage des données météo
-                    Column(
-                        modifier = modifier
-                            .fillMaxSize()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        // Carte de température actuelle - FIXE
-                        CurrentWeatherCard(
-                            weatherData = weatherData,
-                            cityName = cityName,
-                            onOpenSettings = { showSettingsDialog = true },
-                            onRadarClick = onRadarClick
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Carte des allergies (pollens) - FIXE - affichée selon les préférences
-                        if (showAllergies) {
-                            AllergyCard(weatherData = weatherData)
-                            Spacer(modifier = Modifier.height(8.dp))
-                        } else {
-                            Spacer(modifier = Modifier.height(0.dp))
-                        }
-
-                        // Onglets pour choisir entre heure par heure et jour par jour - FIXE
-                        var selectedTabIndex by remember { mutableStateOf(0) }
-                        val tabs = listOf("Heure par heure", "Jour par jour")
-
-                        TabRow(
-                            selectedTabIndex = selectedTabIndex,
-                            containerColor = DarkBackground,
-                            contentColor = AccentBlue,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            tabs.forEachIndexed { index, title ->
-                                Tab(
-                                    selected = selectedTabIndex == index,
-                                    onClick = { selectedTabIndex = index },
-                                    text = {
-                                        Text(
-                                            text = title,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            color = if (selectedTabIndex == index) AccentBlue else TextSecondary
-                                        )
-                                    }
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Affichage selon l'onglet sélectionné - SCROLLABLE
-                        when (selectedTabIndex) {
-                            0 -> {
-                                // Liste verticale des prévisions horaires (24 prochaines heures)
-                                LazyColumn(
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .weight(1f)
-                                ) {
-                                    items(weatherData.hourlyForecasts) { forecast ->
-                                        HourlyForecastCardHorizontal(forecast = forecast)
-                                    }
-                                }
-                            }
-                            1 -> {
-                                // Liste verticale des prévisions quotidiennes
-                                LazyColumn(
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .weight(1f)
-                                ) {
-                                    items(weatherData.dailyForecasts) { forecast ->
-                                        DailyForecastCard(forecast = forecast)
-                                    }
-                                }
-                            }
-                        }
+                    if (errorMessage != null) item { InlineStatusBanner(title = "Rafraichissement incomplet", subtitle = errorMessage, tone = BannerTone.Warning) } else if (isOffline) item { InlineStatusBanner(title = "Mode hors ligne", subtitle = "Affichage des dernieres donnees connues.", tone = BannerTone.Offline) }
+                    item { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { FilterChip(selected = tab == 0, onClick = { tab = 0 }, label = { Text("Heures") }, colors = chipColors()); FilterChip(selected = tab == 1, onClick = { tab = 1 }, label = { Text("Semaine") }, colors = chipColors()) } }
+                    if (tab == 0) {
+                        item { LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) { items(weatherData.hourlyForecasts.take(8)) { HourCard(it) } } }
+                    } else {
+                        item { LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) { items(weatherData.dailyForecasts.take(7)) { DayCard(it) } } }
                     }
                 }
             }
@@ -298,743 +109,182 @@ private fun WeatherScreenContent(
     }
 }
 
-/**
- * Retourne les couleurs de dégradé selon les conditions météorologiques
- * @param weatherCode Code météo WMO
- * @return Paire de couleurs (début, fin) pour le dégradé
- */
-private fun getWeatherGradient(weatherCode: Int): Pair<Color, Color> {
-    // Déterminer si c'est la nuit (entre 20h et 6h)
-    val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-    val isNight = currentHour >= 20 || currentHour < 6
-
-    return when {
-        // Ciel dégagé (codes 0, 1)
-        weatherCode in listOf(0, 1) -> {
-            if (isNight) {
-                // Nuit claire : #283D5B → #364F6B
-                Pair(Color(0xFF283D5B), Color(0xFF364F6B))
-            } else {
-                // Ensoleillé jour : #5B9BD5 → #7CB3E0
-                Pair(Color(0xFF5B9BD5), Color(0xFF7CB3E0))
+@Composable private fun WeatherHero(cityName: String, weatherData: WeatherData, onRadarClick: () -> Unit, onSettings: () -> Unit) {
+    val colors = when (weatherData.weatherCode) { 0,1 -> listOf(Color(0xFF27517E), Color(0xFF5FA4E5)); 45,48 -> listOf(Color(0xFF2D3B4A), Color(0xFF5E7387)); 95,96,99 -> listOf(Color(0xFF1D2238), Color(0xFF435274)); else -> listOf(GradientWeather.first(), GradientWeather.last()) }
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(30.dp), colors = CardDefaults.cardColors(containerColor = Color.Transparent)) {
+        Column(Modifier.background(Brush.verticalGradient(colors)).padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AssistChip(onClick = {}, label = { Text(cityName.ifBlank { "Ville" }) }, leadingIcon = { Icon(Icons.Default.Place, null, Modifier.size(16.dp)) }, colors = AssistChipDefaults.assistChipColors(containerColor = Color.White.copy(alpha = 0.14f), labelColor = Color.White, leadingIconContentColor = Color.White))
+                    Text(fmt(weatherData.currentTemperature), style = MaterialTheme.typography.displayLarge, color = Color.White, fontWeight = FontWeight.SemiBold)
+                }
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Surface(shape = CircleShape, color = Color.White.copy(alpha = 0.14f)) { IconButton(onClick = onRadarClick) { Icon(Icons.Default.SatelliteAlt, "Vue satellite", tint = Color.White) } }
+                        Surface(shape = CircleShape, color = Color.White.copy(alpha = 0.14f)) { IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, "Reglages", tint = Color.White) } }
+                    }
+                    Icon(getWeatherIcon(weatherData.weatherCode), getWeatherDescription(weatherData.weatherCode), tint = Color.White, modifier = Modifier.size(44.dp))
+                }
             }
-        }
-        // Brouillard (codes 45, 48)
-        weatherCode in listOf(45, 48) -> {
-            // Brumeux : #6B7F8C → #7A8D9A
-            Pair(Color(0xFF6B7F8C), Color(0xFF7A8D9A))
-        }
-        // Pluie et bruine (codes 51-67, 80-82)
-        weatherCode in listOf(51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82) -> {
-            // Pluvieux : #455A64 → #546E7A
-            Pair(Color(0xFF455A64), Color(0xFF546E7A))
-        }
-        // Neige (codes 71-77, 85-86)
-        weatherCode in listOf(71, 73, 75, 77, 85, 86) -> {
-            // Neigeux : #8FA3AD → #A5B8C2
-            Pair(Color(0xFF8FA3AD), Color(0xFFA5B8C2))
-        }
-        // Orage (codes 95, 96, 99)
-        weatherCode in listOf(95, 96, 99) -> {
-            // Orageux : #3D4E5C → #4A5F6F
-            Pair(Color(0xFF3D4E5C), Color(0xFF4A5F6F))
-        }
-        // Nuageux (codes 2, 3) et défaut
-        else -> {
-            // Nuageux : #637A87 → #758D9A
-            Pair(Color(0xFF637A87), Color(0xFF758D9A))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) { StatCard("Humidite", "${weatherData.currentHumidity}%", Icons.Default.WaterDrop, Modifier.weight(1f)); StatCard("Vent", "${weatherData.currentWindSpeed.toInt()} km/h", Icons.Default.Air, Modifier.weight(1f)) }
         }
     }
 }
 
-/**
- * Carte affichant la température et les conditions actuelles
- */
+@Composable private fun StatCard(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier) { Card(modifier, shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.12f))) { Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(18.dp)); Column { Text(label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.72f)); Text(value, style = MaterialTheme.typography.titleSmall, color = Color.White, fontWeight = FontWeight.SemiBold) } } } }
+@Composable private fun HourCard(forecast: HourlyForecast) { Card(Modifier.width(158.dp).height(128.dp), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = WeatherCardSurfaceAlt)) { Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(forecast.hour, style = MaterialTheme.typography.titleMedium, color = TextPrimary, fontWeight = FontWeight.SemiBold); Icon(getWeatherIcon(forecast.weatherCode), null, tint = AccentBlue, modifier = Modifier.size(22.dp)) }; Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { Text(fmt(forecast.temperature), style = MaterialTheme.typography.headlineSmall, color = TextPrimary, fontWeight = FontWeight.Bold); Text(getWeatherDescription(forecast.weatherCode), style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1); Text("Humidité ${forecast.humidity}%", style = MaterialTheme.typography.labelMedium, color = TextSecondary) } } } }
+@Composable private fun DayCard(forecast: DailyForecast) { Card(Modifier.width(178.dp).height(128.dp), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = WeatherCardSurfaceAlt)) { Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) { Text(forecast.dayName, style = MaterialTheme.typography.titleMedium, color = TextPrimary, fontWeight = FontWeight.SemiBold); Box(Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(AccentBlue.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) { Icon(getWeatherIcon(forecast.weatherCode), null, tint = AccentBlue, modifier = Modifier.size(22.dp)) } }; Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { Text("${fmt(forecast.temperatureMin)} / ${fmt(forecast.temperatureMax)}", style = MaterialTheme.typography.titleMedium, color = TextPrimary, fontWeight = FontWeight.SemiBold); Text(getWeatherDescription(forecast.weatherCode), style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1) } } } }
 @Composable
-fun CurrentWeatherCard(
+private fun PollenCard(
     weatherData: WeatherData,
-    cityName: String,
-    onOpenSettings: () -> Unit,
-    onRadarClick: () -> Unit
+    onClick: () -> Unit
 ) {
-    // Récupérer le dégradé adaptatif selon les conditions météo
-    val (startColor, endColor) = getWeatherGradient(weatherData.weatherCode)
+    val items = listOf(
+        "Graminées" to (weatherData.grassPollen ?: 0.0),
+        "Arbres" to maxOf(
+            weatherData.birchPollen ?: 0.0,
+            weatherData.alderPollen ?: 0.0,
+            weatherData.olivePollen ?: 0.0
+        ),
+        "Herbacées" to maxOf(
+            weatherData.mugwortPollen ?: 0.0,
+            weatherData.ragweedPollen ?: 0.0
+        )
+    )
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 176.dp)
-            .clickable { onRadarClick() },
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkSurface)
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
-        Box(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(startColor, endColor),
-                        start = Offset(0f, 0f),
-                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
-                    )
-                )
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
+                .background(PollenGradient)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Icône de paramètres en haut à droite
-            IconButton(
-                onClick = onOpenSettings,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = 8.dp, y = (-12).dp)
-                    .size(40.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "RESPIRATION",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFFA9F5C8)
+                    )
+                    Text(
+                        "Niveaux pollens",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Touchez pour ouvrir le detail pollen.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.74f)
+                    )
+                }
                 Icon(
-                    imageVector = Icons.Filled.Settings,
-                    contentDescription = "Paramètres météo",
-                    tint = Color.White.copy(alpha = 0.8f),
-                    modifier = Modifier.size(24.dp)
+                    Icons.Default.ChevronRight,
+                    null,
+                    tint = Color.White.copy(alpha = 0.84f)
                 )
             }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.Start,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = cityName,
-                        modifier = Modifier.fillMaxWidth(),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White.copy(alpha = 0.9f),
-                        fontWeight = FontWeight.Medium
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "${weatherData.currentTemperature.toInt()}°C",
-                            fontSize = 56.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Icon(
-                            imageVector = getWeatherIcon(weatherData.weatherCode),
-                            contentDescription = getWeatherDescription(weatherData.weatherCode),
-                            tint = Color.White.copy(alpha = 0.9f),
-                            modifier = Modifier.size(48.dp)
-                        )
+                items.forEach { (label, value) ->
+                    val chipWeight = when (label) {
+                        "Graminées" -> 1.2f
+                        "Herbacées" -> 1.15f
+                        else -> 0.825f
                     }
-
-                    val precipitationProb = weatherData.hourlyForecasts.firstOrNull()?.precipitationProb ?: 0
-                    val metrics = listOf(
-                        WeatherMetric(
-                            icon = Icons.Filled.WaterDrop,
-                            value = "${weatherData.currentHumidity}%",
-                            label = "Humidité",
-                            alignment = Alignment.Start
-                        ),
-                        WeatherMetric(
-                            icon = Icons.Filled.Air,
-                            value = "${weatherData.currentWindSpeed.toInt()} km/h",
-                            label = "Vent",
-                            alignment = Alignment.CenterHorizontally,
-                            weight = 1.4f
-                        ),
-                        WeatherMetric(
-                            icon = Icons.Filled.Umbrella,
-                            value = if (precipitationProb > 0) "${precipitationProb}%" else "Non",
-                            label = "Pluie",
-                            alignment = Alignment.End
-                        )
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Surface(
+                        modifier = Modifier.weight(chipWeight),
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color.White.copy(alpha = 0.12f)
                     ) {
-                        metrics.forEach { metric ->
-                            WeatherMetricColumn(
-                                metric = metric,
-                                modifier = Modifier.weight(metric.weight)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private data class WeatherMetric(
-    val icon: ImageVector,
-    val value: String,
-    val label: String,
-    val alignment: Alignment.Horizontal,
-    val weight: Float = 1f
-)
-
-@Composable
-private fun WeatherMetricColumn(
-    metric: WeatherMetric,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = metric.alignment,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        val textAlign = when (metric.alignment) {
-            Alignment.CenterHorizontally -> TextAlign.Center
-            Alignment.End -> TextAlign.End
-            else -> TextAlign.Start
-        }
-
-        Text(
-            text = metric.label,
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.White.copy(alpha = 0.6f),
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = textAlign
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = when (metric.alignment) {
-                Alignment.CenterHorizontally -> Arrangement.Center
-                Alignment.End -> Arrangement.End
-                else -> Arrangement.Start
-            }
-        ) {
-            Icon(
-                imageVector = metric.icon,
-                contentDescription = metric.label,
-                tint = Color.White.copy(alpha = 0.9f),
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = metric.value,
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White,
-                fontWeight = FontWeight.Medium,
-                textAlign = textAlign,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-/**
- * Dialog de paramètres météo
- * Permet de choisir la ville et de configurer l'affichage des allergies
- */
-@Composable
-private fun WeatherSettingsDialog(
-    currentCity: String,
-    citySearchResults: List<CityResult>,
-    showAllergies: Boolean,
-    onDismiss: () -> Unit,
-    onSearchCity: (String) -> Unit,
-    onSelectCity: (CityResult) -> Unit,
-    onSetShowAllergies: (Boolean) -> Unit
-) {
-    var cityQuery by rememberSaveable(currentCity) { mutableStateOf(currentCity) }
-    var hasSearched by rememberSaveable { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "Paramètres météo",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-        },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                // Section 1: Choix de la ville
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = DarkSurface.copy(alpha = 0.6f)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = "🌍 Ville",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = AccentBlue
-                        )
-
-                        OutlinedTextField(
-                            value = cityQuery,
-                            onValueChange = { cityQuery = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Rechercher une ville") },
-                            singleLine = true
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Button(
-                                onClick = {
-                                    onSearchCity(cityQuery.trim())
-                                    hasSearched = true
-                                },
-                                enabled = cityQuery.trim().length >= 2,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = AccentBlue
-                                ),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text(
-                                    text = "Rechercher",
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-
-                        if (citySearchResults.isEmpty()) {
-                            val helperText = if (hasSearched) {
-                                "Aucun résultat, essayez un autre nom."
-                            } else {
-                                "Saisissez au moins 2 lettres puis lancez une recherche."
-                            }
                             Text(
-                                text = helperText,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.7f)
+                                label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White.copy(alpha = 0.75f)
                             )
-                        } else {
-                            LazyColumn(
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 200.dp)
-                            ) {
-                                items(citySearchResults) { city ->
-                                    CityResultRow(
-                                        city = city,
-                                        onSelect = { onSelectCity(city) }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Section 2: Options d'affichage
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = DarkSurface.copy(alpha = 0.6f)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = "⚙️ Affichage",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = AccentBlue
-                        )
-
-                        // Switch pour afficher/masquer les allergies
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(
-                                    text = "Afficher les allergies",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = "Informations sur les pollens",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.White.copy(alpha = 0.6f)
-                                )
-                            }
-                            Switch(
-                                checked = showAllergies,
-                                onCheckedChange = onSetShowAllergies
+                            Text(
+                                getPollenLevel(value),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AccentBlue
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = "Fermer",
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-        }
-    )
-}
-
-@Composable
-private fun CityResultRow(
-    city: CityResult,
-    onSelect: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onSelect),
-        shape = RoundedCornerShape(12.dp),
-        color = DarkSurface.copy(alpha = 0.9f)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = city.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            Text(
-                text = city.getFullName(),
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.7f)
-            )
         }
     }
 }
-
-/**
- * Carte affichant les informations sur les allergies (pollens)
- */
 @Composable
-fun AllergyCard(weatherData: WeatherData) {
-    var showDetailDialog by remember { mutableStateOf(false) }
-
-    if (showDetailDialog) {
-        AllergyDetailDialog(
-            weatherData = weatherData,
-            onDismiss = { showDetailDialog = false }
-        )
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .wrapContentHeight()
-            .clickable { showDetailDialog = true },
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkSurface)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            GradientWeather[0].copy(alpha = 0.8f),
-                            GradientWeather[1].copy(alpha = 0.6f)
-                        ),
-                        start = Offset(0f, 0f),
-                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
-                    )
-                )
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-                horizontalAlignment = Alignment.Start,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // Titre
-                Text(
-                    text = "Allergies",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-
-                // Row pour les 3 types de pollens
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(24.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // Graminées
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Grass,
-                            contentDescription = "Graminées",
-                            tint = Color(0xFFF5F5F5),
-                            modifier = Modifier.size(27.dp)
-                        )
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = "Graminées",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Text(
-                            text = getPollenLevel(weatherData.grassPollen),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-
-                    // Arbres (Bouleau, Aulne, Olivier)
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Park,
-                            contentDescription = "Arbres",
-                            tint = Color(0xFFF5F5F5),
-                            modifier = Modifier.size(27.dp)
-                        )
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = "Arbres",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Text(
-                            text = getPollenLevel(
-                                maxOf(
-                                    weatherData.birchPollen ?: 0.0,
-                                    weatherData.alderPollen ?: 0.0,
-                                    weatherData.olivePollen ?: 0.0
-                                )
-                            ),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-
-                    // Herbacées (Armoise, Ambroisie)
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.LocalFlorist,
-                            contentDescription = "Herbacées",
-                            tint = Color(0xFFF5F5F5),
-                            modifier = Modifier.size(27.dp)
-                        )
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = "Herbacées",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Text(
-                            text = getPollenLevel(maxOf(weatherData.mugwortPollen ?: 0.0, weatherData.ragweedPollen ?: 0.0)),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Dialog détaillé affichant toutes les informations sur les allergies par catégorie
- */
-@Composable
-private fun AllergyDetailDialog(
+private fun PollenDetailsDialog(
     weatherData: WeatherData,
     onDismiss: () -> Unit
 ) {
+    val sections = listOf(
+        PollenSection(
+            title = "Graminées",
+            icon = Icons.Default.Spa,
+            accentColor = Color(0xFF59E297),
+            containerColor = Color(0xFF103721),
+            rows = listOf(
+                "Graminées" to weatherData.grassPollen
+            )
+        ),
+        PollenSection(
+            title = "Arbres",
+            icon = Icons.Default.Park,
+            accentColor = Color(0xFF8EE7A7),
+            containerColor = Color(0xFF213A2F),
+            rows = listOf(
+                "Bouleau" to weatherData.birchPollen,
+                "Aulne" to weatherData.alderPollen,
+                "Olivier" to weatherData.olivePollen
+            )
+        ),
+        PollenSection(
+            title = "Herbacées",
+            icon = Icons.Default.LocalFlorist,
+            accentColor = Color(0xFFF4C24D),
+            containerColor = Color(0xFF3A2B20),
+            rows = listOf(
+                "Armoise" to weatherData.mugwortPollen,
+                "Ambroisie" to weatherData.ragweedPollen
+            )
+        )
+    )
+
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = PollenDialogBackground,
         title = {
             Text(
-                text = "Détail des allergies",
-                style = MaterialTheme.typography.titleLarge,
+                "Détail des allergies",
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
         },
         text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-                modifier = Modifier.verticalScroll(rememberScrollState())
-            ) {
-                // Section Graminées
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF002C0F).copy(alpha = 0.6f)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Grass,
-                                contentDescription = "Graminées",
-                                tint = Color(0xFF4ADE80),
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Text(
-                                text = "Graminées",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF4ADE80)
-                            )
-                        }
-
-                        PollenDetailRow(
-                            name = "Graminées",
-                            value = weatherData.grassPollen
-                        )
-                    }
-                }
-
-                // Section Arbres
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF1E3A28).copy(alpha = 0.6f)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Park,
-                                contentDescription = "Arbres",
-                                tint = Color(0xFF86EFAC),
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Text(
-                                text = "Arbres",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF86EFAC)
-                            )
-                        }
-
-                        PollenDetailRow(
-                            name = "Bouleau",
-                            value = weatherData.birchPollen
-                        )
-                        PollenDetailRow(
-                            name = "Aulne",
-                            value = weatherData.alderPollen
-                        )
-                        PollenDetailRow(
-                            name = "Olivier",
-                            value = weatherData.olivePollen
-                        )
-                    }
-                }
-
-                // Section Herbacées
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF2D1B0E).copy(alpha = 0.6f)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.LocalFlorist,
-                                contentDescription = "Herbacées",
-                                tint = Color(0xFFFBBF24),
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Text(
-                                text = "Herbacées",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFFBBF24)
-                            )
-                        }
-
-                        PollenDetailRow(
-                            name = "Armoise",
-                            value = weatherData.mugwortPollen
-                        )
-                        PollenDetailRow(
-                            name = "Ambroisie",
-                            value = weatherData.ragweedPollen
-                        )
-                    }
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                sections.forEach { section ->
+                    PollenDetailSection(section)
                 }
             }
         },
@@ -1042,26 +292,62 @@ private fun AllergyDetailDialog(
             Button(
                 onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = AccentBlue
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = "Fermer",
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    containerColor = AccentBlue,
+                    contentColor = Color.White
                 )
+            ) {
+                Text("Fermer")
             }
         }
     )
 }
+private data class PollenSection(
+    val title: String,
+    val icon: ImageVector,
+    val accentColor: Color,
+    val containerColor: Color,
+    val rows: List<Pair<String, Double?>>
+)
 
-/**
- * Ligne affichant le détail d'un type de pollen
- */
+@Composable
+private fun PollenDetailSection(section: PollenSection) {
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = section.containerColor
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = section.icon,
+                    contentDescription = section.title,
+                    tint = section.accentColor,
+                    modifier = Modifier.size(28.dp)
+                )
+                Text(
+                    section.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = section.accentColor,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            section.rows.forEach { (label, value) ->
+                PollenDetailRow(label = label, value = value)
+            }
+        }
+    }
+}
+
 @Composable
 private fun PollenDetailRow(
-    name: String,
+    label: String,
     value: Double?
 ) {
     Row(
@@ -1069,193 +355,37 @@ private fun PollenDetailRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = name,
-            style = MaterialTheme.typography.bodyLarge,
-            color = Color.White,
-            fontWeight = FontWeight.Medium
-        )
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            // Valeur numérique
             Text(
-                text = "${(value ?: 0.0).toInt()} grains/m³",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.7f)
-            )
-
-            // Badge de niveau
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = Color(getPollenColor(value ?: 0.0))
-            ) {
-                Text(
-                    text = getPollenLevel(value ?: 0.0),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                )
-            }
-        }
-    }
-}
-
-/**
- * Carte horizontale pour une prévision horaire
- * Affiche l'heure à gauche, icône météo, température et pluie à droite
- */
-@Composable
-fun HourlyForecastCardHorizontal(forecast: HourlyForecast) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkSurface)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Heure - prend l'espace disponible
-            Text(
-                text = forecast.hour,
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.weight(1f)
-            )
-
-            // Indicateur de pluie - largeur fixe (seulement si > 30%)
-            if (forecast.precipitationProb > 30) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.width(60.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.WaterDrop,
-                        contentDescription = "Pluie",
-                        tint = Color(0xFF60A5FA),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "${forecast.precipitationProb}%",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF60A5FA),
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-
-            // Icône météo - largeur fixe
-            Icon(
-                imageVector = getWeatherIcon(forecast.weatherCode),
-                contentDescription = getWeatherDescription(forecast.weatherCode),
-                tint = Color.White.copy(alpha = 0.7f),
-                modifier = Modifier.size(32.dp)
-            )
-
-            // Température - toujours alignée à droite
-            Text(
-                text = "${forecast.temperature.toInt()}°C",
+                label,
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                modifier = Modifier.width(55.dp),
-                textAlign = TextAlign.End
+                color = Color.White
+            )
+            Text(
+                formatPollenValue(value),
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.68f)
             )
         }
-    }
-}
-
-/**
- * Carte pour une prévision quotidienne
- * Affiche le jour, température min/max et pluie
- */
-@Composable
-fun DailyForecastCard(forecast: com.max.aiassistant.data.api.DailyForecast) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkSurface)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = Color(getPollenColor(value))
         ) {
-            // Jour de la semaine - prend tout l'espace disponible
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = forecast.dayName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = forecast.date.split("-").let { "${it[2]}/${it[1]}" },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.6f)
-                )
-            }
-
-            // Indicateur de pluie - largeur fixe (seulement si > 30%)
-            if (forecast.precipitationProb > 30) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.width(60.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.WaterDrop,
-                        contentDescription = "Pluie",
-                        tint = Color(0xFF60A5FA),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "${forecast.precipitationProb}%",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF60A5FA),
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-
-            // Icône météo - largeur fixe
-            Icon(
-                imageVector = com.max.aiassistant.data.api.getWeatherIcon(forecast.weatherCode),
-                contentDescription = com.max.aiassistant.data.api.getWeatherDescription(forecast.weatherCode),
-                tint = Color.White.copy(alpha = 0.7f),
-                modifier = Modifier.size(32.dp)
+            Text(
+                text = getPollenLevel(value),
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = PollenBadgeText,
+                fontWeight = FontWeight.Bold
             )
-
-            // Températures min/max - toujours alignées à droite
-            Column(
-                horizontalAlignment = Alignment.End,
-                modifier = Modifier.width(50.dp)
-            ) {
-                Text(
-                    text = "${forecast.temperatureMax.toInt()}°",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Text(
-                    text = "${forecast.temperatureMin.toInt()}°",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.6f)
-                )
-            }
         }
     }
 }
+@Composable private fun WeatherSettingsDialog(currentCity: String, citySearchResults: List<CityResult>, showAllergies: Boolean, onDismiss: () -> Unit, onSearchCity: (String) -> Unit, onSelectCity: (CityResult) -> Unit, onSetShowAllergies: (Boolean) -> Unit) { var query by remember(currentCity) { mutableStateOf(currentCity) }; AlertDialog(onDismissRequest = onDismiss, title = { Text("Personnaliser la meteo", fontWeight = FontWeight.Bold) }, text = { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) { OutlinedTextField(value = query, onValueChange = { query = it; onSearchCity(it) }, singleLine = true, label = { Text("Ville") }, leadingIcon = { Icon(Icons.Default.Search, null) }, modifier = Modifier.fillMaxWidth()); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Afficher les pollens", fontWeight = FontWeight.SemiBold); Text("Ajoute une synthese respiration dans le board.", style = MaterialTheme.typography.bodySmall, color = TextSecondary) }; Switch(checked = showAllergies, onCheckedChange = onSetShowAllergies) }; if (citySearchResults.isNotEmpty()) { HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f)); citySearchResults.take(5).forEach { city -> Surface(onClick = { onSelectCity(city) }, shape = RoundedCornerShape(16.dp), color = DarkSurface) { Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.MyLocation, null, tint = AccentBlue, modifier = Modifier.size(18.dp)); Column { Text(city.name, fontWeight = FontWeight.SemiBold); Text(listOfNotNull(city.admin1, city.country).joinToString(", "), style = MaterialTheme.typography.bodySmall, color = TextSecondary) } } } } } } }, confirmButton = { Button(onClick = onDismiss) { Text("Fermer") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }) }
+@Composable
+private fun chipColors() = FilterChipDefaults.filterChipColors(selectedContainerColor = AccentBlue.copy(alpha = 0.18f), selectedLabelColor = AccentBlue, containerColor = DarkSurface, labelColor = TextSecondary)
+private fun fmt(v: Double) = "${v.toInt()}°"
+private fun formatPollenValue(value: Double?): String = "${(value ?: 0.0).toInt()} grains/m³"

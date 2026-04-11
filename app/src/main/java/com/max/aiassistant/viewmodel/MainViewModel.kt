@@ -79,6 +79,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Indicateur de chargement pour la réponse de l'IA
     private val _isWaitingForAiResponse = MutableStateFlow(false)
     val isWaitingForAiResponse: StateFlow<Boolean> = _isWaitingForAiResponse.asStateFlow()
+    private val _realtimeError = MutableStateFlow<String?>(null)
+    val realtimeError: StateFlow<String?> = _realtimeError.asStateFlow()
 
     /**
      * Charge le contexte système (tâches, mémoire, historique, calendrier) pour enrichir le prompt voice-to-voice
@@ -422,6 +424,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isLoadingTasks = MutableStateFlow(false)
     val isLoadingTasks: StateFlow<Boolean> = _isLoadingTasks.asStateFlow()
+    private val _taskError = MutableStateFlow<String?>(null)
+    val taskError: StateFlow<String?> = _taskError.asStateFlow()
 
     /**
      * Récupère les tâches depuis l'API
@@ -430,6 +434,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 _isLoadingTasks.value = true
+                _taskError.value = null
                 Log.d(TAG, "Récupération des tâches...")
 
                 val response = apiService.getTasks()
@@ -440,6 +445,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             } catch (e: Exception) {
                 Log.e(TAG, "Erreur lors de la récupération des tâches", e)
+                _taskError.value = "Impossible de récupérer les tâches pour le moment."
                 // En cas d'erreur, on garde les tâches actuelles
             } finally {
                 _isLoadingTasks.value = false
@@ -796,6 +802,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isLoadingEvents = MutableStateFlow(false)
     val isLoadingEvents: StateFlow<Boolean> = _isLoadingEvents.asStateFlow()
+    private val _eventsError = MutableStateFlow<String?>(null)
+    val eventsError: StateFlow<String?> = _eventsError.asStateFlow()
 
     // ========== ÉTAT DE LA MÉTÉO ==========
 
@@ -804,6 +812,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isLoadingWeather = MutableStateFlow(false)
     val isLoadingWeather: StateFlow<Boolean> = _isLoadingWeather.asStateFlow()
+    private val _weatherError = MutableStateFlow<String?>(null)
+    val weatherError: StateFlow<String?> = _weatherError.asStateFlow()
 
     // État de la ville actuelle
     private val _cityName = MutableStateFlow(com.max.aiassistant.data.preferences.WeatherPreferences.DEFAULT_CITY_NAME)
@@ -876,6 +886,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isLoadingActu = MutableStateFlow(false)
     val isLoadingActu: StateFlow<Boolean> = _isLoadingActu.asStateFlow()
+    private val _actuError = MutableStateFlow<String?>(null)
+    val actuError: StateFlow<String?> = _actuError.asStateFlow()
 
     /**
      * Récupère les actualités et les recherches IA depuis l'API N8N
@@ -884,6 +896,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 _isLoadingActu.value = true
+                _actuError.value = null
                 Log.d(TAG, "Récupération des actualités...")
                 val response = apiService.getActu()
                 _actuArticles.value = response.response?.actu
@@ -894,6 +907,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d(TAG, "Actualités récupérées: ${_actuArticles.value.size} actu, ${_rechercheArticles.value.size} recherches")
             } catch (e: Exception) {
                 Log.e(TAG, "Erreur lors de la récupération des actualités", e)
+                _actuError.value = "Impossible de récupérer les actualités."
             } finally {
                 _isLoadingActu.value = false
             }
@@ -950,6 +964,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 _isLoadingWeather.value = true
+                _weatherError.value = null
                 Log.d(TAG, "Récupération des données météo pour ${_cityName.value}...")
 
                 val latitude = _cityLatitude.value
@@ -974,6 +989,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             } catch (e: Exception) {
                 Log.e(TAG, "Erreur lors de la récupération de la météo", e)
+                _weatherError.value = "Impossible de récupérer la météo pour l'instant."
                 // En cas d'erreur, on garde les données actuelles
             } finally {
                 _isLoadingWeather.value = false
@@ -988,6 +1004,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 _isLoadingEvents.value = true
+                _eventsError.value = null
                 Log.d(TAG, "Récupération des événements du calendrier...")
 
                 val response = apiService.getCalendarEvents()
@@ -1004,6 +1021,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             } catch (e: Exception) {
                 Log.e(TAG, "Erreur lors de la récupération des événements", e)
+                _eventsError.value = "Impossible de récupérer le planning."
                 // En cas d'erreur, on garde les événements actuels
             } finally {
                 _isLoadingEvents.value = false
@@ -1061,6 +1079,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     private fun connectRealtime() {
         Log.d(TAG, "Connexion à l'API Realtime...")
+        _realtimeError.value = null
 
         // Annule les collecteurs de la session précédente (évite les doublons)
         realtimeEventsJob?.cancel()
@@ -1100,6 +1119,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         realtimeErrorsJob = viewModelScope.launch {
             realtimeService?.errors?.collect { error ->
                 Log.e(TAG, "Erreur Realtime: $error")
+                _realtimeError.value = error
             }
         }
 
@@ -1148,6 +1168,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         realtimeService?.disconnect()
 
         _isRealtimeConnected.value = false
+        _realtimeError.value = null
         _voiceTranscript.value = ""
         _liveTranscript.value = ""
 
@@ -1164,6 +1185,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         when (event) {
             is RealtimeServerEvent.Error -> {
                 Log.e(TAG, "Erreur serveur Realtime: ${event.error.message}")
+                _realtimeError.value = event.error.message
             }
 
             is RealtimeServerEvent.SessionCreated -> {
