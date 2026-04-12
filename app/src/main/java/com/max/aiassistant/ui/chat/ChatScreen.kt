@@ -5,9 +5,11 @@ import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -39,12 +42,19 @@ import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -52,8 +62,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -80,15 +89,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
+import com.max.aiassistant.data.chat.ChatMarkdownFormatter
+import com.max.aiassistant.data.local.OnDeviceAiSettings
+import com.max.aiassistant.data.local.OnDeviceModelVariant
 import com.max.aiassistant.data.local.OnDeviceModelProvisioningState
+import com.max.aiassistant.data.local.SUPPORTED_MAX_CONTEXT_TOKENS
+import com.max.aiassistant.data.local.db.ChatConversationEntity
 import com.max.aiassistant.model.Message
 import com.max.aiassistant.ui.common.EmptyStateView
 import com.max.aiassistant.ui.common.ErrorStateView
 import com.max.aiassistant.ui.common.InlineStatusBanner
 import com.max.aiassistant.ui.common.LoadingStateView
+import com.max.aiassistant.ui.common.BannerTone
 import com.max.aiassistant.ui.common.NavigationScreen
 import com.max.aiassistant.ui.common.NavigationSidebarScaffold
-import com.max.aiassistant.ui.common.BannerTone
 import com.max.aiassistant.ui.common.rememberNavigationSidebarState
 import com.max.aiassistant.ui.theme.AccentBlue
 import com.max.aiassistant.ui.theme.DarkBackground
@@ -116,15 +130,31 @@ private val ComposerShell = Color(0xFF0E141F)
 private val ComposerField = Color(0xFF172131)
 private val ComposerAction = Color(0xFF1D2A3D)
 
+private enum class ChatContentPane {
+    CONVERSATION,
+    SETTINGS
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     messages: List<Message>,
+    conversations: List<ChatConversationEntity>,
+    currentConversationId: String?,
+    conversationTitle: String,
+    onDeviceAiSettings: OnDeviceAiSettings,
     isWaitingForAiResponse: Boolean,
     isOnDeviceModelReady: Boolean,
+    isConversationLimitReached: Boolean,
     onDeviceModelStatus: String,
     onDeviceModelProvisioningState: OnDeviceModelProvisioningState,
     onSendMessage: (String, Uri?) -> Unit,
+    onStartNewConversation: () -> Unit,
+    onSelectConversation: (String) -> Unit,
+    onRenameConversation: (String, String) -> Unit,
+    onDeleteConversation: (String) -> Unit,
+    onUpdateOnDeviceAiSettings: (OnDeviceModelVariant, Int, String) -> Unit,
+    onOpenMainSidebar: () -> Unit,
     onRetryModelDownload: () -> Unit,
     onVoiceInput: () -> Unit,
     onNavigateToHome: () -> Unit,
@@ -158,11 +188,22 @@ fun ChatScreen(
         ) {
             ChatScreenContent(
                 messages = messages,
+                conversations = conversations,
+                currentConversationId = currentConversationId,
+                conversationTitle = conversationTitle,
+                onDeviceAiSettings = onDeviceAiSettings,
                 isWaitingForAiResponse = isWaitingForAiResponse,
                 isOnDeviceModelReady = isOnDeviceModelReady,
+                isConversationLimitReached = isConversationLimitReached,
                 onDeviceModelStatus = onDeviceModelStatus,
                 onDeviceModelProvisioningState = onDeviceModelProvisioningState,
                 onSendMessage = onSendMessage,
+                onStartNewConversation = onStartNewConversation,
+                onSelectConversation = onSelectConversation,
+                onRenameConversation = onRenameConversation,
+                onDeleteConversation = onDeleteConversation,
+                onUpdateOnDeviceAiSettings = onUpdateOnDeviceAiSettings,
+                onOpenMainSidebar = onOpenMainSidebar,
                 onRetryModelDownload = onRetryModelDownload,
                 onVoiceInput = onVoiceInput,
                 showChrome = true,
@@ -174,11 +215,22 @@ fun ChatScreen(
     } else {
         ChatScreenContent(
             messages = messages,
+            conversations = conversations,
+            currentConversationId = currentConversationId,
+            conversationTitle = conversationTitle,
+            onDeviceAiSettings = onDeviceAiSettings,
             isWaitingForAiResponse = isWaitingForAiResponse,
             isOnDeviceModelReady = isOnDeviceModelReady,
+            isConversationLimitReached = isConversationLimitReached,
             onDeviceModelStatus = onDeviceModelStatus,
             onDeviceModelProvisioningState = onDeviceModelProvisioningState,
             onSendMessage = onSendMessage,
+            onStartNewConversation = onStartNewConversation,
+            onSelectConversation = onSelectConversation,
+            onRenameConversation = onRenameConversation,
+            onDeleteConversation = onDeleteConversation,
+            onUpdateOnDeviceAiSettings = onUpdateOnDeviceAiSettings,
+            onOpenMainSidebar = onOpenMainSidebar,
             onRetryModelDownload = onRetryModelDownload,
             onVoiceInput = onVoiceInput,
             showChrome = false,
@@ -193,11 +245,22 @@ fun ChatScreen(
 @Composable
 private fun ChatScreenContent(
     messages: List<Message>,
+    conversations: List<ChatConversationEntity>,
+    currentConversationId: String?,
+    conversationTitle: String,
+    onDeviceAiSettings: OnDeviceAiSettings,
     isWaitingForAiResponse: Boolean,
     isOnDeviceModelReady: Boolean,
+    isConversationLimitReached: Boolean,
     onDeviceModelStatus: String,
     onDeviceModelProvisioningState: OnDeviceModelProvisioningState,
     onSendMessage: (String, Uri?) -> Unit,
+    onStartNewConversation: () -> Unit,
+    onSelectConversation: (String) -> Unit,
+    onRenameConversation: (String, String) -> Unit,
+    onDeleteConversation: (String) -> Unit,
+    onUpdateOnDeviceAiSettings: (OnDeviceModelVariant, Int, String) -> Unit,
+    onOpenMainSidebar: () -> Unit,
     onRetryModelDownload: () -> Unit,
     onVoiceInput: () -> Unit,
     showChrome: Boolean,
@@ -210,11 +273,19 @@ private fun ChatScreenContent(
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val conversationDrawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     var messageText by remember { mutableStateOf("") }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var showImagePickerDialog by remember { mutableStateOf(false) }
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var conversationOptionsTarget by remember { mutableStateOf<ChatConversationEntity?>(null) }
+    var conversationRenameTarget by remember { mutableStateOf<ChatConversationEntity?>(null) }
+    var renameDraft by remember { mutableStateOf("") }
+    var currentPane by remember { mutableStateOf(ChatContentPane.CONVERSATION) }
+    var settingsModelVariant by remember { mutableStateOf(onDeviceAiSettings.modelVariant) }
+    var settingsMaxTokens by remember { mutableStateOf(onDeviceAiSettings.maxContextTokens) }
+    var settingsSystemPrompt by remember { mutableStateOf(onDeviceAiSettings.systemPrompt) }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -249,6 +320,12 @@ private fun ChatScreenContent(
         }
     }
 
+    LaunchedEffect(onDeviceAiSettings) {
+        settingsModelVariant = onDeviceAiSettings.modelVariant
+        settingsMaxTokens = onDeviceAiSettings.maxContextTokens
+        settingsSystemPrompt = onDeviceAiSettings.systemPrompt
+    }
+
     LaunchedEffect(messages.size, isWaitingForAiResponse) {
         val itemCount = messages.size + if (isWaitingForAiResponse) 1 else 0
         if (itemCount > 0) {
@@ -256,135 +333,198 @@ private fun ChatScreenContent(
         }
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(ChatBackdrop))
+    ModalNavigationDrawer(
+        drawerState = conversationDrawerState,
+        gesturesEnabled = conversations.isNotEmpty(),
+        drawerContent = {
+            ConversationDrawerSheet(
+                conversations = conversations,
+                currentConversationId = currentConversationId,
+                onSelectConversation = { conversationId ->
+                    currentPane = ChatContentPane.CONVERSATION
+                    onSelectConversation(conversationId)
+                    scope.launch { conversationDrawerState.close() }
+                },
+                onConversationLongPress = { conversation ->
+                    conversationOptionsTarget = conversation
+                },
+                onOpenSettings = {
+                    currentPane = ChatContentPane.SETTINGS
+                    scope.launch { conversationDrawerState.close() }
+                },
+                onOpenMainSidebar = {
+                    scope.launch {
+                        conversationDrawerState.close()
+                        onOpenMainSidebar()
+                    }
+                },
+                modifier = if (showChrome) Modifier.statusBarsPadding() else Modifier
+            )
+        }
     ) {
-        Column(
-            modifier = Modifier
+        Box(
+            modifier = modifier
                 .fillMaxSize()
+                .background(Brush.verticalGradient(ChatBackdrop))
         ) {
-            if (showChrome) {
-                TopAppBar(
-                    title = {
-                        Text(
-                            text = "Chat",
-                            color = TextPrimary,
-                            fontWeight = FontWeight.SemiBold
-                        )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
+                ConversationTopBar(
+                    title = if (currentPane == ChatContentPane.SETTINGS) "Parametres IA" else conversationTitle,
+                    onOpenSidebar = {
+                        scope.launch { conversationDrawerState.open() }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = TextPrimary
-                    ),
-                    modifier = Modifier.statusBarsPadding()
-                )
-            }
-
-            if (!isOnDeviceModelReady && messages.isEmpty() && !isWaitingForAiResponse) {
-                ModelProvisioningView(
-                    state = onDeviceModelProvisioningState,
-                    onRetry = onRetryModelDownload,
-                    modifier = Modifier.weight(1f)
-                )
-            } else if (messages.isEmpty() && !isWaitingForAiResponse) {
-                ChatEmptyState(
-                    isOnDeviceModelReady = isOnDeviceModelReady,
-                    onDeviceModelStatus = onDeviceModelStatus,
-                    onVoiceInput = onVoiceInput,
-                    onPromptSelected = { suggestion -> messageText = suggestion },
-                    modifier = Modifier.weight(1f)
-                )
-            } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(top = 20.dp, bottom = 16.dp)
-                ) {
-                    if (!isOnDeviceModelReady) {
-                        item("model-banner") {
-                            InlineStatusBanner(
-                                title = modelBannerTitle(onDeviceModelProvisioningState),
-                                subtitle = modelBannerSubtitle(onDeviceModelProvisioningState),
-                                tone = modelBannerTone(onDeviceModelProvisioningState)
-                            )
+                    actionLabel = if (currentPane == ChatContentPane.SETTINGS) "Fermer" else "Nouveau",
+                    onActionClick = {
+                        if (currentPane == ChatContentPane.SETTINGS) {
+                            currentPane = ChatContentPane.CONVERSATION
+                        } else {
+                            onStartNewConversation()
                         }
                     }
+                )
 
-                    items(messages, key = { it.id }) { message ->
-                        EditorialMessageBubble(
-                            message = message,
-                            onCopy = {
-                                clipboardManager.setText(AnnotatedString(message.content))
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Reponse copiee")
-                                }
-                            },
-                            onRetry = {
-                                onSendMessage(
-                                    "Peux-tu reformuler la derniere reponse de facon plus claire et plus concise ?",
-                                    null
-                                )
-                            },
-                            onSummarize = {
-                                onSendMessage(
-                                    "Resume la reponse precedente en trois points essentiels.",
-                                    null
+                if (currentPane == ChatContentPane.CONVERSATION && isConversationLimitReached) {
+                    InlineStatusBanner(
+                        title = "Conversation trop longue",
+                        subtitle = "Les nouveaux messages sont bloques pour garder un chat local stable. Ouvre une nouvelle conversation.",
+                        tone = BannerTone.Warning,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 8.dp)
+                    )
+                }
+
+                if (currentPane == ChatContentPane.SETTINGS) {
+                    ChatSettingsScreen(
+                        currentSettings = onDeviceAiSettings,
+                        selectedModelVariant = settingsModelVariant,
+                        onModelVariantSelected = { settingsModelVariant = it },
+                        selectedMaxTokens = settingsMaxTokens,
+                        onMaxTokensSelected = { settingsMaxTokens = it },
+                        systemPrompt = settingsSystemPrompt,
+                        onSystemPromptChange = { settingsSystemPrompt = it },
+                        isOnDeviceModelReady = isOnDeviceModelReady,
+                        onDeviceModelStatus = onDeviceModelStatus,
+                        onDeviceModelProvisioningState = onDeviceModelProvisioningState,
+                        onRetryModelDownload = onRetryModelDownload,
+                        onSave = {
+                            onUpdateOnDeviceAiSettings(
+                                settingsModelVariant,
+                                settingsMaxTokens,
+                                settingsSystemPrompt
+                            )
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                } else if (!isOnDeviceModelReady && messages.isEmpty() && !isWaitingForAiResponse) {
+                    ModelProvisioningView(
+                        state = onDeviceModelProvisioningState,
+                        onRetry = onRetryModelDownload,
+                        modifier = Modifier.weight(1f)
+                    )
+                } else if (messages.isEmpty() && !isWaitingForAiResponse) {
+                    ChatEmptyState(
+                        isOnDeviceModelReady = isOnDeviceModelReady,
+                        onDeviceModelStatus = onDeviceModelStatus,
+                        onVoiceInput = onVoiceInput,
+                        onPromptSelected = { suggestion -> messageText = suggestion },
+                        modifier = Modifier.weight(1f)
+                    )
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(top = 20.dp, bottom = 16.dp)
+                    ) {
+                        if (!isOnDeviceModelReady) {
+                            item("model-banner") {
+                                InlineStatusBanner(
+                                    title = modelBannerTitle(onDeviceModelProvisioningState),
+                                    subtitle = modelBannerSubtitle(onDeviceModelProvisioningState),
+                                    tone = modelBannerTone(onDeviceModelProvisioningState)
                                 )
                             }
-                        )
-                    }
+                        }
 
-                    if (isWaitingForAiResponse && messages.lastOrNull()?.isFromUser != false) {
-                        item("typing") {
-                            TypingPanel()
+                        items(messages, key = { it.id }) { message ->
+                            EditorialMessageBubble(
+                                message = message,
+                                onCopy = {
+                                    clipboardManager.setText(AnnotatedString(message.content))
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Reponse copiee")
+                                    }
+                                },
+                                onRetry = {
+                                    onSendMessage(
+                                        "Peux-tu reformuler la derniere reponse de facon plus claire et plus concise ?",
+                                        null
+                                    )
+                                },
+                                onSummarize = {
+                                    onSendMessage(
+                                        "Resume la reponse precedente en trois points essentiels.",
+                                        null
+                                    )
+                                }
+                            )
+                        }
+
+                        if (isWaitingForAiResponse && messages.lastOrNull()?.isFromUser != false) {
+                            item("typing") {
+                                TypingPanel()
+                            }
                         }
                     }
                 }
+
+                if (!isOnDeviceModelReady && currentPane == ChatContentPane.CONVERSATION) {
+                    CompactModelStatus(
+                        status = onDeviceModelStatus,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    )
+                }
+
+                if (currentPane == ChatContentPane.CONVERSATION) {
+                    SmartComposer(
+                        value = messageText,
+                        onValueChange = { messageText = it },
+                        selectedImageUri = selectedImageUri,
+                        onRemoveImage = { selectedImageUri = null },
+                        onAddImageClick = { showImagePickerDialog = true },
+                        onVoiceInput = onVoiceInput,
+                        enabled = isOnDeviceModelReady && !isConversationLimitReached,
+                        onSend = {
+                            if (messageText.isNotBlank() || selectedImageUri != null) {
+                                onSendMessage(messageText, selectedImageUri)
+                                messageText = ""
+                                selectedImageUri = null
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .imePadding()
+                    )
+                }
             }
 
-            if (!isOnDeviceModelReady) {
-                CompactModelStatus(
-                    status = onDeviceModelStatus,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                )
-            }
-
-            SmartComposer(
-                value = messageText,
-                onValueChange = { messageText = it },
-                selectedImageUri = selectedImageUri,
-                onRemoveImage = { selectedImageUri = null },
-                onAddImageClick = { showImagePickerDialog = true },
-                onVoiceInput = onVoiceInput,
-                enabled = isOnDeviceModelReady,
-                onSend = {
-                    if (messageText.isNotBlank() || selectedImageUri != null) {
-                        onSendMessage(messageText, selectedImageUri)
-                        messageText = ""
-                        selectedImageUri = null
-                    }
-                },
+            SnackbarHost(
+                hostState = snackbarHostState,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .imePadding()
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 20.dp, vertical = 88.dp)
+                    .navigationBarsPadding()
             )
         }
-
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 20.dp, vertical = 88.dp)
-                .navigationBarsPadding()
-        )
     }
 
     if (showImagePickerDialog) {
@@ -399,6 +539,665 @@ private fun ChatScreenContent(
                 cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
             }
         )
+    }
+
+    conversationOptionsTarget?.let { conversation ->
+        ConversationOptionsDialog(
+            conversationTitle = conversation.title,
+            onDismiss = { conversationOptionsTarget = null },
+            onRename = {
+                renameDraft = conversation.title
+                conversationRenameTarget = conversation
+                conversationOptionsTarget = null
+            },
+            onDelete = {
+                onDeleteConversation(conversation.id)
+                conversationOptionsTarget = null
+            }
+        )
+    }
+
+    conversationRenameTarget?.let { conversation ->
+        RenameConversationDialog(
+            value = renameDraft,
+            onValueChange = { renameDraft = it },
+            onDismiss = { conversationRenameTarget = null },
+            onConfirm = {
+                onRenameConversation(conversation.id, renameDraft)
+                conversationRenameTarget = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun ConversationTopBar(
+    title: String,
+    onOpenSidebar: () -> Unit,
+    actionLabel: String,
+    onActionClick: () -> Unit
+) {
+    Surface(
+        color = Color.Transparent,
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(horizontal = 18.dp, vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                IconButton(onClick = onOpenSidebar) {
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = "Afficher les conversations",
+                        tint = TextPrimary
+                    )
+                }
+                Text(
+                    text = title,
+                    color = TextPrimary,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
+            }
+            TextButton(onClick = onActionClick) {
+                Text(actionLabel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConversationDrawerSheet(
+    conversations: List<ChatConversationEntity>,
+    currentConversationId: String?,
+    onSelectConversation: (String) -> Unit,
+    onConversationLongPress: (ChatConversationEntity) -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenMainSidebar: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    ModalDrawerSheet(
+        modifier = modifier.widthIn(max = 320.dp),
+        drawerContainerColor = EditorialPanel,
+        drawerContentColor = TextPrimary
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Conversations",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.SemiBold
+                )
+                IconButton(onClick = onOpenMainSidebar) {
+                    Text(
+                        text = "<",
+                        color = TextPrimary,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+            Text(
+                text = "Touchez pour ouvrir, appuyez longtemps pour gerer.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary
+            )
+
+            if (conversations.isEmpty()) {
+                Surface(
+                    color = EditorialPanelMuted,
+                    shape = RoundedCornerShape(22.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Aucune conversation pour l'instant.",
+                        color = TextSecondary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 12.dp)
+                ) {
+                    items(conversations, key = { it.id }) { conversation ->
+                        ConversationDrawerItem(
+                            conversation = conversation,
+                            selected = conversation.id == currentConversationId,
+                            onClick = { onSelectConversation(conversation.id) },
+                            onLongClick = { onConversationLongPress(conversation) }
+                        )
+                    }
+                }
+            }
+
+            Surface(
+                color = EditorialPanelMuted,
+                shape = RoundedCornerShape(22.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenSettings)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        tint = TextPrimary
+                    )
+                    Text(
+                        text = "Parametres",
+                        color = TextPrimary,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ConversationDrawerItem(
+    conversation: ChatConversationEntity,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
+    Surface(
+        color = if (selected) EditorialPanelMuted else Color.Transparent,
+        shape = RoundedCornerShape(22.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
+            .border(
+                width = 1.dp,
+                color = if (selected) AccentBlue.copy(alpha = 0.32f) else EditorialPanelBorder.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(22.dp)
+            )
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = conversation.title,
+                color = TextPrimary,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                maxLines = 1
+            )
+            Text(
+                text = when (conversation.messageCount) {
+                    0 -> "Aucun message"
+                    1 -> "1 message"
+                    else -> "${conversation.messageCount} messages"
+                },
+                color = TextSecondary,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+@Composable
+private fun ConversationOptionsDialog(
+    conversationTitle: String,
+    onDismiss: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = conversationTitle,
+                color = TextPrimary,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Surface(
+                    color = EditorialPanelMuted,
+                    shape = RoundedCornerShape(18.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onRename)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            tint = TextPrimary
+                        )
+                        Text(
+                            text = "Renommer",
+                            color = TextPrimary,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+
+                Surface(
+                    color = EditorialPanelMuted,
+                    shape = RoundedCornerShape(18.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onDelete)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = null,
+                            tint = Color(0xFFFF7A7A)
+                        )
+                        Text(
+                            text = "Supprimer",
+                            color = Color(0xFFFFB4B4),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler")
+            }
+        },
+        containerColor = DarkSurface
+    )
+}
+
+@Composable
+private fun RenameConversationDialog(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Renommer la conversation",
+                color = TextPrimary,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            TextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = value.trim().isNotBlank()
+            ) {
+                Text("Valider")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler")
+            }
+        },
+        containerColor = DarkSurface
+    )
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun ChatSettingsScreen(
+    currentSettings: OnDeviceAiSettings,
+    selectedModelVariant: OnDeviceModelVariant,
+    onModelVariantSelected: (OnDeviceModelVariant) -> Unit,
+    selectedMaxTokens: Int,
+    onMaxTokensSelected: (Int) -> Unit,
+    systemPrompt: String,
+    onSystemPromptChange: (String) -> Unit,
+    isOnDeviceModelReady: Boolean,
+    onDeviceModelStatus: String,
+    onDeviceModelProvisioningState: OnDeviceModelProvisioningState,
+    onRetryModelDownload: () -> Unit,
+    onSave: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val hasChanges = selectedModelVariant != currentSettings.modelVariant ||
+        selectedMaxTokens != currentSettings.maxContextTokens ||
+        systemPrompt.trim() != currentSettings.systemPrompt.trim()
+
+    LazyColumn(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)
+    ) {
+        item("intro") {
+            Surface(
+                color = EditorialPanel,
+                shape = RoundedCornerShape(28.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, EditorialPanelBorder, RoundedCornerShape(28.dp))
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Pilotez le modele local, la taille du contexte et le prompt systeme.",
+                        color = TextPrimary,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Un changement de modele telecharge le nouveau fichier, nettoie l'ancien modele applicatif et reinitialise le moteur local.",
+                        color = TextSecondary,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
+
+        item("model-selection") {
+            SettingsSection(
+                title = "Modele IA",
+                subtitle = "Choisissez la variante locale a utiliser."
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OnDeviceModelVariant.entries.forEach { variant ->
+                        SelectableSettingCard(
+                            title = variant.displayName,
+                            subtitle = if (variant == OnDeviceModelVariant.GEMMA_4_E2B) {
+                                "Plus leger et plus rapide a telecharger."
+                            } else {
+                                "Plus lourd, mais plus confortable pour les reponses riches."
+                            },
+                            selected = selectedModelVariant == variant,
+                            onClick = { onModelVariantSelected(variant) }
+                        )
+                    }
+                }
+            }
+        }
+
+        item("token-selection") {
+            SettingsSection(
+                title = "Contexte maximum",
+                subtitle = "Valeur actuelle: ${selectedMaxTokens} tokens"
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        maxItemsInEachRow = 3
+                    ) {
+                        SUPPORTED_MAX_CONTEXT_TOKENS.forEach { tokenCount ->
+                            SettingsTokenChip(
+                                label = tokenCount.toTokenLabel(),
+                                selected = selectedMaxTokens == tokenCount,
+                                onClick = { onMaxTokensSelected(tokenCount) }
+                            )
+                        }
+                    }
+                    Text(
+                        text = "Si vous modifiez cette valeur, le moteur local sera recharge au prochain message.",
+                        color = TextSecondary,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        text = "Plus le contexte maximum est grand, plus la reponse du modele peut prendre un peu de temps.",
+                        color = TextSecondary,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+
+        item("system-prompt") {
+            SettingsSection(
+                title = "Prompt systeme",
+                subtitle = "Ce texte guide le comportement de Max."
+            ) {
+                TextField(
+                    value = systemPrompt,
+                    onValueChange = onSystemPromptChange,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 180.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = ComposerField,
+                        unfocusedContainerColor = ComposerField,
+                        disabledContainerColor = ComposerField
+                    )
+                )
+            }
+        }
+
+        item("provisioning-status") {
+            if (!isOnDeviceModelReady) {
+                ModelProvisioningView(
+                    state = onDeviceModelProvisioningState,
+                    onRetry = onRetryModelDownload
+                )
+            } else {
+                Surface(
+                    color = EditorialPanel,
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, EditorialPanelBorder, RoundedCornerShape(24.dp))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Etat du modele",
+                            color = TextPrimary,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = onDeviceModelStatus,
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        }
+
+        item("save-button") {
+            Surface(
+                color = if (hasChanges) AccentBlue.copy(alpha = 0.18f) else EditorialPanelMuted,
+                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = hasChanges, onClick = onSave)
+                    .border(
+                        width = 1.dp,
+                        color = if (hasChanges) AccentBlue.copy(alpha = 0.38f) else EditorialPanelBorder,
+                        shape = RoundedCornerShape(24.dp)
+                    )
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "Enregistrer et appliquer",
+                        color = TextPrimary,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = if (hasChanges) {
+                            "Les nouveaux reglages seront persistés et appliques au moteur local."
+                        } else {
+                            "Aucune modification en attente."
+                        },
+                        color = TextSecondary,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSection(
+    title: String,
+    subtitle: String,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        color = EditorialPanel,
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, EditorialPanelBorder, RoundedCornerShape(28.dp))
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = title,
+                    color = TextPrimary,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = subtitle,
+                    color = TextSecondary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            content()
+        }
+    }
+}
+
+@Composable
+private fun SelectableSettingCard(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        color = if (selected) AccentBlue.copy(alpha = 0.14f) else EditorialPanelMuted,
+        shape = RoundedCornerShape(22.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .border(
+                width = 1.dp,
+                color = if (selected) AccentBlue.copy(alpha = 0.42f) else EditorialPanelBorder,
+                shape = RoundedCornerShape(22.dp)
+            )
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = title,
+                color = TextPrimary,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = subtitle,
+                color = TextSecondary,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsTokenChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        color = if (selected) AccentBlue.copy(alpha = 0.18f) else Color.Transparent,
+        shape = RoundedCornerShape(999.dp),
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .border(
+                width = 1.dp,
+                color = if (selected) AccentBlue.copy(alpha = 0.4f) else EditorialPanelBorder,
+                shape = RoundedCornerShape(999.dp)
+            )
+    ) {
+        Text(
+            text = label,
+            color = TextPrimary,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+        )
+    }
+}
+
+private fun Int.toTokenLabel(): String {
+    return when {
+        this % 1024 == 0 -> "${this / 1024}k"
+        else -> toString()
     }
 }
 
@@ -714,8 +1513,10 @@ private fun BubbleActionChip(
 
 @Composable
 private fun MarkdownContent(text: String) {
+    val normalizedText = remember(text) { ChatMarkdownFormatter.normalizeForDisplay(text) }
+
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        text.split("\n").forEach { rawLine ->
+        normalizedText.split("\n").forEach { rawLine ->
             val line = rawLine.trimEnd()
             when {
                 line.startsWith("### ") -> Text(

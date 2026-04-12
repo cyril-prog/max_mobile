@@ -114,7 +114,7 @@ fun MaxAppShell(
     hasLocalData: Boolean,
     onNavigate: (AppShellRoute) -> Unit,
     modifier: Modifier = Modifier,
-    content: @Composable (PaddingValues) -> Unit
+    content: @Composable (PaddingValues, () -> Unit) -> Unit
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -194,10 +194,12 @@ fun MaxAppShell(
             containerColor = DarkBackground,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             topBar = {
-                MaxShellTopBar(
-                    currentRoute = currentRoute,
-                    onMenuClick = { scope.launch { drawerState.open() } }
-                )
+                if (currentRoute != AppShellRoute.CHAT) {
+                    MaxShellTopBar(
+                        currentRoute = currentRoute,
+                        onMenuClick = { scope.launch { drawerState.open() } }
+                    )
+                }
             },
             bottomBar = {
                 if (!isImeVisible) {
@@ -213,7 +215,10 @@ fun MaxAppShell(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                content(PaddingValues())
+                content(
+                    PaddingValues(),
+                    { scope.launch { drawerState.open() } }
+                )
             }
         }
     }
@@ -261,7 +266,12 @@ private fun MaxShellTopBar(
                 fontWeight = FontWeight.Bold
             )
         } else {
-            Box(modifier = Modifier.size(24.dp))
+            Text(
+                text = currentRoute.title,
+                style = MaterialTheme.typography.headlineSmall,
+                color = TextPrimary,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }

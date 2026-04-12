@@ -16,14 +16,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudQueue
+import androidx.compose.material.icons.filled.Air
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.SatelliteAlt
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.material.icons.filled.WindPower
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,6 +44,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.max.aiassistant.data.api.WeatherData
+import com.max.aiassistant.data.api.getWeatherDescription
+import com.max.aiassistant.data.api.getWeatherIcon
 import com.max.aiassistant.model.Event
 import com.max.aiassistant.model.Task
 import com.max.aiassistant.model.TaskStatus
@@ -73,6 +79,7 @@ fun HomeScreen(
     onNavigateToTasks: () -> Unit,
     onNavigateToPlanning: () -> Unit,
     onNavigateToWeather: () -> Unit,
+    onNavigateToRadar: () -> Unit,
     onNavigateToNotes: () -> Unit,
     onNavigateToActu: () -> Unit,
     showChrome: Boolean = true,
@@ -105,6 +112,7 @@ fun HomeScreen(
                 onNavigateToTasks = onNavigateToTasks,
                 onNavigateToPlanning = onNavigateToPlanning,
                 onNavigateToWeather = onNavigateToWeather,
+                onNavigateToRadar = onNavigateToRadar,
                 modifier = modifier
             )
         }
@@ -117,6 +125,7 @@ fun HomeScreen(
             onNavigateToTasks = onNavigateToTasks,
             onNavigateToPlanning = onNavigateToPlanning,
             onNavigateToWeather = onNavigateToWeather,
+            onNavigateToRadar = onNavigateToRadar,
             modifier = modifier
         )
     }
@@ -131,6 +140,7 @@ private fun HomeScreenContent(
     onNavigateToTasks: () -> Unit,
     onNavigateToPlanning: () -> Unit,
     onNavigateToWeather: () -> Unit,
+    onNavigateToRadar: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -144,7 +154,8 @@ private fun HomeScreenContent(
             HomeWeatherPanel(
                 weatherData = weatherData,
                 cityName = cityName,
-                onClick = onNavigateToWeather
+                onClick = onNavigateToWeather,
+                onRadarClick = onNavigateToRadar
             )
         }
         item {
@@ -162,14 +173,13 @@ private fun HomeScreenContent(
 private fun HomeWeatherPanel(
     weatherData: WeatherData?,
     cityName: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onRadarClick: () -> Unit
 ) {
-    val weatherLabel = weatherData?.let { weatherSummary(it.weatherCode) } ?: "Meteo indisponible"
+    val weatherLabel = weatherData?.let { getWeatherDescription(it.weatherCode) } ?: "Meteo indisponible"
     val temperature = weatherData?.let { "${it.currentTemperature.toInt()}\u00B0" } ?: "--"
-    val rainValue = weatherData?.hourlyForecasts?.firstOrNull()?.precipitationProb?.let { "$it%" } ?: "--"
     val humidityValue = weatherData?.currentHumidity?.let { "$it%" } ?: "--"
     val windValue = weatherData?.currentWindSpeed?.toInt()?.let { "$it km/h" } ?: "--"
-    val accent = weatherAccent(weatherData?.weatherCode)
     val backgroundColors = homeWeatherHeroColors(weatherData?.weatherCode)
 
     Card(
@@ -182,78 +192,65 @@ private fun HomeWeatherPanel(
         Column(
             modifier = Modifier
                 .background(Brush.verticalGradient(backgroundColors))
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+                .padding(22.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = cityName,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = weatherLabel,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.72f)
-                    )
-                }
-                Surface(
-                    modifier = Modifier.size(44.dp),
-                    color = accent.copy(alpha = 0.18f),
-                    shape = CircleShape
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = weatherIcon(weatherData?.weatherCode),
-                            contentDescription = weatherLabel,
-                            tint = accent,
-                            modifier = Modifier.size(22.dp)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AssistChip(
+                        onClick = {},
+                        label = { Text(cityName.ifBlank { "Ville" }) },
+                        leadingIcon = { Icon(Icons.Default.Place, null, Modifier.size(16.dp)) },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = Color.White.copy(alpha = 0.14f),
+                            labelColor = Color.White,
+                            leadingIconContentColor = Color.White
                         )
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Text(
-                    text = temperature,
-                    fontSize = 52.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Surface(
-                    color = Color.White.copy(alpha = 0.08f),
-                    shape = RoundedCornerShape(999.dp)
-                ) {
+                    )
                     Text(
-                        text = "Previsions",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        style = MaterialTheme.typography.labelLarge,
+                        text = temperature,
+                        fontSize = 52.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = Color.White
                     )
                 }
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.White.copy(alpha = 0.14f)
+                        ) {
+                            IconButton(onClick = onRadarClick) {
+                                Icon(
+                                    imageVector = Icons.Default.SatelliteAlt,
+                                    contentDescription = "Vue satellite",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    }
+                    Icon(
+                        imageVector = weatherData?.let { getWeatherIcon(it.weatherCode) } ?: Icons.Default.CloudQueue,
+                        contentDescription = weatherLabel,
+                        tint = Color.White,
+                        modifier = Modifier.size(44.dp)
+                    )
+                }
             }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                WeatherStatPill(Icons.Default.WaterDrop, "Humidite", humidityValue, Modifier.weight(1f))
-                WeatherStatPill(Icons.Default.WindPower, "Vent", windValue, Modifier.weight(1f))
-                WeatherStatPill(Icons.Default.CloudQueue, "Pluie", rainValue, Modifier.weight(1f))
+                HomeWeatherStatCard(Icons.Default.WaterDrop, "Humidite", humidityValue, Modifier.weight(1f))
+                HomeWeatherStatCard(Icons.Default.Air, "Vent", windValue, Modifier.weight(1f))
             }
         }
     }
@@ -269,40 +266,43 @@ private fun homeWeatherHeroColors(weatherCode: Int?): List<Color> {
 }
 
 @Composable
-private fun WeatherStatPill(
+private fun HomeWeatherStatCard(
     icon: ImageVector,
     label: String,
     value: String,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    Card(
         modifier = modifier,
-        color = Color.White.copy(alpha = 0.08f),
-        shape = RoundedCornerShape(18.dp)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.12f))
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = label,
-                tint = Color.White.copy(alpha = 0.8f),
-                modifier = Modifier.size(16.dp)
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(18.dp)
             )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.65f),
-                maxLines = 1
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleSmall,
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1
-            )
+            Column {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.72f),
+                    maxLines = 1
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
+            }
         }
     }
 }
@@ -427,27 +427,6 @@ private fun DigestRow(
                 )
             }
         }
-    }
-}
-
-private fun weatherIcon(code: Int?): ImageVector {
-    return when (code) {
-        in 0..2 -> Icons.Default.WbSunny
-        else -> Icons.Default.CloudQueue
-    }
-}
-
-private fun weatherSummary(code: Int): String {
-    return when (code) {
-        0 -> "Ciel degage"
-        1, 2 -> "Eclaircies"
-        3 -> "Nuageux"
-        in 45..48 -> "Brume"
-        in 51..67 -> "Pluie"
-        in 71..77 -> "Neige"
-        in 80..82 -> "Averses"
-        in 95..99 -> "Orage"
-        else -> "Conditions du moment"
     }
 }
 

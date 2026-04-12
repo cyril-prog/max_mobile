@@ -77,8 +77,13 @@ class MainActivity : ComponentActivity() {
 
                 // États partagés
                 val messages by viewModel.messages.collectAsState()
+                val currentConversationId by viewModel.currentConversationId.collectAsState()
+                val conversations by viewModel.conversations.collectAsState()
+                val currentConversationTitle by viewModel.currentConversationTitle.collectAsState()
+                val onDeviceAiSettings by viewModel.onDeviceAiSettings.collectAsState()
                 val isWaitingForAiResponse by viewModel.isWaitingForAiResponse.collectAsState()
                 val isOnDeviceModelReady by viewModel.isOnDeviceModelReady.collectAsState()
+                val isConversationLimitReached by viewModel.isConversationLimitReached.collectAsState()
                 val onDeviceModelStatus by viewModel.onDeviceModelStatus.collectAsState()
                 val onDeviceModelProvisioningState by viewModel.onDeviceModelProvisioningState.collectAsState()
                 val tasks by viewModel.tasks.collectAsState()
@@ -191,7 +196,7 @@ class MainActivity : ComponentActivity() {
                                 AppShellRoute.RADAR -> currentRoute = AppShellRoute.RADAR
                             }
                         }
-                    ) { paddingValues ->
+                    ) { paddingValues, openMainSidebar ->
                         val modifier = Modifier.padding(paddingValues)
 
                         when (currentRoute) {
@@ -206,6 +211,7 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToTasks = { orgaMode = OrgaMode.TASK; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToPlanning = { orgaMode = OrgaMode.PLANNING; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToWeather = { currentRoute = AppShellRoute.WEATHER },
+                                    onNavigateToRadar = { currentRoute = AppShellRoute.RADAR },
                                     onNavigateToNotes = { orgaMode = OrgaMode.NOTE; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToActu = { currentRoute = AppShellRoute.ACTU },
                                     showChrome = false,
@@ -215,13 +221,38 @@ class MainActivity : ComponentActivity() {
                             AppShellRoute.CHAT -> {
                                 ChatScreen(
                                     messages = messages,
+                                    conversations = conversations,
+                                    currentConversationId = currentConversationId,
+                                    conversationTitle = currentConversationTitle,
+                                    onDeviceAiSettings = onDeviceAiSettings,
                                     isWaitingForAiResponse = isWaitingForAiResponse,
                                     isOnDeviceModelReady = isOnDeviceModelReady,
+                                    isConversationLimitReached = isConversationLimitReached,
                                     onDeviceModelStatus = onDeviceModelStatus,
                                     onDeviceModelProvisioningState = onDeviceModelProvisioningState,
                                     onSendMessage = { message, imageUri ->
                                         viewModel.sendMessage(message, imageUri)
                                     },
+                                    onStartNewConversation = {
+                                        viewModel.startNewConversation()
+                                    },
+                                    onSelectConversation = { conversationId ->
+                                        viewModel.selectConversation(conversationId)
+                                    },
+                                    onRenameConversation = { conversationId, title ->
+                                        viewModel.renameConversation(conversationId, title)
+                                    },
+                                    onDeleteConversation = { conversationId ->
+                                        viewModel.deleteConversation(conversationId)
+                                    },
+                                    onUpdateOnDeviceAiSettings = { modelVariant, maxContextTokens, systemPrompt ->
+                                        viewModel.updateOnDeviceAiSettings(
+                                            modelVariant = modelVariant,
+                                            maxContextTokens = maxContextTokens,
+                                            systemPrompt = systemPrompt
+                                        )
+                                    },
+                                    onOpenMainSidebar = openMainSidebar,
                                     onRetryModelDownload = {
                                         viewModel.retryOnDeviceModelDownload()
                                     },

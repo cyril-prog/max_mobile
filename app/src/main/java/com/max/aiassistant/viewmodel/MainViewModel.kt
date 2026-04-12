@@ -16,9 +16,21 @@ import com.max.aiassistant.data.api.toRechercheArticle
 import com.max.aiassistant.data.api.toTask
 import com.max.aiassistant.data.api.toUpdateRequest
 import com.max.aiassistant.data.api.toWeatherData
+import com.max.aiassistant.data.chat.ChatTitleFormatter
+import com.max.aiassistant.data.local.DEFAULT_SYSTEM_PROMPT
+import com.max.aiassistant.data.local.OnDeviceAiSettings
 import com.max.aiassistant.data.local.OnDeviceChatEngine
 import com.max.aiassistant.data.local.OnDeviceModelManager
 import com.max.aiassistant.data.local.OnDeviceModelProvisioningState
+import com.max.aiassistant.data.local.OnDeviceModelVariant
+import com.max.aiassistant.data.local.db.ChatConversationEntity
+import com.max.aiassistant.data.local.db.ChatMessageEntity
+import com.max.aiassistant.data.local.db.ChatMessageRole
+import com.max.aiassistant.data.local.db.ChatMessageStatus
+import com.max.aiassistant.data.local.db.ChatRepository
+import com.max.aiassistant.data.local.db.ConversationTitleStatus
+import com.max.aiassistant.data.local.db.MaxDatabase
+import com.max.aiassistant.data.preferences.OnDeviceAiPreferences
 import com.max.aiassistant.data.realtime.RealtimeApiService
 import com.max.aiassistant.data.realtime.RealtimeAudioManager
 import com.max.aiassistant.data.realtime.RealtimeServerEvent
@@ -29,6 +41,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.util.*
 
@@ -45,6 +58,12 @@ import java.util.*
  */
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
+    companion object {
+        private const val CHAT_UI_MESSAGE_LIMIT = 50
+        private const val CHAT_CONTEXT_MESSAGE_LIMIT = 10
+        private const val MAX_MESSAGES_PER_CONVERSATION = 300
+    }
+
     // ========== SERVICES API ==========
 
     private val apiService = MaxApiService.create()
@@ -53,8 +72,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val geocodingApiService = com.max.aiassistant.data.api.GeocodingApiService.create()
     private val weatherPreferences = com.max.aiassistant.data.preferences.WeatherPreferences(application.applicationContext)
     private val notesPreferences = com.max.aiassistant.data.preferences.NotesPreferences(application.applicationContext)
+    private val onDeviceAiPreferences = OnDeviceAiPreferences(application.applicationContext)
     private val onDeviceModelManager = OnDeviceModelManager(application.applicationContext)
     private val onDeviceChatEngine = OnDeviceChatEngine(application.applicationContext)
+    private val chatDatabase = MaxDatabase.getInstance(application.applicationContext)
+    private val chatRepository = ChatRepository(chatDatabase)
     private val TAG = "MainViewModel"
 
     // Clé API OpenAI pour l'API Realtime (chargée depuis local.properties via BuildConfig)
@@ -76,6 +98,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages: StateFlow<List<Message>> = _messages.asStateFlow()
+    private val _currentConversationId = MutableStateFlow<String?>(null)
+    val currentConversationId: StateFlow<String?> = _currentConversationId.asStateFlow()
+    private val _conversations = MutableStateFlow<List<ChatConversationEntity>>(emptyList())
+    val conversations: StateFlow<List<ChatConversationEntity>> = _conversations.asStateFlow()
+    private val _currentConversationTitle = MutableStateFlow(ChatRepository.DEFAULT_CONVERSATION_TITLE)
+    val currentConversationTitle: StateFlow<String> = _currentConversationTitle.asStateFlow()
+    private val _onDeviceAiSettings = MutableStateFlow(OnDeviceAiPreferences.DEFAULT_SETTINGS)
+    val onDeviceAiSettings: StateFlow<OnDeviceAiSettings> = _onDeviceAiSettings.asStateFlow()
+    private val _isConversationLimitReached = MutableStateFlow(false)
+    val isConversationLimitReached: StateFlow<Boolean> = _isConversationLimitReached.asStateFlow()
 
     // Indicateur de chargement pour la réponse de l'IA
     private val _isWaitingForAiResponse = MutableStateFlow(false)
@@ -93,6 +125,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _realtimeError = MutableStateFlow<String?>(null)
     val realtimeError: StateFlow<String?> = _realtimeError.asStateFlow()
     private var onDeviceProvisioningJob: Job? = null
+    private var activeConversationJob: Job? = null
+    private var activeMessagesJob: Job? = null
+    private var hasLoadedOnDeviceAiSettings = false
 
     /**
      * Charge le contexte système (tâches, mémoire, historique, calendrier) pour enrichir le prompt voice-to-voice
@@ -277,6 +312,63 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun loadRecentMessages() {
         ensureOnDeviceModelAvailable()
+        viewModelScope.launch {
+            val conversation = loadOrCreateCurrentConversation()
+            attachConversationObservers(conversation.id)
+        }
+    }
+
+    fun startNewConversation() {
+        viewModelScope.launch {
+            val conversation = chatRepository.createConversation()
+            attachConversationObservers(conversation.id)
+        }
+    }
+
+    fun selectConversation(conversationId: String) {
+        viewModelScope.launch {
+            val conversation = chatRepository.getConversation(conversationId) ?: return@launch
+            chatRepository.touchConversationOpened(conversation.id)
+            attachConversationObservers(conversation.id)
+        }
+    }
+
+    fun renameConversation(conversationId: String, title: String) {
+        val normalizedTitle = title.trim()
+        if (normalizedTitle.isBlank()) return
+
+        viewModelScope.launch {
+            chatRepository.updateConversationTitle(conversationId, normalizedTitle)
+        }
+    }
+
+    fun deleteConversation(conversationId: String) {
+        viewModelScope.launch {
+            val isCurrentConversation = _currentConversationId.value == conversationId
+            chatRepository.deleteConversation(conversationId)
+
+            if (isCurrentConversation) {
+                val replacement = chatRepository.getLastOpenedConversationOrCreate()
+                attachConversationObservers(replacement.id)
+            }
+        }
+    }
+
+    fun updateOnDeviceAiSettings(
+        modelVariant: OnDeviceModelVariant,
+        maxContextTokens: Int,
+        systemPrompt: String
+    ) {
+        val normalizedPrompt = systemPrompt.trim().ifBlank { DEFAULT_SYSTEM_PROMPT }
+        val newSettings = OnDeviceAiSettings(
+            modelVariant = modelVariant,
+            maxContextTokens = maxContextTokens,
+            systemPrompt = normalizedPrompt
+        )
+
+        viewModelScope.launch {
+            onDeviceAiPreferences.save(newSettings)
+        }
     }
 
     /**
@@ -288,21 +380,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (content.isBlank() && imageUri == null) return
 
         // Ajoute le message de l'utilisateur immédiatement
-        val userMessage = Message(
-            id = UUID.randomUUID().toString(),
-            content = content,
-            isFromUser = true,
-            imageUri = imageUri
-        )
-        _messages.value = _messages.value + userMessage
 
         // Active l'indicateur de chargement
-        _isWaitingForAiResponse.value = true
 
         // Envoie le message à l'API et récupère la réponse
         viewModelScope.launch {
+            val conversation = loadOrCreateCurrentConversation()
+            attachConversationObservers(conversation.id)
+
+            if (conversation.messageCount >= MAX_MESSAGES_PER_CONVERSATION) {
+                _isWaitingForAiResponse.value = false
+                persistConversationLimitWarning(conversation.id)
+                return@launch
+            }
+
+            val previousContext = chatRepository.getRecentMessagesForContext(
+                conversationId = conversation.id,
+                limit = CHAT_CONTEXT_MESSAGE_LIMIT
+            )
+            val shouldGenerateTitle = conversation.messageCount == 0
+            val aiSettings = _onDeviceAiSettings.value
+            val userMessage = ChatMessageEntity(
+                id = UUID.randomUUID().toString(),
+                conversationId = conversation.id,
+                role = ChatMessageRole.USER,
+                content = content,
+                createdAt = System.currentTimeMillis(),
+                imageUri = imageUri?.toString(),
+                status = ChatMessageStatus.COMPLETED
+            )
+
+            chatRepository.insertMessage(userMessage)
+            _isWaitingForAiResponse.value = true
+
             val aiMessageId = UUID.randomUUID().toString()
-            var startedStreaming = false
             var latestPartialResponse = ""
 
             try {
@@ -325,14 +436,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         } else {
                             onDeviceChatEngine.generateResponseStreaming(
                                 userMessage = content,
-                                systemInstruction = buildOnDeviceSystemInstruction()
+                                modelVariant = aiSettings.modelVariant,
+                                maxContextTokens = aiSettings.maxContextTokens,
+                                systemInstruction = buildOnDeviceSystemInstruction(previousContext)
                             ) { partialText ->
                                 latestPartialResponse = partialText
-                                startedStreaming = true
-                                upsertAssistantMessage(
-                                    messageId = aiMessageId,
-                                    content = partialText
-                                )
+                                viewModelScope.launch {
+                                    chatRepository.upsertAssistantMessage(
+                                        conversationId = conversation.id,
+                                        messageId = aiMessageId,
+                                        content = partialText,
+                                        status = ChatMessageStatus.STREAMING
+                                    )
+                                }
                             }
                         }
                     }
@@ -343,18 +459,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     "Le modele local n'a pas retourne de texte exploitable."
                 }
 
-                if (startedStreaming) {
-                    upsertAssistantMessage(
-                        messageId = aiMessageId,
-                        content = finalResponseText
-                    )
-                } else {
-                    val aiResponse = Message(
-                        id = aiMessageId,
-                        content = finalResponseText,
-                        isFromUser = false
-                    )
-                    _messages.value = _messages.value + aiResponse
+                chatRepository.upsertAssistantMessage(
+                    conversationId = conversation.id,
+                    messageId = aiMessageId,
+                    content = finalResponseText,
+                    status = ChatMessageStatus.COMPLETED
+                )
+
+                if (shouldGenerateTitle) {
+                    generateConversationTitle(conversation.id, content, modelReady)
                 }
 
             } catch (e: Exception) {
@@ -371,18 +484,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     rawReason
                 }
 
-                if (latestPartialResponse.isNotBlank()) {
-                    upsertAssistantMessage(
-                        messageId = aiMessageId,
-                        content = latestPartialResponse
-                    )
+                val fallbackMessage = if (latestPartialResponse.isNotBlank()) {
+                    latestPartialResponse
                 } else {
-                    val errorMessage = Message(
-                        id = aiMessageId,
-                        content = "Impossible d'interroger le modele local pour l'instant. $userFacingReason",
-                        isFromUser = false
-                    )
-                    _messages.value = _messages.value + errorMessage
+                    "Impossible d'interroger le modele local pour l'instant. $userFacingReason"
+                }
+
+                chatRepository.upsertAssistantMessage(
+                    conversationId = conversation.id,
+                    messageId = aiMessageId,
+                    content = fallbackMessage,
+                    status = ChatMessageStatus.ERROR
+                )
+
+                if (shouldGenerateTitle) {
+                    generateConversationTitle(conversation.id, content, modelReady = false)
                 }
             } finally {
                 // Désactive l'indicateur de chargement
@@ -391,34 +507,153 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    private fun upsertAssistantMessage(
-        messageId: String,
-        content: String
-    ) {
-        val currentMessages = _messages.value
-        val messageIndex = currentMessages.indexOfFirst { it.id == messageId }
-
-        val updatedMessage = if (messageIndex >= 0) {
-            Message(
-                id = messageId,
-                content = content,
-                isFromUser = false,
-                timestamp = currentMessages[messageIndex].timestamp
-            )
-        } else {
-            Message(
-                id = messageId,
-                content = content,
-                isFromUser = false
-            )
+    private suspend fun loadOrCreateCurrentConversation(): ChatConversationEntity {
+        val existingConversationId = _currentConversationId.value
+        if (existingConversationId != null) {
+            val existingConversation = chatRepository.getConversation(existingConversationId)
+            if (existingConversation != null) {
+                chatRepository.touchConversationOpened(existingConversation.id)
+                return existingConversation
+            }
         }
 
-        _messages.value = if (messageIndex >= 0) {
-            currentMessages.mapIndexed { index, message ->
-                if (index == messageIndex) updatedMessage else message
+        val conversation = chatRepository.getLastOpenedConversationOrCreate()
+        chatRepository.touchConversationOpened(conversation.id)
+        return conversation
+    }
+
+    private fun attachConversationObservers(conversationId: String) {
+        if (_currentConversationId.value == conversationId &&
+            activeConversationJob?.isActive == true &&
+            activeMessagesJob?.isActive == true
+        ) {
+            return
+        }
+
+        _currentConversationId.value = conversationId
+
+        activeConversationJob?.cancel()
+        activeConversationJob = viewModelScope.launch {
+            chatRepository.observeConversation(conversationId).collectLatest { conversation ->
+                if (conversation == null) {
+                    return@collectLatest
+                }
+                _currentConversationTitle.value = conversation.title
+                _isConversationLimitReached.value =
+                    conversation.messageCount >= MAX_MESSAGES_PER_CONVERSATION
             }
-        } else {
-            currentMessages + updatedMessage
+        }
+
+        activeMessagesJob?.cancel()
+        activeMessagesJob = viewModelScope.launch {
+            chatRepository.observeRecentMessages(conversationId, CHAT_UI_MESSAGE_LIMIT)
+                .collectLatest { recentMessages ->
+                    _messages.value = recentMessages
+                        .asReversed()
+                        .map { it.toUiMessage() }
+                }
+        }
+    }
+
+    private fun observeConversations() {
+        viewModelScope.launch {
+            chatRepository.observeConversations().collectLatest { conversations ->
+                _conversations.value = conversations
+            }
+        }
+    }
+
+    private fun observeOnDeviceAiSettings() {
+        viewModelScope.launch {
+            onDeviceAiPreferences.settings.collectLatest { settings ->
+                val previousSettings = _onDeviceAiSettings.value
+                val isFirstLoad = !hasLoadedOnDeviceAiSettings
+
+                _onDeviceAiSettings.value = settings
+                hasLoadedOnDeviceAiSettings = true
+
+                if (isFirstLoad) {
+                    val cachedAvailability = onDeviceModelManager.getCachedAvailability(settings.modelVariant)
+                    _isOnDeviceModelReady.value = cachedAvailability.isAvailable
+                    _onDeviceModelStatus.value = cachedAvailability.statusMessage
+                    ensureOnDeviceModelAvailable()
+                    return@collectLatest
+                }
+
+                if (previousSettings == settings) {
+                    return@collectLatest
+                }
+
+                onDeviceChatEngine.close()
+
+                if (previousSettings.modelVariant != settings.modelVariant) {
+                    _isOnDeviceModelReady.value = false
+                    _onDeviceModelStatus.value = "Changement de modele demande. Preparation de ${settings.modelVariant.displayName}..."
+                    ensureOnDeviceModelAvailable()
+                } else {
+                    val cachedAvailability = onDeviceModelManager.getCachedAvailability(settings.modelVariant)
+                    if (cachedAvailability.isAvailable) {
+                        _isOnDeviceModelReady.value = true
+                        _onDeviceModelStatus.value = "Parametres IA enregistres. Le moteur sera recharge au prochain message."
+                    } else {
+                        _isOnDeviceModelReady.value = false
+                        _onDeviceModelStatus.value = cachedAvailability.statusMessage
+                        ensureOnDeviceModelAvailable()
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun persistConversationLimitWarning(conversationId: String) {
+        chatRepository.upsertAssistantMessage(
+            conversationId = conversationId,
+            messageId = "conversation-limit-$conversationId",
+            content = "Cette conversation est devenue trop longue pour rester robuste sur mobile. Ouvre une nouvelle conversation pour continuer proprement.",
+            status = ChatMessageStatus.ERROR
+        )
+    }
+
+    private fun generateConversationTitle(
+        conversationId: String,
+        firstPrompt: String,
+        modelReady: Boolean
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val existingConversation = chatRepository.getConversation(conversationId) ?: return@launch
+            if (existingConversation.titleStatus != ConversationTitleStatus.PENDING) {
+                return@launch
+            }
+
+            val fallbackTitle = ChatTitleFormatter.fallbackTitleFromPrompt(firstPrompt)
+            val finalTitle = if (modelReady && firstPrompt.isNotBlank()) {
+                runCatching {
+                    val titleEngine = OnDeviceChatEngine(getApplication<Application>().applicationContext)
+                    val aiSettings = _onDeviceAiSettings.value
+                    try {
+                        titleEngine.generateResponse(
+                            userMessage = firstPrompt,
+                            modelVariant = aiSettings.modelVariant,
+                            maxContextTokens = aiSettings.maxContextTokens,
+                            systemInstruction = """
+                                Tu generes des titres de conversations.
+                                Retourne uniquement un titre court en francais.
+                                Maximum 6 mots.
+                                Pas de guillemets.
+                            """.trimIndent()
+                        )
+                    } finally {
+                        titleEngine.close()
+                    }
+                }.getOrNull()
+                    ?.let(ChatTitleFormatter::normalizeGeneratedTitle)
+                    ?.takeIf { it.isNotBlank() }
+                    ?: fallbackTitle
+            } else {
+                fallbackTitle
+            }
+
+            chatRepository.updateConversationTitle(conversationId, finalTitle)
         }
     }
 
@@ -433,6 +668,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun ensureOnDeviceModelAvailable(forceDownload: Boolean = false) {
+        if (!hasLoadedOnDeviceAiSettings) {
+            return
+        }
+
         if (onDeviceProvisioningJob?.isActive == true && !forceDownload) {
             return
         }
@@ -444,7 +683,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         onDeviceProvisioningJob?.cancel()
         onDeviceProvisioningJob = viewModelScope.launch {
             try {
-                val availability = onDeviceModelManager.prepareModel(forceDownload) { state ->
+                val availability = onDeviceModelManager.prepareModel(
+                    modelVariant = _onDeviceAiSettings.value.modelVariant,
+                    forceDownload = forceDownload
+                ) { state ->
                     _onDeviceModelProvisioningState.value = state
                     syncOnDeviceUiState(state)
                 }
@@ -500,10 +742,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun buildOnDeviceSystemInstruction(): String {
+    private fun buildOnDeviceSystemInstruction(recentMessages: List<ChatMessageEntity>): String {
+        val basePrompt = _onDeviceAiSettings.value.systemPrompt.trim().ifBlank { DEFAULT_SYSTEM_PROMPT }
         return buildString {
-            appendLine("Tu es Max, un assistant personnel utile, fiable et concis.")
-            appendLine("Reponds en francais avec un ton naturel et des reponses courtes.")
+            appendLine(basePrompt)
+            if (recentMessages.isNotEmpty()) {
+                appendLine()
+                appendLine("Historique recent de la conversation:")
+                recentMessages.forEach { message ->
+                    val speaker = if (message.role == ChatMessageRole.USER) "Utilisateur" else "Max"
+                    appendLine("- $speaker: ${message.content.take(250)}")
+                }
+            }
             if (systemContext.isNotBlank()) {
                 appendLine()
                 appendLine("Contexte utile:")
@@ -1436,12 +1686,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * Bloc d'initialisation : charge les messages, tâches, événements et météo au démarrage
      */
     init {
-        val cachedAvailability = onDeviceModelManager.getCachedAvailability()
-        _isOnDeviceModelReady.value = cachedAvailability.isAvailable
-        _onDeviceModelStatus.value = cachedAvailability.statusMessage
+        observeOnDeviceAiSettings()
+        observeConversations()
         loadSystemContext()
         loadRecentMessages()
-        ensureOnDeviceModelAvailable()
         refreshTasks()
         refreshCalendarEvents()
         refreshWeather()
@@ -1477,4 +1725,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         realtimeService?.cleanup()
     }
 
+}
+
+private fun ChatMessageEntity.toUiMessage(): Message {
+    return Message(
+        id = id,
+        content = content,
+        isFromUser = role == ChatMessageRole.USER,
+        timestamp = createdAt,
+        imageUri = imageUri?.let(Uri::parse)
+    )
 }

@@ -37,7 +37,6 @@ class OnDeviceChatEngine(
     companion object {
         private const val MIN_TOTAL_RAM_BYTES = 8L * 1024L * 1024L * 1024L
         private const val MIN_AVAILABLE_RAM_BYTES = 2_200L * 1024L * 1024L
-        private const val MAX_CONTEXT_TOKENS = 4096
         private const val CPU_THREADS = 4
     }
 
@@ -45,9 +44,10 @@ class OnDeviceChatEngine(
     private var conversation: Conversation? = null
     private var loadedModelPath: String? = null
     private var loadedSystemInstruction: String? = null
+    private var loadedMaxContextTokens: Int? = null
 
-    fun getAvailability(): OnDeviceModelAvailability {
-        val modelFile = resolveModelFile()
+    fun getAvailability(modelVariant: OnDeviceModelVariant): OnDeviceModelAvailability {
+        val modelFile = resolveModelFile(modelVariant)
         return if (modelFile != null) {
             OnDeviceModelAvailability(
                 isAvailable = true,
@@ -97,35 +97,41 @@ class OnDeviceChatEngine(
 
     suspend fun generateResponse(
         userMessage: String,
+        modelVariant: OnDeviceModelVariant,
+        maxContextTokens: Int,
         systemInstruction: String? = null
     ): String = withContext(Dispatchers.IO) {
-        val availability = getAvailability()
-        val modelPath = availability.modelPath
+        val availability = getAvailability(modelVariant)
+        val modelPath = resolveModelFile(modelVariant)?.absolutePath
+            ?: availability.modelPath
             ?: throw IllegalStateException(availability.statusMessage)
         val runtimeReadiness = getRuntimeReadiness()
         if (!runtimeReadiness.canRun) {
             throw IllegalStateException(runtimeReadiness.reason)
         }
 
-        val activeConversation = getOrCreateConversation(modelPath, systemInstruction)
+        val activeConversation = getOrCreateConversation(modelPath, systemInstruction, maxContextTokens)
         val response = activeConversation.sendMessage(userMessage, emptyMap<String, Any>())
         response.extractText()
     }
 
     suspend fun generateResponseStreaming(
         userMessage: String,
+        modelVariant: OnDeviceModelVariant,
+        maxContextTokens: Int,
         systemInstruction: String? = null,
         onPartialResponse: (String) -> Unit
     ): String = withContext(Dispatchers.IO) {
-        val availability = getAvailability()
-        val modelPath = availability.modelPath
+        val availability = getAvailability(modelVariant)
+        val modelPath = resolveModelFile(modelVariant)?.absolutePath
+            ?: availability.modelPath
             ?: throw IllegalStateException(availability.statusMessage)
         val runtimeReadiness = getRuntimeReadiness()
         if (!runtimeReadiness.canRun) {
             throw IllegalStateException(runtimeReadiness.reason)
         }
 
-        val activeConversation = getOrCreateConversation(modelPath, systemInstruction)
+        val activeConversation = getOrCreateConversation(modelPath, systemInstruction, maxContextTokens)
 
         suspendCancellableCoroutine { continuation ->
             var latestText = ""
@@ -139,7 +145,8 @@ class OnDeviceChatEngine(
                 object : MessageCallback {
                     override fun onMessage(message: Message) {
                         val partialText = message.extractText()
-                        if (partialText.isBlank()) {
+                        // Preserve newline-only chunks: they carry paragraph structure in streaming mode.
+                        if (partialText.isEmpty()) {
                             return
                         }
 
@@ -179,22 +186,17 @@ class OnDeviceChatEngine(
         engine = null
         loadedModelPath = null
         loadedSystemInstruction = null
+        loadedMaxContextTokens = null
     }
 
-    private fun resolveModelFile(): File? {
+    private fun resolveModelFile(modelVariant: OnDeviceModelVariant): File? {
         val externalRoot = context.getExternalFilesDir(null)
         val candidatePaths = buildList {
             if (externalRoot != null) {
-                add(File(externalRoot, "models/${OnDeviceModelManager.MODEL_FILE_NAME}").absolutePath)
+                add(File(externalRoot, "models/${modelVariant.storageFileName}").absolutePath)
             }
 
-            add("/data/local/tmp/llm/${OnDeviceModelManager.MODEL_FILE_NAME}")
-            if (externalRoot != null) {
-                add(File(externalRoot, "models/gemma-4-E4B-it.litertlm").absolutePath)
-                add(File(externalRoot, "models/gemma-4-E2B-it.litertlm").absolutePath)
-            }
-            add("/data/local/tmp/llm/gemma-4-E4B-it.litertlm")
-            add("/data/local/tmp/llm/gemma-4-E2B-it.litertlm")
+            add("/data/local/tmp/llm/${modelVariant.storageFileName}")
         }
 
         return candidatePaths
@@ -206,13 +208,15 @@ class OnDeviceChatEngine(
     @Synchronized
     private fun getOrCreateConversation(
         modelPath: String,
-        systemInstruction: String?
+        systemInstruction: String?,
+        maxContextTokens: Int
     ): Conversation {
         if (
             conversation != null &&
             engine != null &&
             loadedModelPath == modelPath &&
-            loadedSystemInstruction == systemInstruction
+            loadedSystemInstruction == systemInstruction &&
+            loadedMaxContextTokens == maxContextTokens
         ) {
             return conversation!!
         }
@@ -232,7 +236,7 @@ class OnDeviceChatEngine(
             backend,
             null,
             null,
-            MAX_CONTEXT_TOKENS,
+            maxContextTokens,
             cacheDir
         )
         val newEngine = Engine(engineConfig).also { it.initialize() }
@@ -257,6 +261,7 @@ class OnDeviceChatEngine(
         conversation = newConversation
         loadedModelPath = modelPath
         loadedSystemInstruction = systemInstruction
+        loadedMaxContextTokens = maxContextTokens
         return newConversation
     }
 
@@ -271,7 +276,7 @@ class OnDeviceChatEngine(
         incomingText: String
     ): String {
         return when {
-            currentText.isBlank() -> incomingText
+            currentText.isEmpty() -> incomingText
             incomingText.startsWith(currentText) -> incomingText
             currentText.endsWith(incomingText) -> currentText
             else -> currentText + incomingText

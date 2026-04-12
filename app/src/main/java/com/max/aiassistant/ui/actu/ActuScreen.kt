@@ -60,6 +60,12 @@ fun ActuScreen(actuArticles: List<ActuArticle>, rechercheArticles: List<Recherch
 @Composable
 private fun ActuBody(actuArticles: List<ActuArticle>, rechercheArticles: List<RechercheArticle>, isRefreshing: Boolean, errorMessage: String?, isOffline: Boolean, onRefresh: () -> Unit, showChrome: Boolean, modifier: Modifier) {
     var tab by remember { mutableIntStateOf(0) }
+    LaunchedEffect(actuArticles.size, rechercheArticles.size) {
+        when {
+            tab == 0 && actuArticles.isEmpty() && rechercheArticles.isNotEmpty() -> tab = 1
+            tab == 1 && rechercheArticles.isEmpty() && actuArticles.isNotEmpty() -> tab = 0
+        }
+    }
     val activeItems = if (tab == 0) actuArticles else rechercheArticles
     Column(modifier.fillMaxSize().background(ActuBackdrop)) {
         if (showChrome) Row(Modifier.fillMaxWidth().background(ActuBackdrop).statusBarsPadding().padding(20.dp, 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

@@ -27,29 +27,24 @@ class OnDeviceModelManager(
     private val context: Context,
     private val httpClient: OkHttpClient = OkHttpClient()
 ) {
-    companion object {
-        const val MODEL_FILE_NAME = "gemma-4-E2B-it.litertlm"
-        const val MODEL_URL =
-            "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm?download=true"
-        const val EXPECTED_SHA256 =
-            "AB7838CDFC8F77E54D8CA45EADCEB20452D9F01E4BFADE03E5DCE27911B27E42"
-    }
-
     suspend fun prepareModel(
+        modelVariant: OnDeviceModelVariant,
         forceDownload: Boolean = false,
         onStateChanged: (OnDeviceModelProvisioningState) -> Unit
     ): OnDeviceModelAvailability = withContext(Dispatchers.IO) {
         onStateChanged(
             OnDeviceModelProvisioningState.Checking(
-                "Verification du modele local ${MODEL_FILE_NAME}..."
+                "Verification du modele local ${modelVariant.storageFileName}..."
             )
         )
 
-        val appModelFile = getAppModelFile()
-        val devModelFile = getDevModelFile()
+        val appModelFile = getAppModelFile(modelVariant)
+        val devModelFile = getDevModelFile(modelVariant)
+
+        cleanupManagedAppModels(modelVariant)
 
         if (!forceDownload) {
-            if (isValidModelFile(appModelFile, onStateChanged)) {
+            if (isValidModelFile(appModelFile, modelVariant, onStateChanged)) {
                 return@withContext OnDeviceModelAvailability(
                     isAvailable = true,
                     modelPath = appModelFile.absolutePath,
@@ -64,7 +59,7 @@ class OnDeviceModelManager(
                 }
             }
 
-            if (isValidModelFile(devModelFile, onStateChanged)) {
+            if (isValidModelFile(devModelFile, modelVariant, onStateChanged)) {
                 return@withContext OnDeviceModelAvailability(
                     isAvailable = true,
                     modelPath = devModelFile.absolutePath,
@@ -80,9 +75,9 @@ class OnDeviceModelManager(
             }
         }
 
-        downloadToAppStorage(appModelFile, onStateChanged)
+        downloadToAppStorage(modelVariant, appModelFile, onStateChanged)
 
-        if (!isValidModelFile(appModelFile, onStateChanged)) {
+        if (!isValidModelFile(appModelFile, modelVariant, onStateChanged)) {
             appModelFile.delete()
             throw IOException("Le modele telecharge est invalide ou corrompu.")
         }
@@ -101,9 +96,9 @@ class OnDeviceModelManager(
         }
     }
 
-    fun getCachedAvailability(): OnDeviceModelAvailability {
-        val appModelFile = getAppModelFile()
-        val devModelFile = getDevModelFile()
+    fun getCachedAvailability(modelVariant: OnDeviceModelVariant): OnDeviceModelAvailability {
+        val appModelFile = getAppModelFile(modelVariant)
+        val devModelFile = getDevModelFile(modelVariant)
 
         return when {
             appModelFile.exists() -> OnDeviceModelAvailability(
@@ -125,16 +120,18 @@ class OnDeviceModelManager(
         }
     }
 
-    fun getAppModelFile(): File {
+    fun getAppModelFile(modelVariant: OnDeviceModelVariant): File {
         val root = context.getExternalFilesDir(null) ?: context.filesDir
-        return File(root, "models/$MODEL_FILE_NAME").apply {
+        return File(root, "models/${modelVariant.storageFileName}").apply {
             parentFile?.mkdirs()
         }
     }
 
-    fun getDevModelFile(): File = File("/data/local/tmp/llm/$MODEL_FILE_NAME")
+    fun getDevModelFile(modelVariant: OnDeviceModelVariant): File =
+        File("/data/local/tmp/llm/${modelVariant.storageFileName}")
 
     private fun downloadToAppStorage(
+        modelVariant: OnDeviceModelVariant,
         destinationFile: File,
         onStateChanged: (OnDeviceModelProvisioningState) -> Unit
     ) {
@@ -144,7 +141,7 @@ class OnDeviceModelManager(
         }
 
         val request = Request.Builder()
-            .url(MODEL_URL)
+            .url(modelVariant.downloadUrl)
             .build()
 
         httpClient.newCall(request).execute().use { response ->
@@ -171,7 +168,7 @@ class OnDeviceModelManager(
                             lastEmission = now
                             onStateChanged(
                                 OnDeviceModelProvisioningState.Downloading(
-                                    message = buildDownloadMessage(downloadedBytes, totalBytes),
+                                    message = buildDownloadMessage(modelVariant, downloadedBytes, totalBytes),
                                     downloadedBytes = downloadedBytes,
                                     totalBytes = totalBytes
                                 )
@@ -193,6 +190,7 @@ class OnDeviceModelManager(
 
     private fun isValidModelFile(
         file: File,
+        modelVariant: OnDeviceModelVariant,
         onStateChanged: (OnDeviceModelProvisioningState) -> Unit
     ): Boolean {
         if (!file.exists() || !file.isFile) return false
@@ -204,10 +202,10 @@ class OnDeviceModelManager(
         )
 
         val digest = sha256(file)
-        return if (digest.equals(EXPECTED_SHA256, ignoreCase = true)) {
+        return if (digest.equals(modelVariant.expectedSha256, ignoreCase = true)) {
             true
         } else {
-            if (file == getAppModelFile()) {
+            if (file == getAppModelFile(modelVariant)) {
                 file.delete()
             }
             false
@@ -229,13 +227,28 @@ class OnDeviceModelManager(
         }
     }
 
-    private fun buildDownloadMessage(downloadedBytes: Long, totalBytes: Long?): String {
+    private fun cleanupManagedAppModels(selectedVariant: OnDeviceModelVariant) {
+        OnDeviceModelVariant.entries
+            .filter { it != selectedVariant }
+            .map(::getAppModelFile)
+            .forEach { file ->
+                if (file.exists()) {
+                    file.delete()
+                }
+            }
+    }
+
+    private fun buildDownloadMessage(
+        modelVariant: OnDeviceModelVariant,
+        downloadedBytes: Long,
+        totalBytes: Long?
+    ): String {
         val downloadedMb = downloadedBytes / (1024f * 1024f)
         val totalMb = totalBytes?.div(1024f * 1024f)
         return if (totalMb != null) {
-            "Telechargement de ${MODEL_FILE_NAME}: ${downloadedMb.toInt()} / ${totalMb.toInt()} Mo"
+            "Telechargement de ${modelVariant.storageFileName}: ${downloadedMb.toInt()} / ${totalMb.toInt()} Mo"
         } else {
-            "Telechargement de ${MODEL_FILE_NAME}: ${downloadedMb.toInt()} Mo"
+            "Telechargement de ${modelVariant.storageFileName}: ${downloadedMb.toInt()} Mo"
         }
     }
 
