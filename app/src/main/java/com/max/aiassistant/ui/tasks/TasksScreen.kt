@@ -1,6 +1,7 @@
 package com.max.aiassistant.ui.tasks
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -13,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -66,6 +68,8 @@ private val OrganiserBackdrop = Brush.verticalGradient(
 )
 private val Panel = Color(0xFF121827)
 private val PanelSoft = Color(0xFF192235)
+private val PanelElevated = Color(0xFF172233)
+private val PanelBorder = Color(0xFF24344C)
 private val Blue = Color(0xFF77AFFF)
 private val Mint = Color(0xFF78E4BC)
 private val Gold = Color(0xFFFFC36A)
@@ -73,7 +77,7 @@ private val Rose = Color(0xFFFF728D)
 private val Dim = Color(0xFF97A3BC)
 private val Lilac = Color(0xFFC8A8FF)
 
-private enum class DeckTab { FOCUS, PIPELINE, DONE }
+private enum class TaskFilter { ALL, URGENT, TODO, IN_PROGRESS, DONE }
 enum class OrgaMode { TASK, PLANNING, NOTE }
 private enum class TaskSheetTab { TASK, PLANNING, NOTE }
 
@@ -192,39 +196,49 @@ private fun TasksContent(
     showChrome: Boolean,
     modifier: Modifier
 ) {
-    var tab by remember { mutableStateOf(DeckTab.FOCUS) }
+    var filter by remember { mutableStateOf(TaskFilter.ALL) }
     var mode by remember(initialMode) { mutableStateOf(initialMode) }
     var selectedTaskId by remember { mutableStateOf<String?>(null) }
     var selectedSheetTab by remember { mutableStateOf(TaskSheetTab.TASK) }
     var showCreate by remember { mutableStateOf(false) }
     val selectedTask = tasks.firstOrNull { it.id == selectedTaskId }
-    val focus = remember(tasks) { tasks.filter { it.status == TaskStatus.IN_PROGRESS || it.deadlineDate == todayIso() || overdue(it) } }
-    val pipeline = remember(tasks) { tasks.filter { it.status != TaskStatus.COMPLETED && it !in focus } }
-    val done = remember(tasks) { tasks.filter { it.status == TaskStatus.COMPLETED } }
-    val visible = when (tab) { DeckTab.FOCUS -> focus; DeckTab.PIPELINE -> pipeline; DeckTab.DONE -> done }
+    val allTasks = remember(tasks) {
+        tasks.sortedWith(taskComparator())
+    }
+    val urgentTasks = remember(tasks) {
+        tasks
+            .filter { it.status == TaskStatus.IN_PROGRESS || it.deadlineDate == todayIso() || overdue(it) }
+            .sortedWith(taskComparator())
+    }
+    val todoTasks = remember(tasks) {
+        tasks
+            .filter { it.status == TaskStatus.TODO }
+            .sortedWith(taskComparator())
+    }
+    val inProgressTasks = remember(tasks) {
+        tasks
+            .filter { it.status == TaskStatus.IN_PROGRESS }
+            .sortedWith(taskComparator())
+    }
+    val doneTasks = remember(tasks) {
+        tasks
+            .filter { it.status == TaskStatus.COMPLETED }
+            .sortedWith(taskComparator())
+    }
+    val visible = when (filter) {
+        TaskFilter.ALL -> allTasks
+        TaskFilter.URGENT -> urgentTasks
+        TaskFilter.TODO -> todoTasks
+        TaskFilter.IN_PROGRESS -> inProgressTasks
+        TaskFilter.DONE -> doneTasks
+    }
     val categories = remember(tasks) { tasks.map { it.category }.filter { it.isNotBlank() }.distinct().sorted() }
     LaunchedEffect(initialMode) {
         mode = initialMode
     }
-    LaunchedEffect(tasks, mode) {
-        if (mode != OrgaMode.TASK) return@LaunchedEffect
-        val currentHasItems = when (tab) {
-            DeckTab.FOCUS -> focus.isNotEmpty()
-            DeckTab.PIPELINE -> pipeline.isNotEmpty()
-            DeckTab.DONE -> done.isNotEmpty()
-        }
-        if (!currentHasItems) {
-            tab = when {
-                focus.isNotEmpty() -> DeckTab.FOCUS
-                pipeline.isNotEmpty() -> DeckTab.PIPELINE
-                done.isNotEmpty() -> DeckTab.DONE
-                else -> DeckTab.FOCUS
-            }
-        }
-    }
     Box(modifier = modifier.fillMaxSize().background(OrganiserBackdrop)) {
         Column(Modifier.fillMaxSize()) {
-            if (showChrome) Header("ORGANISER", "Execution")
+            if (showChrome) Header("ORGANISER", modeTitle(mode))
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -236,16 +250,20 @@ private fun TasksContent(
                     onModeChange(it)
                 })
                 if (mode == OrgaMode.TASK) {
-                    Spacer(Modifier.height(12.dp))
-                    DeckTabRow(
-                        tab = tab,
-                        focusCount = focus.size,
-                        pipelineCount = pipeline.size,
-                        doneCount = done.size,
-                        onSelect = { tab = it }
+                    Spacer(Modifier.height(8.dp))
+                    TaskFilterMenu(
+                        filter = filter,
+                        counts = mapOf(
+                            TaskFilter.ALL to allTasks.size,
+                            TaskFilter.URGENT to urgentTasks.size,
+                            TaskFilter.TODO to todoTasks.size,
+                            TaskFilter.IN_PROGRESS to inProgressTasks.size,
+                            TaskFilter.DONE to doneTasks.size
+                        ),
+                        onSelect = { filter = it }
                     )
                 }
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
                 when (mode) {
                     OrgaMode.TASK -> PullToRefreshBox(isRefreshing = isRefreshing, onRefresh = onRefresh, modifier = Modifier.weight(1f)) {
                         when {
@@ -262,11 +280,12 @@ private fun TasksContent(
                                     InlineStatusBanner("Mode local", "Les actions repartiront a la reconnexion.", BannerTone.Offline)
                                 }
                                 if (visible.isEmpty()) item {
-                                    EmptyStateView(Icons.Default.CheckCircle, Blue, when (tab) {
-                                        DeckTab.FOCUS -> "Aucune action urgente"
-                                        DeckTab.PIPELINE -> "Pipeline vide"
-                                        DeckTab.DONE -> "Rien de termine"
-                                    }, "La zone reste propre et compacte tant qu'il n'y a rien a montrer.")
+                                    EmptyStateView(
+                                        Icons.Default.CheckCircle,
+                                        Blue,
+                                        emptyStateTitle(filter),
+                                        "Ajuste le filtre ou cree une tache pour remplir cette vue."
+                                    )
                                 }
                                 items(visible, key = { it.id }) { task ->
                                     TaskCard(
@@ -321,12 +340,12 @@ private fun TasksContent(
                 containerColor = Blue,
                 contentColor = Color(0xFF081120),
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = 24.dp)
-            ) { Icon(Icons.Default.Add, contentDescription = "Nouvelle tache") }
+            ) { Icon(Icons.Default.Add, contentDescription = "Creer une tache") }
         }
     }
     if (showCreate) CreateSheet(categories, { showCreate = false }) { a, b, c, d, e, f ->
         onTaskCreate(a, b, c, d, e, f)
-        tab = tabForCreatedTask(e)
+        filter = TaskFilter.ALL
         showCreate = false
     }
     selectedTask?.let { task ->
@@ -366,69 +385,228 @@ private fun TasksContent(
 
 @Composable private fun OrgaModeSwitcher(mode: OrgaMode, onSelect: (OrgaMode) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        FilterChip(selected = mode == OrgaMode.TASK, onClick = { onSelect(OrgaMode.TASK) }, label = { Text("Taches") }, colors = orgaModeChipColors())
+        FilterChip(selected = mode == OrgaMode.TASK, onClick = { onSelect(OrgaMode.TASK) }, label = { Text("Mes taches") }, colors = orgaModeChipColors())
         FilterChip(selected = mode == OrgaMode.PLANNING, onClick = { onSelect(OrgaMode.PLANNING) }, label = { Text("Planning") }, colors = orgaModeChipColors())
         FilterChip(selected = mode == OrgaMode.NOTE, onClick = { onSelect(OrgaMode.NOTE) }, label = { Text("Notes") }, colors = orgaModeChipColors())
     }
 }
 
-@Composable private fun DeckTabRow(
-    tab: DeckTab,
+@Composable private fun TaskBoardIntro(
+    totalTasks: Int,
     focusCount: Int,
     pipelineCount: Int,
-    doneCount: Int,
-    onSelect: (DeckTab) -> Unit
+    overdueCount: Int,
+    todayCount: Int,
+    inProgressCount: Int
 ) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Choice("Focus $focusCount", tab == DeckTab.FOCUS, Blue, Modifier.weight(1f)) { onSelect(DeckTab.FOCUS) }
-        Choice("Pipeline $pipelineCount", tab == DeckTab.PIPELINE, Gold, Modifier.weight(1f)) { onSelect(DeckTab.PIPELINE) }
-        Choice("Done $doneCount", tab == DeckTab.DONE, Mint, Modifier.weight(1f)) { onSelect(DeckTab.DONE) }
+    Surface(
+        color = PanelElevated,
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, PanelBorder, RoundedCornerShape(28.dp))
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text("Piloter la journee", color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text(
+                "L'ecran met d'abord en avant ce qui est urgent aujourd'hui, puis le reste du flux. Les cartes sont triees automatiquement par urgence, priorite et date.",
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SummaryPill("Total", totalTasks.toString(), Blue, Modifier.weight(1f))
+                SummaryPill("A traiter", pipelineCount.toString(), Gold, Modifier.weight(1f))
+                SummaryPill("En cours", inProgressCount.toString(), Mint, Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SummaryPill("Urgent", focusCount.toString(), Blue, Modifier.weight(1f))
+                SummaryPill("Aujourd'hui", todayCount.toString(), Gold, Modifier.weight(1f))
+                SummaryPill("En retard", overdueCount.toString(), Rose, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable private fun SummaryPill(label: String, value: String, tint: Color, modifier: Modifier = Modifier) {
+    Surface(
+        color = tint.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(20.dp),
+        modifier = modifier
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(label, color = tint, style = MaterialTheme.typography.labelMedium)
+            Text(value, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable private fun TaskFilterMenu(
+    filter: TaskFilter,
+    counts: Map<TaskFilter, Int>,
+    onSelect: (TaskFilter) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        Box {
+            OutlinedButton(
+                onClick = { expanded = true },
+                shape = RoundedCornerShape(16.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Text(taskFilterLabel(filter, counts[filter] ?: 0), color = Color.White)
+                Spacer(Modifier.width(6.dp))
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Dim)
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                TaskFilter.values().forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(taskFilterLabel(option, counts[option] ?: 0)) },
+                        onClick = {
+                            expanded = false
+                            onSelect(option)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun TaskBoardEmptyCard(title: String, message: String) {
+    Surface(
+        color = PanelElevated,
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, PanelBorder, RoundedCornerShape(28.dp))
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("Commencer une vraie organisation", color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text(title, color = Blue, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+            Text(message, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }
 
 @Composable private fun TaskCard(task: Task, mode: OrgaMode, onClick: () -> Unit, onToggle: () -> Unit, onAdvance: () -> Unit, onSchedule: () -> Unit, onCreateNote: () -> Unit) {
     val accent = priorityColor(task.priority)
-    Card(Modifier.fillMaxWidth().clickable(onClick = onClick), shape = RoundedCornerShape(26.dp), colors = CardDefaults.cardColors(containerColor = Panel)) {
-        Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.Top) {
-                Box(Modifier.width(6.dp).height(64.dp).clip(RoundedCornerShape(999.dp)).background(accent))
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(task.title, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        Pill(if (task.deadlineDate.isNotBlank()) formatDateDisplay(task.deadlineDate) else if (task.deadline.isNotBlank()) task.deadline else "Sans date", when {
-                            task.status == TaskStatus.COMPLETED -> Mint
-                            overdue(task) -> Rose
-                            task.deadlineDate == todayIso() -> Gold
-                            else -> Blue
-                        })
+    val deadlineTint = when {
+        task.status == TaskStatus.COMPLETED -> Mint
+        overdue(task) -> Rose
+        task.deadlineDate == todayIso() -> Gold
+        else -> Blue
+    }
+    Card(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = PanelElevated)
+    ) {
+        Column(
+            Modifier
+                .border(1.dp, PanelBorder, RoundedCornerShape(28.dp))
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Box(Modifier.width(6.dp).height(88.dp).clip(RoundedCornerShape(999.dp)).background(accent))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Pill(statusLabel(task.status), statusColor(task.status))
+                        Pill(priorityLabel(task.priority), accent)
+                        if (task.category.isNotBlank()) Pill(task.category, Color(0xFF91A4C6))
                     }
+                    Text(task.title, color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                     if (task.description.isNotBlank()) {
-                        Spacer(Modifier.height(8.dp))
                         Text(task.description, color = Dim, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Pill(
+                            if (task.deadlineDate.isNotBlank()) formatDateDisplay(task.deadlineDate) else if (task.deadline.isNotBlank()) task.deadline else "Sans date",
+                            deadlineTint
+                        )
+                        if (task.estimatedDuration.isNotBlank()) Pill(task.estimatedDuration, Blue)
+                    }
                 }
-            }
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Pill(statusLabel(task.status), statusColor(task.status))
-                Pill(priorityLabel(task.priority), accent)
-                if (task.category.isNotBlank()) Pill(task.category, Color(0xFF7D8FB6))
             }
             if (task.subTasks.isNotEmpty()) {
-                Spacer(Modifier.height(14.dp))
-                Text("${task.subTasks.count { it.isCompleted }}/${task.subTasks.size} sous-actions fermees", color = Dim, style = MaterialTheme.typography.bodySmall)
-            }
-            Spacer(Modifier.height(16.dp))
-            when (mode) {
-                OrgaMode.TASK -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ActionPill(if (task.status == TaskStatus.COMPLETED) "Rouvrir" else "Terminer", Mint, Modifier.weight(1f), Icons.Default.Check, onClick = onToggle)
-                    ActionPill(when (task.status) { TaskStatus.TODO -> "Lancer"; TaskStatus.IN_PROGRESS -> "Clore"; TaskStatus.COMPLETED -> "Fini" }, Blue, Modifier.weight(1f), if (task.status == TaskStatus.COMPLETED) Icons.Default.CheckCircle else Icons.Default.PlayArrow, task.status != TaskStatus.COMPLETED, onAdvance)
+                val completed = task.subTasks.count { it.isCompleted }
+                val progress = completed.toFloat() / task.subTasks.size.toFloat()
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("$completed/${task.subTasks.size} sous-actions terminees", color = Dim, style = MaterialTheme.typography.bodySmall)
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(999.dp)),
+                        color = accent,
+                        trackColor = PanelSoft
+                    )
                 }
+            }
+            when (mode) {
+                OrgaMode.TASK -> TaskCardActions(task = task, onToggle = onToggle, onAdvance = onAdvance)
                 OrgaMode.PLANNING -> DestinationButton("Planifier cette tache", "Basculer vers l'agenda", Mint, Icons.Default.CalendarMonth, Modifier.fillMaxWidth(), onSchedule)
                 OrgaMode.NOTE -> DestinationButton("Creer une note", "Basculer vers notes", Lilac, Icons.Default.Description, Modifier.fillMaxWidth(), onCreateNote)
             }
         }
+    }
+}
+
+@Composable private fun TaskCardActions(task: Task, onToggle: () -> Unit, onAdvance: () -> Unit) {
+    when (task.status) {
+        TaskStatus.TODO -> Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PrimaryTaskAction("Lancer", Blue, icon = Icons.Default.PlayArrow, onClick = onAdvance)
+                ActionPill("Terminer", Mint, icon = Icons.Default.Check, onClick = onToggle)
+            }
+        }
+        TaskStatus.IN_PROGRESS -> Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            ActionPill("Terminer", Mint, icon = Icons.Default.CheckCircle, onClick = onAdvance)
+        }
+        TaskStatus.COMPLETED -> Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            ActionPill("Rouvrir", Blue, icon = Icons.Default.PlayArrow, onClick = onToggle)
+        }
+    }
+}
+
+@Composable private fun PrimaryTaskAction(label: String, tint: Color, modifier: Modifier = Modifier, icon: ImageVector, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = tint, contentColor = Ink),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(label, fontWeight = FontWeight.SemiBold)
     }
 }
 @OptIn(ExperimentalMaterial3Api::class)
@@ -441,13 +619,13 @@ private fun TasksContent(
     var priority by remember { mutableStateOf(TaskPriority.P3) }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Panel, dragHandle = null) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("Nouvelle tache", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-            Text("Une feuille propre, sans chrome superflu.", color = Dim, style = MaterialTheme.typography.bodyMedium)
+            Text("Creer une tache", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            Text("Capture rapidement ce qu'il faut faire, puis laisse le board la classer automatiquement.", color = Dim, style = MaterialTheme.typography.bodyMedium)
             Field(title, { title = it }, "Titre")
             Field(description, { description = it }, "Description", false, 4)
             Field(category, { category = it }, "Categorie")
-            DateField(date, { date = it }, "Date", "JJ/MM/AAAA")
-            Field(duration, { duration = it }, "Duree", true, 1, "45 min")
+            DateField(date, { date = it }, "Echeance", "JJ/MM/AAAA")
+            Field(duration, { duration = it }, "Duree estimee", true, 1, "45 min")
             PriorityRow(priority) { priority = it }
             Button(onClick = { onCreate(title.trim(), category.trim(), description.trim(), priority, date.trim(), duration.trim()) }, enabled = title.isNotBlank(), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = Color(0xFF081120))) { Text("Ajouter") }
         }
@@ -480,10 +658,10 @@ private fun TasksContent(
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Panel, dragHandle = null) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Fiche tache", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text("Modifier la tache", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = "Supprimer", tint = Rose) }
             }
-            Text("Chaque onglet prepare une sortie claire: execution, planning ou notes.", color = Dim, style = MaterialTheme.typography.bodyMedium)
+            Text("Mets a jour l'execution, la planification ou les notes sans quitter le contexte.", color = Dim, style = MaterialTheme.typography.bodyMedium)
             SheetTabRow(tab = tab, onSelect = { tab = it })
             when (tab) {
                 TaskSheetTab.TASK -> {
@@ -491,8 +669,8 @@ private fun TasksContent(
                     Field(description, { description = it }, "Description", false, 4)
                     Field(note, { note = it }, "Notes", false, 4)
                     Field(category, { category = it }, "Categorie", true, 1, categories.firstOrNull().orEmpty())
-                    DateField(date, { date = it }, "Date", "JJ/MM/AAAA")
-                    Field(duration, { duration = it }, "Duree", true, 1, "45 min")
+                    DateField(date, { date = it }, "Echeance", "JJ/MM/AAAA")
+                    Field(duration, { duration = it }, "Duree estimee", true, 1, "45 min")
                     PriorityRow(priority) { priority = it }
                     StatusRow(status) { status = it }
                     if (task.subTasks.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -619,7 +797,7 @@ private fun TasksContent(
             Text("Transformer la tache en note exploitable sans perdre son contexte.", color = Dim, style = MaterialTheme.typography.bodyMedium)
             Text(task.title, color = Color.White, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
             if (task.description.isNotBlank()) Text(task.description, color = Dim, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
-            Button(onClick = onCreateNote, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Lilac, contentColor = Color(0xFF1A112A))) { Text("Creer la note") }
+            Button(onClick = onCreateNote, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Lilac, contentColor = Color(0xFF1A112A))) { Text("Creer une note") }
         }
     }
 }
@@ -683,7 +861,7 @@ private fun priorityColor(priority: TaskPriority): Color = when (priority) {
 private fun statusLabel(status: TaskStatus): String = when (status) {
     TaskStatus.TODO -> "A traiter"
     TaskStatus.IN_PROGRESS -> "En cours"
-    TaskStatus.COMPLETED -> "Fermee"
+    TaskStatus.COMPLETED -> "Terminee"
 }
 
 private fun statusColor(status: TaskStatus): Color = when (status) {
@@ -693,6 +871,65 @@ private fun statusColor(status: TaskStatus): Color = when (status) {
 }
 
 private fun overdue(task: Task): Boolean = task.deadlineDate.isNotBlank() && task.deadlineDate < todayIso() && task.status != TaskStatus.COMPLETED
+
+private fun modeTitle(mode: OrgaMode): String = when (mode) {
+    OrgaMode.TASK -> "Mes taches"
+    OrgaMode.PLANNING -> "Planning"
+    OrgaMode.NOTE -> "Notes"
+}
+
+private fun taskFilterLabel(filter: TaskFilter, count: Int): String = when (filter) {
+    TaskFilter.ALL -> "Toutes ($count)"
+    TaskFilter.URGENT -> "Urgentes ($count)"
+    TaskFilter.TODO -> "A traiter ($count)"
+    TaskFilter.IN_PROGRESS -> "En cours ($count)"
+    TaskFilter.DONE -> "Terminees ($count)"
+}
+
+private fun emptyStateTitle(filter: TaskFilter): String = when (filter) {
+    TaskFilter.ALL -> "Aucune tache"
+    TaskFilter.URGENT -> "Aucune tache urgente"
+    TaskFilter.TODO -> "Aucune tache a traiter"
+    TaskFilter.IN_PROGRESS -> "Aucune tache en cours"
+    TaskFilter.DONE -> "Aucune tache terminee"
+}
+
+private fun taskComparator(): Comparator<Task> {
+    return compareBy<Task>(
+        { priorityRank(it.priority) },
+        { statusBucket(it.status) },
+        { deadlineBucket(it) },
+        { deadlineSortKey(it) },
+        { it.title.lowercase(Locale.getDefault()) }
+    )
+}
+
+private fun statusBucket(status: TaskStatus): Int = when (status) {
+    TaskStatus.IN_PROGRESS -> 0
+    TaskStatus.TODO -> 1
+    TaskStatus.COMPLETED -> 2
+}
+
+private fun deadlineBucket(task: Task): Int = when {
+    overdue(task) -> 0
+    task.deadlineDate == todayIso() -> 1
+    task.deadlineDate.isNotBlank() -> 2
+    else -> 3
+}
+
+private fun priorityRank(priority: TaskPriority): Int = when (priority) {
+    TaskPriority.P1 -> 0
+    TaskPriority.P2 -> 1
+    TaskPriority.P3 -> 2
+    TaskPriority.P4 -> 3
+    TaskPriority.P5 -> 4
+}
+
+private fun deadlineSortKey(task: Task): String = when {
+    task.deadlineDate.isNotBlank() -> task.deadlineDate
+    task.deadline.isNotBlank() -> task.deadline
+    else -> "9999-12-31"
+}
 
 fun buildTaskNoteContent(task: Task): String {
     val parts = buildList {
@@ -728,8 +965,4 @@ private fun isoDateToMillis(isoDate: String): Long? {
 
 private fun millisToIsoDate(millis: Long): String {
     return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(millis))
-}
-
-private fun tabForCreatedTask(deadlineDate: String): DeckTab {
-    return if (deadlineDate.isNotBlank() && deadlineDate <= todayIso()) DeckTab.FOCUS else DeckTab.PIPELINE
 }

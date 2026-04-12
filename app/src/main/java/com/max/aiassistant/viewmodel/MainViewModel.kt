@@ -788,7 +788,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d(TAG, "Récupération des tâches locales...")
                 val tasks = taskRepository.getTasks()
 
-                _tasks.value = tasks
+                _tasks.value = sortTasksForDisplay(tasks)
                 Log.d(TAG, "Tâches récupérées: ${tasks.size}")
 
             } catch (e: Exception) {
@@ -807,7 +807,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun observeTasks() {
         viewModelScope.launch {
             taskRepository.observeTasks().collectLatest { tasks ->
-                _tasks.value = tasks
+                _tasks.value = sortTasksForDisplay(tasks)
             }
         }
     }
@@ -898,17 +898,53 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun updateTaskLocally(taskId: String, transform: (Task) -> Task) {
         var updated = false
-        _tasks.value = _tasks.value.map { task ->
+        _tasks.value = sortTasksForDisplay(_tasks.value.map { task ->
             if (task.id == taskId) {
                 updated = true
                 transform(task)
             } else {
                 task
             }
-        }
+        })
         if (updated) {
             persistTask(taskId)
         }
+    }
+
+    private fun sortTasksForDisplay(tasks: List<Task>): List<Task> {
+        return tasks.sortedWith(
+            compareBy<Task>(
+                { priorityRank(it.priority) },
+                { statusRank(it.status) },
+                { deadlineRank(it) },
+                { it.deadlineDate.ifBlank { "9999-12-31" } },
+                { it.title.lowercase() }
+            )
+        )
+    }
+
+    private fun priorityRank(priority: TaskPriority): Int = when (priority) {
+        TaskPriority.P1 -> 0
+        TaskPriority.P2 -> 1
+        TaskPriority.P3 -> 2
+        TaskPriority.P4 -> 3
+        TaskPriority.P5 -> 4
+    }
+
+    private fun statusRank(status: TaskStatus): Int = when (status) {
+        TaskStatus.IN_PROGRESS -> 0
+        TaskStatus.TODO -> 1
+        TaskStatus.COMPLETED -> 2
+    }
+
+    private fun deadlineRank(task: Task): Int = when {
+        task.deadlineDate.isBlank() -> 2
+        task.deadlineDate < todayIso() && task.status != TaskStatus.COMPLETED -> 0
+        else -> 1
+    }
+
+    private fun todayIso(): String {
+        return java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
     }
 
     /**

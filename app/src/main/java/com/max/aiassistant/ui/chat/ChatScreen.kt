@@ -96,7 +96,6 @@ import com.max.aiassistant.data.local.OnDeviceModelProvisioningState
 import com.max.aiassistant.data.local.SUPPORTED_MAX_CONTEXT_TOKENS
 import com.max.aiassistant.data.local.db.ChatConversationEntity
 import com.max.aiassistant.model.Message
-import com.max.aiassistant.ui.common.EmptyStateView
 import com.max.aiassistant.ui.common.ErrorStateView
 import com.max.aiassistant.ui.common.InlineStatusBanner
 import com.max.aiassistant.ui.common.LoadingStateView
@@ -1210,8 +1209,8 @@ private fun ChatEmptyState(
     modifier: Modifier = Modifier
 ) {
     val suggestions = listOf(
-        "Donne-moi le plan de ma journee.",
-        "Resume les actualites importantes."
+        "Donne-moi le plan de ma journée.",
+        "Résume les actualités importantes."
     )
 
     Column(
@@ -1257,7 +1256,7 @@ private fun ChatEmptyState(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "Ecrivez un prompt clair ou lancez directement le mode vocal.",
+                            text = "Écrivez un prompt clair ou lancez directement le mode vocal.",
                             color = TextSecondary,
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -1283,25 +1282,12 @@ private fun ChatEmptyState(
                     }
                 }
 
-                ComposerActionPill(
-                    label = "Passer en vocal",
-                    icon = Icons.Default.Mic,
-                    onClick = onVoiceInput
-                )
-
                 if (!isOnDeviceModelReady) {
                     CompactModelStatus(status = onDeviceModelStatus)
                 }
             }
         }
 
-        EmptyStateView(
-            icon = Icons.Default.ChatBubbleOutline,
-            iconTint = AccentBlue,
-            title = "Le chat est pret",
-            subtitle = "Vous pouvez ecrire, joindre une image ou basculer en vocal.",
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }
 
