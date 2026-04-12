@@ -57,7 +57,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.max.aiassistant.ui.theme.AccentBlue
 import com.max.aiassistant.ui.theme.DarkBackground
@@ -259,12 +262,23 @@ private fun MaxShellTopBar(
         }
 
         if (!isHome) {
-            Text(
-                text = currentRoute.title,
-                style = MaterialTheme.typography.headlineSmall,
-                color = TextPrimary,
-                fontWeight = FontWeight.Bold
-            )
+            if (currentRoute == AppShellRoute.ACTU) {
+                Text(
+                    text = buildAnnotatedString {
+                        withStyle(SpanStyle(color = AccentBlue, fontWeight = FontWeight.Bold)) {
+                            append(currentRoute.title)
+                        }
+                    },
+                    style = MaterialTheme.typography.headlineSmall
+                )
+            } else {
+                Text(
+                    text = currentRoute.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         } else {
             Text(
                 text = currentRoute.title,
