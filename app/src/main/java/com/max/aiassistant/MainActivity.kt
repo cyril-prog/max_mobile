@@ -366,7 +366,7 @@ class MainActivity : ComponentActivity() {
                                     isRefreshing = isLoadingWeather,
                                     errorMessage = weatherError,
                                     isOffline = isOffline,
-                                    onRefresh = { viewModel.refreshWeather() },
+                                    onRefresh = { viewModel.refreshWeather(force = true) },
                                     onSearchCity = { query -> viewModel.searchCity(query) },
                                     onSelectCity = { city -> viewModel.selectCity(city) },
                                     onSetShowAllergies = { show -> viewModel.setShowAllergies(show) },

@@ -1211,8 +1211,7 @@ private fun ChatEmptyState(
 ) {
     val suggestions = listOf(
         "Donne-moi le plan de ma journee.",
-        "Resume les actualites importantes.",
-        "Aide-moi a preparer trois priorites."
+        "Resume les actualites importantes."
     )
 
     Column(

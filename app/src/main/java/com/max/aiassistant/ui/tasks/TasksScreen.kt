@@ -2,6 +2,7 @@ package com.max.aiassistant.ui.tasks
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -51,6 +52,7 @@ import com.max.aiassistant.ui.notes.NotesScreen
 import com.max.aiassistant.ui.planning.PlanningScreen
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 private val Ink = Color(0xFF0A1018)
@@ -204,6 +206,22 @@ private fun TasksContent(
     LaunchedEffect(initialMode) {
         mode = initialMode
     }
+    LaunchedEffect(tasks, mode) {
+        if (mode != OrgaMode.TASK) return@LaunchedEffect
+        val currentHasItems = when (tab) {
+            DeckTab.FOCUS -> focus.isNotEmpty()
+            DeckTab.PIPELINE -> pipeline.isNotEmpty()
+            DeckTab.DONE -> done.isNotEmpty()
+        }
+        if (!currentHasItems) {
+            tab = when {
+                focus.isNotEmpty() -> DeckTab.FOCUS
+                pipeline.isNotEmpty() -> DeckTab.PIPELINE
+                done.isNotEmpty() -> DeckTab.DONE
+                else -> DeckTab.FOCUS
+            }
+        }
+    }
     Box(modifier = modifier.fillMaxSize().background(OrganiserBackdrop)) {
         Column(Modifier.fillMaxSize()) {
             if (showChrome) Header("ORGANISER", "Execution")
@@ -217,6 +235,16 @@ private fun TasksContent(
                     mode = it
                     onModeChange(it)
                 })
+                if (mode == OrgaMode.TASK) {
+                    Spacer(Modifier.height(12.dp))
+                    DeckTabRow(
+                        tab = tab,
+                        focusCount = focus.size,
+                        pipelineCount = pipeline.size,
+                        doneCount = done.size,
+                        onSelect = { tab = it }
+                    )
+                }
                 Spacer(Modifier.height(16.dp))
                 when (mode) {
                     OrgaMode.TASK -> PullToRefreshBox(isRefreshing = isRefreshing, onRefresh = onRefresh, modifier = Modifier.weight(1f)) {
@@ -296,7 +324,11 @@ private fun TasksContent(
             ) { Icon(Icons.Default.Add, contentDescription = "Nouvelle tache") }
         }
     }
-    if (showCreate) CreateSheet(categories, { showCreate = false }) { a, b, c, d, e, f -> onTaskCreate(a, b, c, d, e, f); showCreate = false }
+    if (showCreate) CreateSheet(categories, { showCreate = false }) { a, b, c, d, e, f ->
+        onTaskCreate(a, b, c, d, e, f)
+        tab = tabForCreatedTask(e)
+        showCreate = false
+    }
     selectedTask?.let { task ->
         TaskSheet(
             task = task,
@@ -340,6 +372,20 @@ private fun TasksContent(
     }
 }
 
+@Composable private fun DeckTabRow(
+    tab: DeckTab,
+    focusCount: Int,
+    pipelineCount: Int,
+    doneCount: Int,
+    onSelect: (DeckTab) -> Unit
+) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Choice("Focus $focusCount", tab == DeckTab.FOCUS, Blue, Modifier.weight(1f)) { onSelect(DeckTab.FOCUS) }
+        Choice("Pipeline $pipelineCount", tab == DeckTab.PIPELINE, Gold, Modifier.weight(1f)) { onSelect(DeckTab.PIPELINE) }
+        Choice("Done $doneCount", tab == DeckTab.DONE, Mint, Modifier.weight(1f)) { onSelect(DeckTab.DONE) }
+    }
+}
+
 @Composable private fun TaskCard(task: Task, mode: OrgaMode, onClick: () -> Unit, onToggle: () -> Unit, onAdvance: () -> Unit, onSchedule: () -> Unit, onCreateNote: () -> Unit) {
     val accent = priorityColor(task.priority)
     Card(Modifier.fillMaxWidth().clickable(onClick = onClick), shape = RoundedCornerShape(26.dp), colors = CardDefaults.cardColors(containerColor = Panel)) {
@@ -350,7 +396,7 @@ private fun TasksContent(
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(task.title, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        Pill(if (task.deadlineDate.isNotBlank()) task.deadlineDate else if (task.deadline.isNotBlank()) task.deadline else "Sans date", when {
+                        Pill(if (task.deadlineDate.isNotBlank()) formatDateDisplay(task.deadlineDate) else if (task.deadline.isNotBlank()) task.deadline else "Sans date", when {
                             task.status == TaskStatus.COMPLETED -> Mint
                             overdue(task) -> Rose
                             task.deadlineDate == todayIso() -> Gold
@@ -400,7 +446,7 @@ private fun TasksContent(
             Field(title, { title = it }, "Titre")
             Field(description, { description = it }, "Description", false, 4)
             Field(category, { category = it }, "Categorie")
-            Field(date, { date = it }, "Date ISO", true, 1, "2026-04-11")
+            DateField(date, { date = it }, "Date", "JJ/MM/AAAA")
             Field(duration, { duration = it }, "Duree", true, 1, "45 min")
             PriorityRow(priority) { priority = it }
             Button(onClick = { onCreate(title.trim(), category.trim(), description.trim(), priority, date.trim(), duration.trim()) }, enabled = title.isNotBlank(), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = Color(0xFF081120))) { Text("Ajouter") }
@@ -445,7 +491,7 @@ private fun TasksContent(
                     Field(description, { description = it }, "Description", false, 4)
                     Field(note, { note = it }, "Notes", false, 4)
                     Field(category, { category = it }, "Categorie", true, 1, categories.firstOrNull().orEmpty())
-                    Field(date, { date = it }, "Date ISO", true, 1, "2026-04-11")
+                    DateField(date, { date = it }, "Date", "JJ/MM/AAAA")
                     Field(duration, { duration = it }, "Duree", true, 1, "45 min")
                     PriorityRow(priority) { priority = it }
                     StatusRow(status) { status = it }
@@ -483,6 +529,68 @@ private fun TasksContent(
     OutlinedTextField(value = value, onValueChange = onChange, modifier = modifier.fillMaxWidth(), label = { Text(label) }, placeholder = if (hint.isBlank()) null else ({ Text(hint) }), singleLine = singleLine, minLines = minLines, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences), shape = RoundedCornerShape(18.dp))
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable private fun DateField(
+    value: String,
+    onChange: (String) -> Unit,
+    label: String,
+    hint: String,
+    modifier: Modifier = Modifier
+) {
+    var showPicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = isoDateToMillis(value))
+
+    Box(modifier = modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = formatDateDisplay(value),
+            onValueChange = {},
+            modifier = Modifier.fillMaxWidth(),
+            readOnly = true,
+            label = { Text(label) },
+            placeholder = { Text(hint) },
+            trailingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
+            shape = RoundedCornerShape(18.dp)
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { showPicker = true }
+        )
+    }
+
+    if (showPicker) {
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { selected ->
+                            onChange(millisToIsoDate(selected))
+                        }
+                        showPicker = false
+                    }
+                ) { Text("Valider") }
+            },
+            dismissButton = {
+                Row {
+                    if (value.isNotBlank()) {
+                        TextButton(onClick = {
+                            onChange("")
+                            showPicker = false
+                        }) { Text("Effacer") }
+                    }
+                    TextButton(onClick = { showPicker = false }) { Text("Annuler") }
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
 @Composable private fun SheetTabRow(tab: TaskSheetTab, onSelect: (TaskSheetTab) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Choice("Tache", tab == TaskSheetTab.TASK, Blue, Modifier.weight(1f)) { onSelect(TaskSheetTab.TASK) }
@@ -497,7 +605,7 @@ private fun TasksContent(
             Text("Envoyer au planning", color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text("Preparer cette tache pour l'agenda avec les infos deja disponibles.", color = Dim, style = MaterialTheme.typography.bodyMedium)
             Text(task.title, color = Color.White, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-            if (date.isNotBlank()) Pill(date, Mint)
+            if (date.isNotBlank()) Pill(formatDateDisplay(date), Mint)
             if (duration.isNotBlank()) Pill(duration, Blue)
             Button(onClick = onOpenPlanning, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Mint, contentColor = Color(0xFF081120))) { Text("Ouvrir le planning") }
         }
@@ -601,4 +709,27 @@ fun buildTaskNoteContent(task: Task): String {
 private fun todayIso(): String {
     val calendar = Calendar.getInstance()
     return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(calendar.time)
+}
+
+private fun formatDateDisplay(isoDate: String): String {
+    if (isoDate.isBlank()) return ""
+    return runCatching {
+        val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(isoDate)
+        if (parsed == null) isoDate else SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE).format(parsed)
+    }.getOrDefault(isoDate)
+}
+
+private fun isoDateToMillis(isoDate: String): Long? {
+    if (isoDate.isBlank()) return null
+    return runCatching {
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(isoDate)?.time
+    }.getOrNull()
+}
+
+private fun millisToIsoDate(millis: Long): String {
+    return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(millis))
+}
+
+private fun tabForCreatedTask(deadlineDate: String): DeckTab {
+    return if (deadlineDate.isNotBlank() && deadlineDate <= todayIso()) DeckTab.FOCUS else DeckTab.PIPELINE
 }

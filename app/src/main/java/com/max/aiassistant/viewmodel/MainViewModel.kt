@@ -13,8 +13,6 @@ import com.max.aiassistant.data.api.toEvent
 import com.max.aiassistant.data.api.toActuArticle
 import com.max.aiassistant.data.api.toCurrentPollen
 import com.max.aiassistant.data.api.toRechercheArticle
-import com.max.aiassistant.data.api.toTask
-import com.max.aiassistant.data.api.toUpdateRequest
 import com.max.aiassistant.data.api.toWeatherData
 import com.max.aiassistant.data.chat.ChatTitleFormatter
 import com.max.aiassistant.data.local.DEFAULT_SYSTEM_PROMPT
@@ -30,6 +28,9 @@ import com.max.aiassistant.data.local.db.ChatMessageStatus
 import com.max.aiassistant.data.local.db.ChatRepository
 import com.max.aiassistant.data.local.db.ConversationTitleStatus
 import com.max.aiassistant.data.local.db.MaxDatabase
+import com.max.aiassistant.data.local.db.TaskRepository
+import com.max.aiassistant.data.local.db.WeatherCacheRepository
+import com.max.aiassistant.data.local.db.WeatherCacheSnapshot
 import com.max.aiassistant.data.preferences.OnDeviceAiPreferences
 import com.max.aiassistant.data.realtime.RealtimeApiService
 import com.max.aiassistant.data.realtime.RealtimeAudioManager
@@ -62,6 +63,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val CHAT_UI_MESSAGE_LIMIT = 50
         private const val CHAT_CONTEXT_MESSAGE_LIMIT = 10
         private const val MAX_MESSAGES_PER_CONVERSATION = 300
+        private const val WEATHER_CACHE_TTL_MILLIS = 60 * 60 * 1000L
     }
 
     // ========== SERVICES API ==========
@@ -77,6 +79,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val onDeviceChatEngine = OnDeviceChatEngine(application.applicationContext)
     private val chatDatabase = MaxDatabase.getInstance(application.applicationContext)
     private val chatRepository = ChatRepository(chatDatabase)
+    private val taskRepository = TaskRepository(chatDatabase)
+    private val weatherCacheRepository = WeatherCacheRepository(chatDatabase.weatherCacheDao())
     private val TAG = "MainViewModel"
 
     // Clé API OpenAI pour l'API Realtime (chargée depuis local.properties via BuildConfig)
@@ -138,33 +142,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             Log.d(TAG, "Chargement du contexte système...")
             val builder = StringBuilder()
 
-            // 1. Récupération des tâches
+            // 1. Récupération des tâches locales
             try {
-                Log.d(TAG, "Récupération des tâches...")
-                val tasksResponse = apiService.getTasks()
-                val tasks = tasksResponse.text.data
+                Log.d(TAG, "Récupération des tâches locales...")
+                val tasks = taskRepository.getTasks()
 
                 if (tasks.isNotEmpty()) {
                     builder.append("\n\n=== TÂCHES EN COURS (${tasks.size}) ===\n")
                     tasks.forEach { task ->
-                        builder.append("- [${task.statut ?: "À faire"}] ${task.titre}")
-                        if (!task.priorite.isNullOrEmpty() && task.priorite.lowercase() != "normale") {
-                            builder.append(" (${task.priorite})")
+                        builder.append("- [${task.status.toSystemContextLabel()}] ${task.title}")
+                        if (task.priority != TaskPriority.P3) {
+                            builder.append(" (${task.priority.name})")
                         }
-                        if (task.dateLimite.isNotEmpty()) {
-                            builder.append(" - Échéance: ${task.dateLimite.split("T")[0]}")
+                        if (task.deadlineDate.isNotEmpty()) {
+                            builder.append(" - Échéance: ${task.deadlineDate}")
                         }
                         builder.append("\n")
                         if (task.description.isNotEmpty()) {
                             builder.append("  Description: ${task.description}\n")
                         }
                     }
-                    Log.d(TAG, "✅ ${tasks.size} tâches récupérées")
+                    Log.d(TAG, "✅ ${tasks.size} tâches locales récupérées")
                 } else {
-                    Log.d(TAG, "Aucune tâche trouvée")
+                    Log.d(TAG, "Aucune tâche locale trouvée")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "❌ Erreur lors de la récupération des tâches (ignorée)", e)
+                Log.e(TAG, "❌ Erreur lors de la récupération des tâches locales (ignorée)", e)
             }
 
             // 2. Récupération des événements du calendrier
@@ -773,71 +776,61 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val taskError: StateFlow<String?> = _taskError.asStateFlow()
 
     /**
-     * Récupère les tâches depuis l'API
+     * Recharge les tâches depuis la base locale
      */
     fun refreshTasks() {
         viewModelScope.launch {
+            if (_isLoadingTasks.value) return@launch
+            val startedAt = System.currentTimeMillis()
             try {
                 _isLoadingTasks.value = true
                 _taskError.value = null
-                Log.d(TAG, "Récupération des tâches...")
-
-                val response = apiService.getTasks()
-                val tasks = response.text.data.map { it.toTask() }
+                Log.d(TAG, "Récupération des tâches locales...")
+                val tasks = taskRepository.getTasks()
 
                 _tasks.value = tasks
                 Log.d(TAG, "Tâches récupérées: ${tasks.size}")
 
             } catch (e: Exception) {
                 Log.e(TAG, "Erreur lors de la récupération des tâches", e)
-                _taskError.value = "Impossible de récupérer les tâches pour le moment."
-                // En cas d'erreur, on garde les tâches actuelles
+                _taskError.value = "Impossible de récupérer les tâches locales pour le moment."
             } finally {
+                val elapsed = System.currentTimeMillis() - startedAt
+                if (elapsed < 250L) {
+                    delay(250L - elapsed)
+                }
                 _isLoadingTasks.value = false
             }
         }
     }
 
-    /**
-     * Met à jour le statut d'une tâche
-     * Note: Le statut n'est pas synchronisé via upd_task car non inclus dans les champs
-     */
-    fun updateTaskStatus(taskId: String, newStatus: TaskStatus) {
-        _tasks.value = _tasks.value.map { task ->
-            if (task.id == taskId) {
-                task.copy(status = newStatus)
-            } else {
-                task
+    private fun observeTasks() {
+        viewModelScope.launch {
+            taskRepository.observeTasks().collectLatest { tasks ->
+                _tasks.value = tasks
             }
         }
+    }
+
+    /**
+     * Met à jour le statut d'une tâche locale
+     */
+    fun updateTaskStatus(taskId: String, newStatus: TaskStatus) {
+        updateTaskLocally(taskId) { it.copy(status = newStatus) }
     }
 
     /**
      * Met à jour la priorité d'une tâche
      */
     fun updateTaskPriority(taskId: String, newPriority: TaskPriority) {
-        _tasks.value = _tasks.value.map { task ->
-            if (task.id == taskId) {
-                task.copy(priority = newPriority)
-            } else {
-                task
-            }
-        }
-        syncTaskToApi(taskId)
+        updateTaskLocally(taskId) { it.copy(priority = newPriority) }
     }
 
     /**
      * Met à jour la durée estimée d'une tâche
      */
     fun updateTaskDuration(taskId: String, newDuration: String) {
-        _tasks.value = _tasks.value.map { task ->
-            if (task.id == taskId) {
-                task.copy(estimatedDuration = newDuration)
-            } else {
-                task
-            }
-        }
-        syncTaskToApi(taskId)
+        updateTaskLocally(taskId) { it.copy(estimatedDuration = newDuration) }
     }
 
     /**
@@ -846,129 +839,97 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * @param newDeadlineDate Date au format ISO (ex: "2025-12-15")
      */
     fun updateTaskDeadline(taskId: String, newDeadlineDate: String) {
-        _tasks.value = _tasks.value.map { task ->
-            if (task.id == taskId) {
-                task.copy(
-                    deadlineDate = newDeadlineDate,
-                    deadline = com.max.aiassistant.data.api.formatDeadline(newDeadlineDate)
-                )
-            } else {
-                task
-            }
+        updateTaskLocally(taskId) { task ->
+            task.copy(
+                deadlineDate = newDeadlineDate,
+                deadline = com.max.aiassistant.data.api.formatDeadline(newDeadlineDate)
+            )
         }
-        syncTaskToApi(taskId)
     }
 
     /**
      * Met à jour la catégorie d'une tâche
      */
     fun updateTaskCategory(taskId: String, newCategory: String) {
-        _tasks.value = _tasks.value.map { task ->
-            if (task.id == taskId) {
-                task.copy(category = newCategory)
-            } else {
-                task
-            }
-        }
-        syncTaskToApi(taskId)
+        updateTaskLocally(taskId) { it.copy(category = newCategory) }
     }
 
     /**
      * Met à jour le titre d'une tâche
      */
     fun updateTaskTitle(taskId: String, newTitle: String) {
-        _tasks.value = _tasks.value.map { task ->
-            if (task.id == taskId) {
-                task.copy(title = newTitle)
-            } else {
-                task
-            }
-        }
-        syncTaskToApi(taskId)
+        updateTaskLocally(taskId) { it.copy(title = newTitle) }
     }
 
     /**
      * Met à jour la description d'une tâche
      */
     fun updateTaskDescription(taskId: String, newDescription: String) {
-        _tasks.value = _tasks.value.map { task ->
-            if (task.id == taskId) {
-                task.copy(description = newDescription)
-            } else {
-                task
-            }
-        }
-        syncTaskToApi(taskId)
+        updateTaskLocally(taskId) { it.copy(description = newDescription) }
     }
 
     /**
      * Met à jour les notes d'une tâche
      */
     fun updateTaskNote(taskId: String, newNote: String) {
+        updateTaskLocally(taskId) { it.copy(note = newNote) }
+    }
+
+    /**
+     * Persiste la version courante d'une tâche locale en base
+     */
+    private fun persistTask(taskId: String) {
+        val task = _tasks.value.find { it.id == taskId }
+        if (task == null) {
+            Log.e(TAG, "persistTask: Tâche $taskId non trouvée")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                taskRepository.updateTask(task)
+                Log.d(TAG, "Tâche locale persistée: $taskId")
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors de la persistance de la tâche locale", e)
+                _taskError.value = "Impossible d'enregistrer cette tâche."
+            }
+        }
+    }
+
+    private fun updateTaskLocally(taskId: String, transform: (Task) -> Task) {
+        var updated = false
         _tasks.value = _tasks.value.map { task ->
             if (task.id == taskId) {
-                task.copy(note = newNote)
+                updated = true
+                transform(task)
             } else {
                 task
             }
         }
-        syncTaskToApi(taskId)
-    }
-
-    /**
-     * Synchronise une tâche avec l'API après modification
-     */
-    private fun syncTaskToApi(taskId: String) {
-        val task = _tasks.value.find { it.id == taskId }
-        if (task == null) {
-            Log.e(TAG, "syncTaskToApi: Tâche $taskId non trouvée")
-            return
-        }
-        
-        viewModelScope.launch {
-            try {
-                Log.d(TAG, "Synchronisation de la tâche $taskId avec l'API...")
-                val request = task.toUpdateRequest()
-                Log.d(TAG, "Requête: id=${request.id}, titre=${request.titre}, categorie=${request.categorie}, priorite=${request.priorite}")
-                val response = apiService.updateTask(request)
-                
-                if (response.isSuccessful) {
-                    Log.d(TAG, "Tâche synchronisée avec succès")
-                } else {
-                    Log.e(TAG, "Erreur lors de la synchronisation: ${response.code()} - ${response.errorBody()?.string()}")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Erreur lors de la synchronisation de la tâche", e)
-            }
+        if (updated) {
+            persistTask(taskId)
         }
     }
 
     /**
-     * Supprime une tâche via l'API et met à jour la liste locale
+     * Supprime une tâche locale et met à jour la liste affichée
      */
     fun deleteTask(taskId: String) {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Suppression de la tâche $taskId...")
-
-                // Appel de l'API pour supprimer la tâche
-                val response = apiService.deleteTask(taskId)
-
-                if (response.isSuccessful) {
-                    // Suppression réussie, on retire la tâche de la liste locale
-                    _tasks.value = _tasks.value.filter { it.id != taskId }
-                    Log.d(TAG, "Tâche supprimée avec succès")
-                } else {
-                    Log.e(TAG, "Erreur lors de la suppression de la tâche: ${response.code()}")
-                }
+                Log.d(TAG, "Suppression locale de la tâche $taskId...")
+                taskRepository.deleteTask(taskId)
+                _tasks.value = _tasks.value.filter { it.id != taskId }
+                Log.d(TAG, "Tâche supprimée avec succès")
             } catch (e: Exception) {
-                Log.e(TAG, "Erreur lors de la suppression de la tâche", e)
+                Log.e(TAG, "Erreur lors de la suppression locale de la tâche", e)
+                _taskError.value = "Impossible de supprimer cette tâche."
             }
         }
     }
 
     /**
-     * Crée une nouvelle tâche via l'API et rafraîchit la liste
+     * Crée une nouvelle tâche en local et rafraîchit la liste
      */
     fun createTask(
         titre: String,
@@ -981,36 +942,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Création de la tâche: $titre...")
-
-                val request = com.max.aiassistant.data.api.TaskCreateRequest(
+                Log.d(TAG, "Création locale de la tâche: $titre...")
+                taskRepository.createTask(
                     titre = titre,
-                    statut = "À faire",
                     categorie = categorie,
                     description = description,
                     note = note,
-                    priorite = when (priorite) {
-                        TaskPriority.P1 -> "P1"
-                        TaskPriority.P2 -> "P2"
-                        TaskPriority.P3 -> "P3"
-                        TaskPriority.P4 -> "P4"
-                        TaskPriority.P5 -> "P5"
-                    },
+                    priorite = priorite,
                     dateLimite = dateLimite,
                     dureeEstimee = dureeEstimee
                 )
-
-                val response = apiService.createTask(request)
-
-                if (response.isSuccessful) {
-                    Log.d(TAG, "Tâche créée avec succès, rafraîchissement de la liste...")
-                    // Rafraîchir la liste des tâches pour récupérer la nouvelle tâche avec son ID
-                    refreshTasks()
-                } else {
-                    Log.e(TAG, "Erreur lors de la création de la tâche: ${response.code()} - ${response.errorBody()?.string()}")
-                }
             } catch (e: Exception) {
-                Log.e(TAG, "Erreur lors de la création de la tâche", e)
+                Log.e(TAG, "Erreur lors de la création locale de la tâche", e)
+                _taskError.value = "Impossible de créer cette tâche."
             }
         }
     }
@@ -1018,60 +962,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // ========== GESTION DES SOUS-TÂCHES ==========
 
     /**
-     * Crée une nouvelle sous-tâche via l'API
+     * Crée une nouvelle sous-tâche en local
      */
     fun createSubTask(taskId: String, text: String) {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Création de la sous-tâche pour la tâche $taskId...")
-
-                // Mise à jour optimiste : ajouter temporairement la sous-tâche (sans ID)
+                Log.d(TAG, "Création locale de la sous-tâche pour la tâche $taskId...")
+                val createdSubTask = taskRepository.createSubTask(taskId = taskId, text = text)
                 _tasks.value = _tasks.value.map { task ->
                     if (task.id == taskId) {
-                        task.copy(
-                            subTasks = task.subTasks + com.max.aiassistant.model.SubTask(
-                                id = "temp_${System.currentTimeMillis()}",
-                                taskId = taskId,
-                                text = text,
-                                isCompleted = false
-                            )
-                        )
+                        task.copy(subTasks = task.subTasks + createdSubTask)
                     } else {
                         task
                     }
                 }
-
-                val request = com.max.aiassistant.data.api.SubTaskCreateRequest(
-                    taskId = taskId,
-                    text = text,
-                    isCompleted = false
-                )
-
-                val response = apiService.createSubTask(request)
-
-                if (response.isSuccessful) {
-                    Log.d(TAG, "Sous-tâche créée avec succès, rafraîchissement pour obtenir l'ID...")
-                    refreshTasks() // Pour obtenir le vrai ID de la sous-tâche
-                } else {
-                    Log.e(TAG, "Erreur lors de la création de la sous-tâche: ${response.code()}")
-                    refreshTasks() // Reverter la mise à jour optimiste
-                }
             } catch (e: Exception) {
-                Log.e(TAG, "Erreur lors de la création de la sous-tâche", e)
-                refreshTasks()
+                Log.e(TAG, "Erreur lors de la création locale de la sous-tâche", e)
+                _taskError.value = "Impossible d'ajouter cette sous-tâche."
             }
         }
     }
 
     /**
-     * Met à jour une sous-tâche via l'API (texte ou statut)
+     * Met à jour une sous-tâche locale (texte ou statut)
      */
     fun updateSubTask(subTaskId: String, text: String, isCompleted: Boolean) {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Mise à jour de la sous-tâche $subTaskId...")
-
-                // Mise à jour optimiste de la liste locale immédiatement
+                Log.d(TAG, "Mise à jour locale de la sous-tâche $subTaskId...")
                 _tasks.value = _tasks.value.map { task ->
                     task.copy(
                         subTasks = task.subTasks.map { subTask ->
@@ -1083,58 +1001,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     )
                 }
-
-                val request = com.max.aiassistant.data.api.SubTaskUpdateRequest(
-                    id = subTaskId,
+                taskRepository.updateSubTask(
+                    subTaskId = subTaskId,
                     text = text,
                     isCompleted = isCompleted
                 )
-
-                val response = apiService.updateSubTask(request)
-
-                if (response.isSuccessful) {
-                    Log.d(TAG, "Sous-tâche mise à jour avec succès")
-                    // Pas besoin de refreshTasks(), la mise à jour optimiste suffit
-                } else {
-                    Log.e(TAG, "Erreur lors de la mise à jour de la sous-tâche: ${response.code()}")
-                    // En cas d'erreur, on pourrait reverter la mise à jour optimiste
-                    refreshTasks()
-                }
             } catch (e: Exception) {
-                Log.e(TAG, "Erreur lors de la mise à jour de la sous-tâche", e)
-                // En cas d'erreur, rafraîchir pour avoir l'état réel
+                Log.e(TAG, "Erreur lors de la mise à jour locale de la sous-tâche", e)
+                _taskError.value = "Impossible d'enregistrer cette sous-tâche."
                 refreshTasks()
             }
         }
     }
 
     /**
-     * Supprime une sous-tâche via l'API
+     * Supprime une sous-tâche locale
      */
     fun deleteSubTask(subTaskId: String) {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Suppression de la sous-tâche $subTaskId...")
-
-                // Mise à jour optimiste de la liste locale immédiatement
+                Log.d(TAG, "Suppression locale de la sous-tâche $subTaskId...")
                 _tasks.value = _tasks.value.map { task ->
                     task.copy(
                         subTasks = task.subTasks.filter { it.id != subTaskId }
                     )
                 }
-
-                val request = com.max.aiassistant.data.api.SubTaskDeleteRequest(id = subTaskId)
-
-                val response = apiService.deleteSubTask(request)
-
-                if (response.isSuccessful) {
-                    Log.d(TAG, "Sous-tâche supprimée avec succès")
-                } else {
-                    Log.e(TAG, "Erreur lors de la suppression de la sous-tâche: ${response.code()}")
-                    refreshTasks()
-                }
+                taskRepository.deleteSubTask(subTaskId)
             } catch (e: Exception) {
-                Log.e(TAG, "Erreur lors de la suppression de la sous-tâche", e)
+                Log.e(TAG, "Erreur lors de la suppression locale de la sous-tâche", e)
+                _taskError.value = "Impossible de supprimer cette sous-tâche."
                 refreshTasks()
             }
         }
@@ -1305,11 +1200,111 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Récupère les données météo depuis Open-Meteo
      */
-    fun refreshWeather() {
+    fun refreshWeather(force: Boolean = false) {
         viewModelScope.launch {
+            if (_isLoadingWeather.value) {
+                Log.d(TAG, "Rafraichissement meteo ignore car un chargement est deja en cours")
+                return@launch
+            }
+
+            _isLoadingWeather.value = true
+            _weatherError.value = null
+
+            val cityName = _cityName.value
+            val latitude = _cityLatitude.value
+            val longitude = _cityLongitude.value
+            val now = System.currentTimeMillis()
+            var hasRefreshError = false
+
             try {
-                _isLoadingWeather.value = true
-                _weatherError.value = null
+                val cachedSnapshot = weatherCacheRepository.get(latitude, longitude)
+                cachedSnapshot?.let { snapshot ->
+                    _weatherData.value = snapshot.weatherData
+                    Log.d(
+                        TAG,
+                        "Donnees meteo chargees depuis la BDD (weatherFetchedAt=${snapshot.weatherFetchedAt}, pollenFetchedAt=${snapshot.pollenFetchedAt})"
+                    )
+                }
+
+                val shouldRefreshWeather = force ||
+                    cachedSnapshot == null ||
+                    cachedSnapshot.isWeatherExpired(now, WEATHER_CACHE_TTL_MILLIS)
+                val shouldRefreshPollen = force ||
+                    cachedSnapshot == null ||
+                    cachedSnapshot.isPollenExpired(now, WEATHER_CACHE_TTL_MILLIS)
+
+                if (!shouldRefreshWeather && !shouldRefreshPollen) {
+                    Log.d(TAG, "Cache meteo et allergies encore frais, aucun appel API necessaire")
+                    return@launch
+                }
+
+                var currentWeatherData = cachedSnapshot?.weatherData
+                var weatherFetchedAt = cachedSnapshot?.weatherFetchedAt ?: 0L
+                var pollenFetchedAt = cachedSnapshot?.pollenFetchedAt
+
+                if (shouldRefreshWeather) {
+                    try {
+                        val weatherFromApi = weatherApiService.getWeatherForecast(
+                            latitude = latitude,
+                            longitude = longitude
+                        ).toWeatherData()
+
+                        currentWeatherData = if (!shouldRefreshPollen) {
+                            weatherCacheRepository.mergePollen(
+                                weatherFromApi,
+                                cachedSnapshot!!.weatherData.toCurrentPollenData()
+                            )
+                        } else {
+                            weatherFromApi
+                        }
+                        weatherFetchedAt = now
+                        Log.d(TAG, "Meteo actualisee depuis l'API")
+                    } catch (e: Exception) {
+                        hasRefreshError = true
+                        Log.e(TAG, "Erreur lors de l'actualisation de la meteo", e)
+                    }
+                }
+
+                if (shouldRefreshPollen) {
+                    try {
+                        val pollenData = pollenApiService.getPollenForecast(
+                            latitude = latitude,
+                            longitude = longitude
+                        ).toCurrentPollen()
+
+                        currentWeatherData = currentWeatherData?.let {
+                            weatherCacheRepository.mergePollen(it, pollenData)
+                        }
+                        pollenFetchedAt = now
+                        Log.d(TAG, "Pollens actualises depuis l'API air-quality")
+                    } catch (e: Exception) {
+                        hasRefreshError = true
+                        Log.w(TAG, "Impossible de recuperer les pollens depuis l'API air-quality", e)
+                    }
+                }
+
+                currentWeatherData?.let { weatherData ->
+                    val snapshot = WeatherCacheSnapshot(
+                        cityName = cityName,
+                        latitude = latitude,
+                        longitude = longitude,
+                        weatherData = weatherData,
+                        weatherFetchedAt = weatherFetchedAt.takeIf { it > 0 } ?: now,
+                        pollenFetchedAt = pollenFetchedAt
+                    )
+                    weatherCacheRepository.save(snapshot)
+                    _weatherData.value = snapshot.weatherData
+                    Log.d(
+                        TAG,
+                        "Donnees meteo disponibles: ${weatherData.currentTemperature}°C, ${weatherData.hourlyForecasts.size} previsions horaires"
+                    )
+                }
+
+                if (hasRefreshError && _weatherData.value == null) {
+                    _weatherError.value = "Impossible de recuperer la meteo pour l'instant."
+                }
+
+                return@launch
                 Log.d(TAG, "Récupération des données météo pour ${_cityName.value}...")
 
                 val latitude = _cityLatitude.value
@@ -1688,6 +1683,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
         observeOnDeviceAiSettings()
         observeConversations()
+        observeTasks()
         loadSystemContext()
         loadRecentMessages()
         refreshTasks()
@@ -1735,4 +1731,24 @@ private fun ChatMessageEntity.toUiMessage(): Message {
         timestamp = createdAt,
         imageUri = imageUri?.let(Uri::parse)
     )
+}
+
+private fun com.max.aiassistant.data.api.WeatherData.toCurrentPollenData():
+    com.max.aiassistant.data.api.CurrentPollenData {
+    return com.max.aiassistant.data.api.CurrentPollenData(
+        grassPollen = grassPollen,
+        birchPollen = birchPollen,
+        alderPollen = alderPollen,
+        olivePollen = olivePollen,
+        mugwortPollen = mugwortPollen,
+        ragweedPollen = ragweedPollen
+    )
+}
+
+private fun TaskStatus.toSystemContextLabel(): String {
+    return when (this) {
+        TaskStatus.TODO -> "À faire"
+        TaskStatus.IN_PROGRESS -> "En cours"
+        TaskStatus.COMPLETED -> "Terminé"
+    }
 }
