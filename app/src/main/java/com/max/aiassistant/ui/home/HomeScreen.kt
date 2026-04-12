@@ -20,14 +20,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudQueue
-import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SatelliteAlt
-import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
@@ -353,8 +351,6 @@ private fun HomeWeatherPanel(
 ) {
     val weatherLabel = weatherData?.let { getWeatherDescription(it.weatherCode) } ?: "Meteo indisponible"
     val temperature = weatherData?.let { "${it.currentTemperature.toInt()}\u00B0" } ?: "--"
-    val humidityValue = weatherData?.currentHumidity?.let { "$it%" } ?: "--"
-    val windValue = weatherData?.currentWindSpeed?.toInt()?.let { "$it km/h" } ?: "--"
     val backgroundColors = homeWeatherHeroColors(weatherData?.weatherCode)
 
     Card(
@@ -368,7 +364,7 @@ private fun HomeWeatherPanel(
             modifier = Modifier
                 .background(Brush.verticalGradient(backgroundColors))
                 .padding(22.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -419,14 +415,6 @@ private fun HomeWeatherPanel(
                     )
                 }
             }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                HomeWeatherStatCard(Icons.Default.WaterDrop, "Humidite", humidityValue, Modifier.weight(1f))
-                HomeWeatherStatCard(Icons.Default.Air, "Vent", windValue, Modifier.weight(1f))
-            }
         }
     }
 }
@@ -437,48 +425,6 @@ private fun homeWeatherHeroColors(weatherCode: Int?): List<Color> {
         45, 48 -> listOf(Color(0xFF2D3B4A), Color(0xFF5E7387))
         95, 96, 99 -> listOf(Color(0xFF1D2238), Color(0xFF435274))
         else -> listOf(GradientWeather.first(), GradientWeather.last())
-    }
-}
-
-@Composable
-private fun HomeWeatherStatCard(
-    icon: ImageVector,
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.12f))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(18.dp)
-            )
-            Column {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.72f),
-                    maxLines = 1
-                )
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1
-                )
-            }
-        }
     }
 }
 
