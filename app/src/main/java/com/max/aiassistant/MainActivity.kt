@@ -128,6 +128,7 @@ class MainActivity : ComponentActivity() {
                     viewModel.refreshTasks()
                     viewModel.refreshCalendarEvents()
                     viewModel.refreshWeather()
+                    viewModel.refreshActu()
                 }
 
                 // Lorsqu’un texte est partagé, basculer vers le chat
@@ -144,6 +145,7 @@ class MainActivity : ComponentActivity() {
                             viewModel.refreshTasks()
                             viewModel.refreshCalendarEvents()
                             viewModel.refreshWeather()
+                            viewModel.refreshActu()
                         }
                         AppShellRoute.CHAT -> viewModel.loadRecentMessages()
                         AppShellRoute.TASKS -> {
@@ -205,6 +207,7 @@ class MainActivity : ComponentActivity() {
                                     tasks = tasks,
                                     events = events,
                                     weatherData = weatherData,
+                                    headlineArticle = actuArticles.firstOrNull(),
                                     cityName = cityName,
                                     onNavigateToVoice = { currentRoute = AppShellRoute.VOICE },
                                     onNavigateToChat = { currentRoute = AppShellRoute.CHAT },

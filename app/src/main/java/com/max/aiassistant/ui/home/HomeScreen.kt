@@ -1,15 +1,19 @@
 package com.max.aiassistant.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,15 +21,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudQueue
 import androidx.compose.material.icons.filled.Air
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SatelliteAlt
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.max.aiassistant.data.api.ActuArticle
 import com.max.aiassistant.data.api.WeatherData
 import com.max.aiassistant.data.api.getWeatherDescription
 import com.max.aiassistant.data.api.getWeatherIcon
@@ -73,6 +80,7 @@ fun HomeScreen(
     tasks: List<Task>,
     events: List<Event>,
     weatherData: WeatherData?,
+    headlineArticle: ActuArticle?,
     cityName: String,
     onNavigateToVoice: () -> Unit,
     onNavigateToChat: () -> Unit,
@@ -108,11 +116,15 @@ fun HomeScreen(
                 tasks = tasks,
                 events = events,
                 weatherData = weatherData,
+                headlineArticle = headlineArticle,
                 cityName = cityName,
+                onNavigateToVoice = onNavigateToVoice,
+                onNavigateToChat = onNavigateToChat,
                 onNavigateToTasks = onNavigateToTasks,
                 onNavigateToPlanning = onNavigateToPlanning,
                 onNavigateToWeather = onNavigateToWeather,
                 onNavigateToRadar = onNavigateToRadar,
+                onNavigateToActu = onNavigateToActu,
                 modifier = modifier
             )
         }
@@ -121,11 +133,15 @@ fun HomeScreen(
             tasks = tasks,
             events = events,
             weatherData = weatherData,
+            headlineArticle = headlineArticle,
             cityName = cityName,
+            onNavigateToVoice = onNavigateToVoice,
+            onNavigateToChat = onNavigateToChat,
             onNavigateToTasks = onNavigateToTasks,
             onNavigateToPlanning = onNavigateToPlanning,
             onNavigateToWeather = onNavigateToWeather,
             onNavigateToRadar = onNavigateToRadar,
+            onNavigateToActu = onNavigateToActu,
             modifier = modifier
         )
     }
@@ -136,11 +152,15 @@ private fun HomeScreenContent(
     tasks: List<Task>,
     events: List<Event>,
     weatherData: WeatherData?,
+    headlineArticle: ActuArticle?,
     cityName: String,
+    onNavigateToVoice: () -> Unit,
+    onNavigateToChat: () -> Unit,
     onNavigateToTasks: () -> Unit,
     onNavigateToPlanning: () -> Unit,
     onNavigateToWeather: () -> Unit,
     onNavigateToRadar: () -> Unit,
+    onNavigateToActu: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -151,11 +171,23 @@ private fun HomeScreenContent(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
+            HomePromptBar(
+                onChatClick = onNavigateToChat,
+                onVoiceClick = onNavigateToVoice
+            )
+        }
+        item {
             HomeWeatherPanel(
                 weatherData = weatherData,
                 cityName = cityName,
                 onClick = onNavigateToWeather,
                 onRadarClick = onNavigateToRadar
+            )
+        }
+        item {
+            HomeHeadlinePanel(
+                headlineArticle = headlineArticle,
+                onClick = onNavigateToActu
             )
         }
         item {
@@ -165,6 +197,149 @@ private fun HomeScreenContent(
                 onNavigateToTasks = onNavigateToTasks,
                 onNavigateToPlanning = onNavigateToPlanning
             )
+        }
+    }
+}
+
+@Composable
+private fun HomePromptBar(
+    onChatClick: () -> Unit,
+    onVoiceClick: () -> Unit
+) {
+    val borderColor = AccentBlue.copy(alpha = 0.55f)
+    val glowColor = AccentBlue.copy(alpha = 0.18f)
+
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            Color(0xFF12243B),
+                            Color(0xFF17304F),
+                            Color(0xFF102743)
+                        )
+                    )
+                )
+                .border(
+                    width = 1.5.dp,
+                    color = borderColor,
+                    shape = RoundedCornerShape(28.dp)
+                )
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(22.dp))
+                    .clickable(onClick = onChatClick)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+                Text(
+                    text = "Pose moi une question...",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontSize = 15.sp,
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Surface(
+                onClick = onVoiceClick,
+                shape = CircleShape,
+                color = glowColor.copy(alpha = 0.16f)
+            ) {
+                Box(
+                    modifier = Modifier.padding(10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Mic,
+                        contentDescription = "Ouvrir le vocal",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeHeadlinePanel(
+    headlineArticle: ActuArticle?,
+    onClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier
+                .background(
+                    Brush.linearGradient(
+                        listOf(Color(0xFF131D2C), Color(0xFF182437), Color(0xFF122031))
+                    )
+                )
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(42.dp),
+                shape = CircleShape,
+                color = AccentBlue.copy(alpha = 0.16f)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Newspaper,
+                        contentDescription = "Actualites",
+                        tint = AccentBlue,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "A la une",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = AccentBlue,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = headlineArticle?.titre ?: "Ouvrir les actualites du jour",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
@@ -314,130 +489,100 @@ private fun CompactOverviewPanel(
     onNavigateToTasks: () -> Unit,
     onNavigateToPlanning: () -> Unit
 ) {
-    val pendingTasks = remember(tasks) { tasks.filter { it.status != TaskStatus.COMPLETED } }
-    val todayEvents = remember(events) { events.filter { isEventToday(it) } }
-    val nextEvent = remember(todayEvents) { todayEvents.firstOrNull() }
+    val openTaskCount = remember(tasks) { tasks.count { it.status != TaskStatus.COMPLETED } }
+    val todayEventCount = remember(events) { events.count { isEventToday(it) } }
 
     Card(
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .background(
                     Brush.linearGradient(
-                        listOf(Color(0xFF121A26), Color(0xFF1A2232), Color(0xFF1B1E2C))
+                        listOf(Color(0xFF111925), Color(0xFF192333), Color(0xFF141E2C))
                     )
                 )
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(0.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            DigestRow(
-                accent = if (pendingTasks.isEmpty()) CompletedGreen else HighOrange,
+            CompactMetricCard(
+                accent = if (openTaskCount == 0) CompletedGreen else HighOrange,
                 icon = Icons.Default.CheckCircle,
-                title = if (pendingTasks.isEmpty()) "Taches sous controle" else "${pendingTasks.size} tache${if (pendingTasks.size > 1) "s" else ""} ouvertes",
-                detail = pendingTasks.firstOrNull()?.title ?: "Aucune urgence en attente",
-                cta = "Ouvrir",
-                onClick = onNavigateToTasks
+                value = formatCompactCount(openTaskCount),
+                label = "Taches",
+                onClick = onNavigateToTasks,
+                modifier = Modifier.weight(1f)
             )
-
-            HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
-
-            DigestRow(
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(42.dp)
+                    .background(Color.White.copy(alpha = 0.08f))
+            )
+            CompactMetricCard(
                 accent = AccentBlue,
-                icon = Icons.Default.Schedule,
-                title = nextEvent?.title ?: "Aucun evenement prevu",
-                detail = nextEvent?.let { eventTiming(it) } ?: "Journee libre pour le moment",
-                cta = "Agenda",
-                onClick = onNavigateToPlanning
+                icon = Icons.Default.CalendarMonth,
+                value = formatCompactCount(todayEventCount),
+                label = "Aujourd'hui",
+                onClick = onNavigateToPlanning,
+                modifier = Modifier.weight(1f)
             )
         }
     }
 }
 
 @Composable
-private fun DigestRow(
+private fun CompactMetricCard(
     accent: Color,
     icon: ImageVector,
-    title: String,
-    detail: String,
-    cta: String,
-    onClick: () -> Unit
+    value: String,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
-        shape = RoundedCornerShape(22.dp),
-        color = Color.White.copy(alpha = 0.04f),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
+        modifier = modifier
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        color = Color.Transparent
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Surface(
-                modifier = Modifier.size(42.dp),
-                color = accent.copy(alpha = 0.15f),
-                shape = CircleShape
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = title,
-                        tint = accent,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(14.dp)
+                )
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = TextPrimary,
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = accent,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = detail,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = accent.copy(alpha = 0.12f)
-            ) {
-                Text(
-                    text = cta,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = accent,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineMedium,
+                color = TextPrimary,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
 
-private fun weatherAccent(code: Int?): Color {
-    return when (code) {
-        0 -> Color(0xFFFFC857)
-        in 1..3 -> Color(0xFF8FD3FF)
-        in 51..67, in 80..82 -> Color(0xFF64B5F6)
-        else -> AccentBlue
-    }
-}
+private fun formatCompactCount(count: Int): String = if (count > 99) "99+" else count.toString()
 
 private fun isEventToday(event: Event): Boolean {
     return try {
@@ -449,22 +594,6 @@ private fun isEventToday(event: Event): Boolean {
         }
     } catch (_: Exception) {
         false
-    }
-}
-
-private fun eventTiming(event: Event): String {
-    if (event.startTime == "Toute la journee") return "Toute la journee"
-    return try {
-        val startCal = parseIsoDate(event.startDateTime)
-        if (startCal != null) {
-            val hour = "%02d".format(startCal.get(Calendar.HOUR_OF_DAY))
-            val minute = "%02d".format(startCal.get(Calendar.MINUTE))
-            "$hour:$minute"
-        } else {
-            event.startTime.ifBlank { "Horaire a confirmer" }
-        }
-    } catch (_: Exception) {
-        event.startTime.ifBlank { "Horaire a confirmer" }
     }
 }
 

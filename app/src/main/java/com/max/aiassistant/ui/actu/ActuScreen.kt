@@ -116,7 +116,7 @@ private fun LeadArticleCard(article: ActuArticle) {
         Column(Modifier.background(Brush.linearGradient(listOf(Color(0xFF14213D), Color(0xFF23395D)))).padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { SourcePill(article.origine); Text(formatRelativeDate(article.dateActualite), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f)) }
             Text("A la une", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.72f), fontWeight = FontWeight.SemiBold)
-            Text(article.titre, style = MaterialTheme.typography.bodyMedium, color = Color.White, fontWeight = FontWeight.SemiBold, maxLines = if (expanded) Int.MAX_VALUE else 4, overflow = TextOverflow.Ellipsis)
+            Text(article.titre, style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Bold, maxLines = if (expanded) Int.MAX_VALUE else 4, overflow = TextOverflow.Ellipsis)
             if (article.description.isNotBlank()) Text(article.description, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.78f), lineHeight = 20.sp, maxLines = if (expanded) Int.MAX_VALUE else 4, overflow = TextOverflow.Ellipsis)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 ScoreBadge(article.score)
@@ -136,7 +136,7 @@ private fun NewsCard(article: ActuArticle) {
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = ActuCardSurface)) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { SourcePill(article.origine); Text(formatRelativeDate(article.dateActualite), style = MaterialTheme.typography.labelSmall, color = TextSecondary) }
-            Text(article.titre, style = MaterialTheme.typography.bodyMedium, color = TextPrimary, fontWeight = FontWeight.SemiBold, maxLines = if (expanded) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis)
+            Text(article.titre, style = MaterialTheme.typography.titleMedium, color = TextPrimary, fontWeight = FontWeight.Bold, maxLines = if (expanded) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis)
             if (article.description.isNotBlank()) Text(article.description, style = MaterialTheme.typography.bodyMedium, color = TextSecondary, lineHeight = 20.sp, maxLines = if (expanded) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 ScoreBadge(article.score)
