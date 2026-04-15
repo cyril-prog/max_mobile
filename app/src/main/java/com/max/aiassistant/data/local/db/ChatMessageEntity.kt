@@ -38,6 +38,7 @@ data class ChatMessageEntity(
 object ChatMessageRole {
     const val USER = "user"
     const val ASSISTANT = "assistant"
+    const val TOOL = "tool"
 }
 
 object ChatMessageStatus {

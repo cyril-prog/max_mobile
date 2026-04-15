@@ -112,6 +112,10 @@ class MainActivity : ComponentActivity() {
                 // Etat de navigation principal (shell)
                 var currentRoute by rememberSaveable { mutableStateOf(AppShellRoute.HOME) }
                 var orgaMode by rememberSaveable { mutableStateOf(OrgaMode.TASK) }
+                val openFreshChat = {
+                    viewModel.startNewConversation()
+                    currentRoute = AppShellRoute.CHAT
+                }
 
                 // Statuts globaux shell
                 val isOffline = !isNetworkAvailable(context)
@@ -134,7 +138,7 @@ class MainActivity : ComponentActivity() {
                 // Lorsqu’un texte est partagé, basculer vers le chat
                 LaunchedEffect(sharedText) {
                     if (!sharedText.isNullOrBlank()) {
-                        currentRoute = AppShellRoute.CHAT
+                        openFreshChat()
                     }
                 }
 
@@ -147,7 +151,6 @@ class MainActivity : ComponentActivity() {
                             viewModel.refreshWeather()
                             viewModel.refreshActu()
                         }
-                        AppShellRoute.CHAT -> viewModel.loadRecentMessages()
                         AppShellRoute.TASKS -> {
                             viewModel.refreshTasks()
                             viewModel.refreshCalendarEvents()
@@ -179,7 +182,7 @@ class MainActivity : ComponentActivity() {
                         onNavigate = { route ->
                             when (route) {
                                 AppShellRoute.HOME -> currentRoute = AppShellRoute.HOME
-                                AppShellRoute.CHAT -> currentRoute = AppShellRoute.CHAT
+                                AppShellRoute.CHAT -> openFreshChat()
                                 AppShellRoute.TASKS -> {
                                     orgaMode = OrgaMode.TASK
                                     currentRoute = AppShellRoute.TASKS
@@ -210,7 +213,7 @@ class MainActivity : ComponentActivity() {
                                     headlineArticle = actuArticles.firstOrNull(),
                                     cityName = cityName,
                                     onNavigateToVoice = { currentRoute = AppShellRoute.VOICE },
-                                    onNavigateToChat = { currentRoute = AppShellRoute.CHAT },
+                                    onNavigateToChat = openFreshChat,
                                     onNavigateToTasks = { orgaMode = OrgaMode.TASK; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToPlanning = { orgaMode = OrgaMode.PLANNING; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToWeather = { currentRoute = AppShellRoute.WEATHER },
@@ -352,7 +355,7 @@ class MainActivity : ComponentActivity() {
                                     initialMode = orgaMode,
                                     onModeChange = { orgaMode = it },
                                     onNavigateToHome = { currentRoute = AppShellRoute.HOME },
-                                    onNavigateToChat = { currentRoute = AppShellRoute.CHAT },
+                                    onNavigateToChat = openFreshChat,
                                     onNavigateToPlanning = { orgaMode = OrgaMode.PLANNING },
                                     onNavigateToWeather = { currentRoute = AppShellRoute.WEATHER },
                                     onNavigateToNotes = { orgaMode = OrgaMode.NOTE },
@@ -375,7 +378,7 @@ class MainActivity : ComponentActivity() {
                                     onSetShowAllergies = { show -> viewModel.setShowAllergies(show) },
                                     onNavigateBack = { currentRoute = AppShellRoute.HOME },
                                     onRadarClick = { currentRoute = AppShellRoute.RADAR },
-                                    onNavigateToChat = { currentRoute = AppShellRoute.CHAT },
+                                    onNavigateToChat = openFreshChat,
                                     onNavigateToTasks = { orgaMode = OrgaMode.TASK; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToPlanning = { orgaMode = OrgaMode.PLANNING; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToNotes = { orgaMode = OrgaMode.NOTE; currentRoute = AppShellRoute.TASKS },
@@ -397,7 +400,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onNavigateToHome = { currentRoute = AppShellRoute.HOME },
-                                    onNavigateToChat = { currentRoute = AppShellRoute.CHAT },
+                                    onNavigateToChat = openFreshChat,
                                     onNavigateToTasks = { orgaMode = OrgaMode.TASK; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToPlanning = { orgaMode = OrgaMode.PLANNING; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToWeather = { currentRoute = AppShellRoute.WEATHER },
@@ -416,7 +419,7 @@ class MainActivity : ComponentActivity() {
                                     onRefresh = { viewModel.refreshActu() },
                                     onNavigateToHome = { currentRoute = AppShellRoute.HOME },
                                     onNavigateToVoice = { currentRoute = AppShellRoute.VOICE },
-                                    onNavigateToChat = { currentRoute = AppShellRoute.CHAT },
+                                    onNavigateToChat = openFreshChat,
                                     onNavigateToTasks = { orgaMode = OrgaMode.TASK; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToPlanning = { orgaMode = OrgaMode.PLANNING; currentRoute = AppShellRoute.TASKS },
                                     onNavigateToWeather = { currentRoute = AppShellRoute.WEATHER },

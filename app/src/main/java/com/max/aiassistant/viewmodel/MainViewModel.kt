@@ -15,16 +15,18 @@ import com.max.aiassistant.data.api.toCurrentPollen
 import com.max.aiassistant.data.api.toRechercheArticle
 import com.max.aiassistant.data.api.toWeatherData
 import com.max.aiassistant.data.chat.ChatTitleFormatter
-import com.max.aiassistant.data.local.DEFAULT_SYSTEM_PROMPT
 import com.max.aiassistant.data.local.OnDeviceAiSettings
 import com.max.aiassistant.data.local.OnDeviceChatEngine
 import com.max.aiassistant.data.local.OnDeviceModelManager
 import com.max.aiassistant.data.local.OnDeviceModelProvisioningState
 import com.max.aiassistant.data.local.OnDeviceModelVariant
+import com.max.aiassistant.data.local.ToolDebugEvent
+import com.max.aiassistant.data.local.ToolDebugPhase
 import com.max.aiassistant.data.local.db.ChatConversationEntity
 import com.max.aiassistant.data.local.db.ChatMessageEntity
 import com.max.aiassistant.data.local.db.ChatMessageRole
 import com.max.aiassistant.data.local.db.ChatMessageStatus
+import com.max.aiassistant.data.local.db.MemoryGraphRepository
 import com.max.aiassistant.data.local.db.ChatRepository
 import com.max.aiassistant.data.local.db.ConversationTitleStatus
 import com.max.aiassistant.data.local.db.MaxDatabase
@@ -32,6 +34,7 @@ import com.max.aiassistant.data.local.db.TaskRepository
 import com.max.aiassistant.data.local.db.WeatherCacheRepository
 import com.max.aiassistant.data.local.db.WeatherCacheSnapshot
 import com.max.aiassistant.data.preferences.OnDeviceAiPreferences
+import com.max.aiassistant.data.preferences.DEFAULT_SHARED_SYSTEM_PROMPT
 import com.max.aiassistant.data.realtime.RealtimeApiService
 import com.max.aiassistant.data.realtime.RealtimeAudioManager
 import com.max.aiassistant.data.realtime.RealtimeServerEvent
@@ -44,6 +47,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.*
 
 /**
@@ -79,6 +84,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val onDeviceChatEngine = OnDeviceChatEngine(application.applicationContext)
     private val chatDatabase = MaxDatabase.getInstance(application.applicationContext)
     private val chatRepository = ChatRepository(chatDatabase)
+    private val memoryGraphRepository = MemoryGraphRepository(chatDatabase.memoryGraphDao())
     private val taskRepository = TaskRepository(chatDatabase)
     private val weatherCacheRepository = WeatherCacheRepository(chatDatabase.weatherCacheDao())
     private val TAG = "MainViewModel"
@@ -96,7 +102,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var realtimeConnectionJob: Job? = null
 
     // Contexte système pour enrichir le prompt du voice-to-voice
-    private var systemContext: String = ""
+    private var sharedSystemContext: String = ""
+    private var remoteRecentMessagesContext: String = ""
+    private val systemContext: String
+        get() = buildRealtimeSystemContext()
 
     // ========== ÉTAT DU CHAT ==========
 
@@ -285,7 +294,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             // Stocke le contexte final
-            systemContext = builder.toString()
+            val fullSystemContext = builder.toString()
+            remoteRecentMessagesContext = extractRemoteRecentMessagesContext(fullSystemContext)
+            sharedSystemContext = removeRemoteRecentMessagesContext(fullSystemContext)
             Log.d(TAG, "✅ Contexte système complet chargé (${systemContext.length} caractères)")
             Log.d(TAG, "Aperçu du contexte: ${systemContext.take(300)}...")
         }
@@ -362,7 +373,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         maxContextTokens: Int,
         systemPrompt: String
     ) {
-        val normalizedPrompt = systemPrompt.trim().ifBlank { DEFAULT_SYSTEM_PROMPT }
+        val normalizedPrompt = systemPrompt.trim().ifBlank { DEFAULT_SHARED_SYSTEM_PROMPT }
         val newSettings = OnDeviceAiSettings(
             modelVariant = modelVariant,
             maxContextTokens = maxContextTokens,
@@ -392,6 +403,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             attachConversationObservers(conversation.id)
 
             if (conversation.messageCount >= MAX_MESSAGES_PER_CONVERSATION) {
+                onDeviceChatEngine.onToolDebugEvent = null
                 _isWaitingForAiResponse.value = false
                 persistConversationLimitWarning(conversation.id)
                 return@launch
@@ -414,6 +426,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
 
             chatRepository.insertMessage(userMessage)
+            persistExplicitUserProfileMemoryIfNeeded(
+                conversationId = conversation.id,
+                userMessage = userMessage
+            )
             _isWaitingForAiResponse.value = true
 
             val aiMessageId = UUID.randomUUID().toString()
@@ -422,6 +438,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 Log.d(TAG, "Envoi du message au moteur local: $content, avec image: ${imageUri != null}")
                 val modelReady = awaitOnDeviceModelAvailable()
+
+                onDeviceChatEngine.onToolDebugEvent = { event ->
+                    viewModelScope.launch {
+                        persistToolDebugMessage(conversation.id, event)
+                    }
+                }
 
                 val responseText = when {
                     !modelReady -> {
@@ -441,7 +463,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 userMessage = content,
                                 modelVariant = aiSettings.modelVariant,
                                 maxContextTokens = aiSettings.maxContextTokens,
-                                systemInstruction = buildOnDeviceSystemInstruction(previousContext)
+                                systemInstruction = buildOnDeviceSystemInstruction(),
+                                conversationKey = conversation.id,
+                                initialHistory = previousContext
                             ) { partialText ->
                                 latestPartialResponse = partialText
                                 viewModelScope.launch {
@@ -617,6 +641,129 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    private suspend fun persistToolDebugMessage(
+        conversationId: String,
+        event: ToolDebugEvent
+    ) {
+        val title = when (event.phase) {
+            ToolDebugPhase.CALL -> "Appel"
+            ToolDebugPhase.RESULT -> "Retour"
+            ToolDebugPhase.ERROR -> "Erreur"
+        }
+
+        val content = buildString {
+            appendLine("[Tool] ${event.toolName}")
+            appendLine()
+            appendLine("**$title**")
+            appendLine("```json")
+            appendLine(event.payload.ifBlank { "{}" })
+            appendLine("```")
+        }
+
+        Log.d(
+            TAG,
+            "Tool ${event.toolName} ${event.phase.name.lowercase()} ${event.payload.take(300)}"
+        )
+
+        chatRepository.insertMessage(
+            ChatMessageEntity(
+                id = UUID.randomUUID().toString(),
+                conversationId = conversationId,
+                role = ChatMessageRole.TOOL,
+                content = content,
+                createdAt = System.currentTimeMillis(),
+                imageUri = null,
+                status = ChatMessageStatus.COMPLETED
+            )
+        )
+    }
+
+    private suspend fun persistExplicitUserProfileMemoryIfNeeded(
+        conversationId: String,
+        userMessage: ChatMessageEntity
+    ) {
+        val extractedFirstName = extractExplicitFirstName(userMessage.content) ?: return
+
+        val callPayload = JSONObject()
+            .put("source", "fallback")
+            .put("reason", "explicit_first_name_pattern")
+            .put(
+                "facts",
+                JSONArray().put(
+                    JSONObject()
+                        .put("fact_type", "prenom")
+                        .put("value", extractedFirstName)
+                )
+            )
+            .toString()
+
+        persistToolDebugMessage(
+            conversationId = conversationId,
+            event = ToolDebugEvent(
+                toolName = "store_important_memory",
+                phase = ToolDebugPhase.CALL,
+                payload = callPayload
+            )
+        )
+
+        val result = memoryGraphRepository.storeImportantMemory(
+            entities = listOf(
+                MemoryGraphRepository.EntityInput(
+                    name = "utilisateur",
+                    type = "person",
+                    canonicalName = "utilisateur",
+                    summary = "Profil utilisateur"
+                )
+            ),
+            relations = emptyList(),
+            facts = listOf(
+                MemoryGraphRepository.FactInput(
+                    entityName = "utilisateur",
+                    factType = "prenom",
+                    value = extractedFirstName,
+                    confidence = 1.0
+                )
+            ),
+            sourceMessageId = userMessage.id
+        )
+
+        val resultPayload = JSONObject()
+            .put("ok", true)
+            .put("source", "fallback")
+            .put("saved_entities", result.entityCount)
+            .put("saved_relations", result.relationCount)
+            .put("saved_facts", result.factCount)
+            .put("prenom", extractedFirstName)
+            .toString()
+
+        persistToolDebugMessage(
+            conversationId = conversationId,
+            event = ToolDebugEvent(
+                toolName = "store_important_memory",
+                phase = ToolDebugPhase.RESULT,
+                payload = resultPayload
+            )
+        )
+    }
+
+    private fun extractExplicitFirstName(content: String): String? {
+        val normalized = content.trim()
+        val patterns = listOf(
+            Regex("""(?i)\bmon pr[ée]nom est\s*[:\-]?\s*([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ' -]{0,39})"""),
+            Regex("""(?i)\benregistre mon pr[ée]nom\s*[:\-]?\s*([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ' -]{0,39})"""),
+            Regex("""(?i)\bje m[' ]appelle\s+([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ' -]{0,39})""")
+        )
+
+        return patterns.asSequence()
+            .mapNotNull { regex -> regex.find(normalized)?.groupValues?.getOrNull(1) }
+            .map { candidate ->
+                candidate
+                    .trim()
+                    .trimEnd('.', ',', ';', ':', '!', '?')
+            }
+            .firstOrNull { it.isNotBlank() }
+    }
+
     private fun generateConversationTitle(
         conversationId: String,
         firstPrompt: String,
@@ -745,27 +892,84 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun buildOnDeviceSystemInstruction(recentMessages: List<ChatMessageEntity>): String {
-        val basePrompt = _onDeviceAiSettings.value.systemPrompt.trim().ifBlank { DEFAULT_SYSTEM_PROMPT }
+    private fun buildSharedAssistantInstructions(): String {
+        val basePrompt = _onDeviceAiSettings.value.systemPrompt.trim().ifBlank { DEFAULT_SHARED_SYSTEM_PROMPT }
         return buildString {
             appendLine(basePrompt)
-            if (recentMessages.isNotEmpty()) {
-                appendLine()
-                appendLine("Historique recent de la conversation:")
-                recentMessages.forEach { message ->
-                    val speaker = if (message.role == ChatMessageRole.USER) "Utilisateur" else "Max"
-                    appendLine("- $speaker: ${message.content.take(250)}")
-                }
-            }
-            if (systemContext.isNotBlank()) {
+            appendLine()
+            appendLine("Outils disponibles:")
+            appendLine("- search_memory: utilisation obligatoire avant de dire que tu ne sais pas, que tu n'as pas l'information ou que l'information n'est pas disponible, si la question peut concerner une information utilisateur memorisee. Utilise une requete courte par mots-cles, par exemple: prenom, preference linux, NAS.")
+            appendLine("- store_important_memory: utilise-le quand l'utilisateur donne un fait important, une preference, une relation entre entites, une decision ou une information utile a long terme.")
+            appendLine("- Memorise en priorite les informations de profil durables de l'utilisateur: prenom, nom, surnom, preferences stables, relations, materiel, projets.")
+            appendLine("- Exemple: si l'utilisateur dit \"Mon prenom est Cyril\" ou \"Enregistre mon prenom : Cyril\", appelle store_important_memory.")
+            appendLine("- Si search_memory renvoie une information pertinente ou un answer_hint, utilise cette information directement dans ta reponse.")
+            appendLine("- Ne dis pas que tu n'as pas l'information si search_memory vient de la fournir.")
+            appendLine("- Avant toute reponse d'ignorance sur l'utilisateur, fais au moins une tentative avec search_memory.")
+        }
+    }
+
+    private fun buildOnDeviceSystemInstruction(): String {
+        return buildString {
+            append(buildSharedAssistantInstructions())
+            if (sharedSystemContext.isNotBlank()) {
                 appendLine()
                 appendLine("Contexte utile:")
-                appendLine(systemContext.take(1_200))
+                appendLine(sharedSystemContext.take(1_200))
+            }
+        }
+    }
+
+    private fun buildRealtimeSystemInstruction(): String {
+        val realtimeContext = buildRealtimeSystemContext()
+        return buildString {
+            append(buildSharedAssistantInstructions())
+            appendLine()
+            appendLine("Contraintes du mode vocal:")
+            appendLine("- Tu es en mode audio uniquement.")
+            appendLine("- Tu n'as pas acces a une camera et tu ne vois pas l'utilisateur.")
+            appendLine("- Ne pretends jamais voir quoi que ce soit.")
+            if (realtimeContext.isNotBlank()) {
+                appendLine()
+                appendLine("Contexte utile:")
+                appendLine(realtimeContext)
             }
         }
     }
 
     // ========== ÉTAT DES TÂCHES ==========
+
+    private fun buildRealtimeSystemContext(): String {
+        return buildString {
+            if (sharedSystemContext.isNotBlank()) {
+                append(sharedSystemContext)
+            }
+            if (remoteRecentMessagesContext.isNotBlank()) {
+                append(remoteRecentMessagesContext)
+            }
+        }
+    }
+
+    private fun extractRemoteRecentMessagesContext(fullSystemContext: String): String {
+        val marker = "=== CONTEXTE R"
+        val startIndex = fullSystemContext.indexOf(marker)
+        if (startIndex < 0) {
+            return ""
+        }
+        val nextSectionIndex = fullSystemContext.indexOf("\n=== ", startIndex + marker.length)
+        return if (nextSectionIndex >= 0) {
+            fullSystemContext.substring(startIndex, nextSectionIndex)
+        } else {
+            fullSystemContext.substring(startIndex)
+        }.trim()
+    }
+
+    private fun removeRemoteRecentMessagesContext(fullSystemContext: String): String {
+        val recentContext = extractRemoteRecentMessagesContext(fullSystemContext)
+        if (recentContext.isBlank()) {
+            return fullSystemContext
+        }
+        return fullSystemContext.replace(recentContext, "").trim()
+    }
 
     private val _tasks = MutableStateFlow<List<Task>>(emptyList())
     val tasks: StateFlow<List<Task>> = _tasks.asStateFlow()
@@ -1515,12 +1719,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Lance la connexion WebSocket avec le contexte système
         Log.d(TAG, "📝 Contexte système envoyé à Realtime (${systemContext.length} caractères)")
-        if (systemContext.isEmpty()) {
+        if (buildRealtimeSystemContext().isEmpty()) {
             Log.w(TAG, "⚠️ ATTENTION : Le contexte système est VIDE ! Les appels API n'ont peut-être pas terminé.")
         } else {
             Log.d(TAG, "Aperçu du contexte envoyé: ${systemContext.take(200)}...")
         }
-        realtimeService?.connect(systemContext)
+        val realtimeInstructions = buildRealtimeSystemInstruction()
+        Log.d(TAG, "Prompt systeme envoye a Realtime (${realtimeInstructions.length} caracteres)")
+        realtimeService?.connect(realtimeInstructions)
     }
 
     /**
@@ -1597,6 +1803,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 addConversationPair(userTranscript, event.transcript)
             }
 
+            is RealtimeServerEvent.ResponseDone -> {
+                handleRealtimeFunctionCalls(event.response)
+            }
+
             is RealtimeServerEvent.ResponseAudioDelta -> {
                 // Chunk audio reçu de l'IA : pause micro + lecture
                 audioManager?.startSpeaking()
@@ -1623,6 +1833,149 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Ajoute une paire de messages utilisateur + IA à la conversation
      */
+    private fun handleRealtimeFunctionCalls(response: com.max.aiassistant.data.realtime.Response) {
+        val functionCalls = response.output.filter { outputItem ->
+            outputItem.type == "function_call" &&
+                outputItem.name == "store_important_memory" &&
+                !outputItem.callId.isNullOrBlank()
+        }
+
+        if (functionCalls.isEmpty()) {
+            return
+        }
+
+        functionCalls.forEach { functionCall ->
+            viewModelScope.launch(Dispatchers.IO) {
+                val resultPayload = runCatching {
+                    executeStoreImportantMemoryTool(functionCall.arguments.orEmpty())
+                }.getOrElse { throwable ->
+                    Log.e(TAG, "Tool store_important_memory en echec", throwable)
+                    JSONObject()
+                        .put("ok", false)
+                        .put("error", throwable.message ?: "Erreur inconnue lors de l'enregistrement memoire")
+                        .toString()
+                }
+
+                val callId = functionCall.callId ?: return@launch
+                realtimeService?.sendFunctionCallOutput(callId, resultPayload)
+                realtimeService?.requestModelResponse()
+            }
+        }
+    }
+
+    private suspend fun executeStoreImportantMemoryTool(argumentsJson: String): String {
+        val payload = argumentsJson
+            .takeIf { it.isNotBlank() }
+            ?.let(::JSONObject)
+            ?: JSONObject()
+
+        val entities = payload.optJSONArray("entities").toMemoryEntityInputs()
+        val relations = payload.optJSONArray("relations").toMemoryRelationInputs()
+        val facts = payload.optJSONArray("facts").toMemoryFactInputs()
+
+        val result = memoryGraphRepository.storeImportantMemory(
+            entities = entities,
+            relations = relations,
+            facts = facts,
+            sourceMessageId = null
+        )
+
+        return JSONObject()
+            .put("ok", true)
+            .put("saved_entities", result.entityCount)
+            .put("saved_relations", result.relationCount)
+            .put("saved_facts", result.factCount)
+            .toString()
+    }
+
+    private fun JSONArray?.toMemoryEntityInputs(): List<MemoryGraphRepository.EntityInput> {
+        if (this == null) return emptyList()
+
+        return buildList {
+            for (index in 0 until length()) {
+                val item = optJSONObject(index) ?: continue
+                val name = item.optString("name").trim()
+                val type = item.optString("type").trim()
+                if (name.isBlank() || type.isBlank()) {
+                    continue
+                }
+
+                add(
+                    MemoryGraphRepository.EntityInput(
+                        name = name,
+                        type = type,
+                        canonicalName = item.optTrimmedString("canonical_name"),
+                        summary = item.optTrimmedString("summary")
+                    )
+                )
+            }
+        }
+    }
+
+    private fun JSONArray?.toMemoryRelationInputs(): List<MemoryGraphRepository.RelationInput> {
+        if (this == null) return emptyList()
+
+        return buildList {
+            for (index in 0 until length()) {
+                val item = optJSONObject(index) ?: continue
+                val fromEntityName = item.optString("from_entity_name").trim()
+                val relationType = item.optString("relation_type").trim()
+                val toEntityName = item.optString("to_entity_name").trim()
+                if (fromEntityName.isBlank() || relationType.isBlank() || toEntityName.isBlank()) {
+                    continue
+                }
+
+                add(
+                    MemoryGraphRepository.RelationInput(
+                        fromEntityName = fromEntityName,
+                        relationType = relationType,
+                        toEntityName = toEntityName,
+                        confidence = item.optNullableDouble("confidence")
+                    )
+                )
+            }
+        }
+    }
+
+    private fun JSONArray?.toMemoryFactInputs(): List<MemoryGraphRepository.FactInput> {
+        if (this == null) return emptyList()
+
+        return buildList {
+            for (index in 0 until length()) {
+                val item = optJSONObject(index) ?: continue
+                val entityName = item.optString("entity_name").trim().ifBlank { "utilisateur" }
+                val factType = item.optString("fact_type").trim()
+                val value = item.optString("value").trim()
+                if (factType.isBlank() || value.isBlank()) {
+                    continue
+                }
+
+                add(
+                    MemoryGraphRepository.FactInput(
+                        entityName = entityName,
+                        factType = factType,
+                        value = value,
+                        confidence = item.optNullableDouble("confidence")
+                    )
+                )
+            }
+        }
+    }
+
+    private fun JSONObject.optTrimmedString(key: String): String? {
+        return optString(key)
+            .trim()
+            .takeIf { it.isNotBlank() }
+    }
+
+    private fun JSONObject.optNullableDouble(key: String): Double? {
+        if (!has(key) || isNull(key)) {
+            return null
+        }
+        return optDouble(key)
+            .takeUnless { it.isNaN() }
+    }
+
     private fun addConversationPair(userTranscript: String, aiTranscript: String) {
         Log.d(TAG, "*** addConversationPair appelé - User: '$userTranscript', AI: '$aiTranscript'")
 
@@ -1760,12 +2113,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 }
 
 private fun ChatMessageEntity.toUiMessage(): Message {
+    val isToolEvent = role == ChatMessageRole.TOOL
     return Message(
         id = id,
         content = content,
         isFromUser = role == ChatMessageRole.USER,
         timestamp = createdAt,
-        imageUri = imageUri?.let(Uri::parse)
+        imageUri = imageUri?.let(Uri::parse),
+        senderLabel = when {
+            role == ChatMessageRole.USER -> "Vous"
+            isToolEvent -> "Outil"
+            else -> "Max"
+        },
+        isToolEvent = isToolEvent
     )
 }
 

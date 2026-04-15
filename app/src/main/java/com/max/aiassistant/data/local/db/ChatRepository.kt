@@ -114,7 +114,11 @@ class ChatRepository(
         conversationId: String,
         limit: Int
     ): List<ChatMessageEntity> {
-        return messageDao.getRecentMessages(conversationId, limit)
+        return messageDao.getRecentMessagesExcludingRole(
+            conversationId = conversationId,
+            limit = limit,
+            excludedRole = ChatMessageRole.TOOL
+        )
             .asReversed()
     }
 

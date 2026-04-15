@@ -1,5 +1,7 @@
 package com.max.aiassistant.data.local
 
+import com.max.aiassistant.data.preferences.DEFAULT_SHARED_SYSTEM_PROMPT
+
 enum class OnDeviceModelVariant(
     val storageFileName: String,
     val downloadUrl: String,
@@ -29,11 +31,9 @@ enum class OnDeviceModelVariant(
 data class OnDeviceAiSettings(
     val modelVariant: OnDeviceModelVariant = DEFAULT_MODEL_VARIANT,
     val maxContextTokens: Int = DEFAULT_MAX_CONTEXT_TOKENS,
-    val systemPrompt: String = DEFAULT_SYSTEM_PROMPT
+    val systemPrompt: String = DEFAULT_SHARED_SYSTEM_PROMPT
 )
 
 val SUPPORTED_MAX_CONTEXT_TOKENS = listOf(2048, 4096, 8192, 16_384, 32_768, 65_536)
 const val DEFAULT_MAX_CONTEXT_TOKENS = 4096
 val DEFAULT_MODEL_VARIANT = OnDeviceModelVariant.GEMMA_4_E2B
-const val DEFAULT_SYSTEM_PROMPT =
-    "Tu es Max, un assistant personnel utile, fiable et concis.\nReponds en francais avec un ton naturel et des reponses courtes."

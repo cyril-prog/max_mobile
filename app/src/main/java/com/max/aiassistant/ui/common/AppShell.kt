@@ -57,15 +57,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.max.aiassistant.ui.theme.AccentBlue
 import com.max.aiassistant.ui.theme.DarkBackground
-import com.max.aiassistant.ui.theme.DarkSurface
-import com.max.aiassistant.ui.theme.DarkSurfaceVariant
 import com.max.aiassistant.ui.theme.TextPrimary
 import com.max.aiassistant.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
@@ -78,6 +73,14 @@ private val ShellHeaderGradient = Brush.horizontalGradient(
         Color(0xFF0A111B)
     )
 )
+private val ShellDrawerGradient = Brush.verticalGradient(
+    listOf(
+        Color(0xFF182B45),
+        Color(0xFF101C2D),
+        Color(0xFF09111B)
+    )
+)
+private val ShellDrawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp)
 private val ShellDockGradient = Brush.horizontalGradient(
     listOf(
         Color(0xFF1B2D46),
@@ -95,7 +98,7 @@ enum class AppShellRoute(val title: String, val shortLabel: String, val icon: Im
     WEATHER("Meteo", "Meteo", Icons.Default.WbSunny, true),
     VOICE("Vocal", "Vocal", Icons.Default.Mic, false),
     PLANNING("Planning", "Agenda", Icons.Default.CalendarMonth, false),
-    ACTU("Actualites", "Actu", Icons.Default.Newspaper, true),
+    ACTU("Actualités", "Actu", Icons.Default.Newspaper, true),
     RADAR("Vue satellite", "Satellite", Icons.Default.SatelliteAlt, false)
 }
 
@@ -128,13 +131,22 @@ fun MaxAppShell(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                modifier = Modifier.width(316.dp),
-                drawerContainerColor = Color(0xFF10151E),
+                modifier = Modifier
+                    .width(316.dp)
+                    .clip(ShellDrawerShape),
+                drawerContainerColor = Color.Transparent,
                 drawerContentColor = TextPrimary
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .clip(ShellDrawerShape)
+                        .background(brush = ShellDrawerGradient)
+                        .border(
+                            width = 1.dp,
+                            color = Color.White.copy(alpha = 0.08f),
+                            shape = ShellDrawerShape
+                        )
                         .verticalScroll(rememberScrollState())
                 ) {
                     Column(
@@ -232,8 +244,6 @@ private fun MaxShellTopBar(
     currentRoute: AppShellRoute,
     onMenuClick: () -> Unit
 ) {
-    val isHome = currentRoute == AppShellRoute.HOME
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -261,32 +271,12 @@ private fun MaxShellTopBar(
             }
         }
 
-        if (!isHome) {
-            if (currentRoute == AppShellRoute.ACTU) {
-                Text(
-                    text = buildAnnotatedString {
-                        withStyle(SpanStyle(color = AccentBlue, fontWeight = FontWeight.Bold)) {
-                            append(currentRoute.title)
-                        }
-                    },
-                    style = MaterialTheme.typography.headlineSmall
-                )
-            } else {
-                Text(
-                    text = currentRoute.title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        } else {
-            Text(
-                text = currentRoute.title,
-                style = MaterialTheme.typography.headlineSmall,
-                color = TextPrimary,
-                fontWeight = FontWeight.Bold
-            )
-        }
+        Text(
+            text = currentRoute.title,
+            style = MaterialTheme.typography.headlineSmall,
+            color = TextPrimary,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -383,7 +373,7 @@ private fun DrawerEntry(
             .clip(RoundedCornerShape(22.dp))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(22.dp),
-        color = if (selected) AccentBlue.copy(alpha = 0.14f) else DarkSurface
+        color = if (selected) AccentBlue.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.04f)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
@@ -392,7 +382,7 @@ private fun DrawerEntry(
         ) {
             Surface(
                 modifier = Modifier.size(34.dp),
-                color = if (selected) AccentBlue.copy(alpha = 0.18f) else DarkSurfaceVariant,
+                color = if (selected) AccentBlue.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.08f),
                 shape = CircleShape
             ) {
                 Row(

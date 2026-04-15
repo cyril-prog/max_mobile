@@ -48,8 +48,11 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -62,7 +65,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -78,6 +80,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -119,12 +123,21 @@ private val ChatBackdrop = listOf(
     Color(0xFF0A0F18),
     Color(0xFF0C131D)
 )
+private val ChatHeaderGradient = Brush.horizontalGradient(
+    listOf(
+        Color(0xFF16263D),
+        Color(0xFF0F1A2A),
+        Color(0xFF0A111B)
+    )
+)
+private val ChatHeaderMenuSurface = Color(0xFF1A2940)
 
 private val EditorialPanel = Color(0xFF121A27)
 private val EditorialPanelBorder = Color(0xFF25324A)
 private val EditorialPanelMuted = Color(0xFF1A2331)
 private val MaxBubbleColor = Color(0xFF151E2D)
 private val UserBubbleColor = Color(0xFF114A7A)
+private val ToolBubbleColor = Color(0xFF2A1C0F)
 private val ComposerShell = Color(0xFF0E141F)
 private val ComposerField = Color(0xFF172131)
 private val ComposerAction = Color(0xFF1D2A3D)
@@ -269,10 +282,16 @@ private fun ChatScreenContent(
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val conversationDrawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val conversationDrawerState = remember {
+        DrawerState(initialValue = DrawerValue.Closed)
+    }
+    var isConversationDrawerMounted by remember { mutableStateOf(false) }
+    var pendingConversationDrawerOpen by remember { mutableStateOf(false) }
 
     var messageText by remember { mutableStateOf("") }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -285,6 +304,7 @@ private fun ChatScreenContent(
     var settingsModelVariant by remember { mutableStateOf(onDeviceAiSettings.modelVariant) }
     var settingsMaxTokens by remember { mutableStateOf(onDeviceAiSettings.maxContextTokens) }
     var settingsSystemPrompt by remember { mutableStateOf(onDeviceAiSettings.systemPrompt) }
+    var pendingScrollToBottom by remember { mutableStateOf(false) }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -325,6 +345,13 @@ private fun ChatScreenContent(
         settingsSystemPrompt = onDeviceAiSettings.systemPrompt
     }
 
+    LaunchedEffect(isConversationDrawerMounted, pendingConversationDrawerOpen) {
+        if (isConversationDrawerMounted && pendingConversationDrawerOpen) {
+            pendingConversationDrawerOpen = false
+            conversationDrawerState.open()
+        }
+    }
+
     LaunchedEffect(messages.size, isWaitingForAiResponse) {
         val itemCount = messages.size + if (isWaitingForAiResponse) 1 else 0
         if (itemCount > 0) {
@@ -332,35 +359,19 @@ private fun ChatScreenContent(
         }
     }
 
-    ModalNavigationDrawer(
-        drawerState = conversationDrawerState,
-        gesturesEnabled = conversations.isNotEmpty(),
-        drawerContent = {
-            ConversationDrawerSheet(
-                conversations = conversations,
-                currentConversationId = currentConversationId,
-                onSelectConversation = { conversationId ->
-                    currentPane = ChatContentPane.CONVERSATION
-                    onSelectConversation(conversationId)
-                    scope.launch { conversationDrawerState.close() }
-                },
-                onConversationLongPress = { conversation ->
-                    conversationOptionsTarget = conversation
-                },
-                onOpenSettings = {
-                    currentPane = ChatContentPane.SETTINGS
-                    scope.launch { conversationDrawerState.close() }
-                },
-                onOpenMainSidebar = {
-                    scope.launch {
-                        conversationDrawerState.close()
-                        onOpenMainSidebar()
-                    }
-                },
-                modifier = if (showChrome) Modifier.statusBarsPadding() else Modifier
-            )
+    LaunchedEffect(pendingScrollToBottom, messages.size, isWaitingForAiResponse) {
+        if (!pendingScrollToBottom) {
+            return@LaunchedEffect
         }
-    ) {
+
+        val itemCount = messages.size + if (isWaitingForAiResponse) 1 else 0
+        if (itemCount > 0) {
+            listState.animateScrollToItem(itemCount - 1)
+            pendingScrollToBottom = false
+        }
+    }
+
+    val chatContent: @Composable () -> Unit = {
         Box(
             modifier = modifier
                 .fillMaxSize()
@@ -371,9 +382,13 @@ private fun ChatScreenContent(
                     .fillMaxSize()
             ) {
                 ConversationTopBar(
-                    title = if (currentPane == ChatContentPane.SETTINGS) "Parametres IA" else conversationTitle,
                     onOpenSidebar = {
-                        scope.launch { conversationDrawerState.open() }
+                        if (isConversationDrawerMounted) {
+                            scope.launch { conversationDrawerState.open() }
+                        } else {
+                            pendingConversationDrawerOpen = true
+                            isConversationDrawerMounted = true
+                        }
                     },
                     actionLabel = if (currentPane == ChatContentPane.SETTINGS) "Fermer" else "Nouveau",
                     onActionClick = {
@@ -504,9 +519,18 @@ private fun ChatScreenContent(
                         enabled = isOnDeviceModelReady && !isConversationLimitReached,
                         onSend = {
                             if (messageText.isNotBlank() || selectedImageUri != null) {
+                                keyboardController?.hide()
+                                focusManager.clearFocus(force = true)
                                 onSendMessage(messageText, selectedImageUri)
                                 messageText = ""
                                 selectedImageUri = null
+                                pendingScrollToBottom = true
+                                scope.launch {
+                                    val itemCount = messages.size + if (isWaitingForAiResponse) 1 else 0
+                                    if (itemCount > 0) {
+                                        listState.animateScrollToItem(itemCount - 1)
+                                    }
+                                }
                             }
                         },
                         modifier = Modifier
@@ -524,6 +548,42 @@ private fun ChatScreenContent(
                     .navigationBarsPadding()
             )
         }
+    }
+
+    if (isConversationDrawerMounted) {
+        ModalNavigationDrawer(
+            drawerState = conversationDrawerState,
+            gesturesEnabled = conversations.isNotEmpty(),
+            drawerContent = {
+                ConversationDrawerSheet(
+                    conversations = conversations,
+                    currentConversationId = currentConversationId,
+                    onSelectConversation = { conversationId ->
+                        currentPane = ChatContentPane.CONVERSATION
+                        onSelectConversation(conversationId)
+                        scope.launch { conversationDrawerState.close() }
+                    },
+                    onConversationLongPress = { conversation ->
+                        conversationOptionsTarget = conversation
+                    },
+                    onOpenSettings = {
+                        currentPane = ChatContentPane.SETTINGS
+                        scope.launch { conversationDrawerState.close() }
+                    },
+                    onOpenMainSidebar = {
+                        scope.launch {
+                            conversationDrawerState.close()
+                            onOpenMainSidebar()
+                        }
+                    },
+                    modifier = if (showChrome) Modifier.statusBarsPadding() else Modifier
+                )
+            }
+        ) {
+            chatContent()
+        }
+    } else {
+        chatContent()
     }
 
     if (showImagePickerDialog) {
@@ -571,47 +631,60 @@ private fun ChatScreenContent(
 
 @Composable
 private fun ConversationTopBar(
-    title: String,
     onOpenSidebar: () -> Unit,
     actionLabel: String,
     onActionClick: () -> Unit
 ) {
-    Surface(
-        color = Color.Transparent,
+    Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(brush = ChatHeaderGradient)
             .statusBarsPadding()
-            .padding(horizontal = 18.dp, vertical = 8.dp)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            Surface(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onOpenSidebar),
+                color = ChatHeaderMenuSurface,
+                shape = CircleShape
             ) {
-                IconButton(onClick = onOpenSidebar) {
+                Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Default.Menu,
                         contentDescription = "Afficher les conversations",
-                        tint = TextPrimary
+                        tint = TextPrimary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
+            }
+            FilledTonalButton(
+                onClick = onActionClick,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = AccentBlue.copy(alpha = 0.16f),
+                    contentColor = AccentBlue
+                )
+            ) {
                 Text(
-                    text = title,
-                    color = TextPrimary,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1
+                    text = actionLabel,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
-            TextButton(onClick = onActionClick) {
-                Text(actionLabel)
-            }
         }
+        Text(
+            text = "Chat",
+            color = TextPrimary,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -933,7 +1006,7 @@ private fun ChatSettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Pilotez le modele local, la taille du contexte et le prompt systeme.",
+                        text = "Pilotez le modele local, la taille du contexte et l'unique prompt systeme partage par Max.",
                         color = TextPrimary,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
@@ -1005,7 +1078,7 @@ private fun ChatSettingsScreen(
         item("system-prompt") {
             SettingsSection(
                 title = "Prompt systeme",
-                subtitle = "Ce texte guide le comportement de Max."
+                subtitle = "Ce texte guide le comportement de Max dans le chat classique et le mode vocal."
             ) {
                 TextField(
                     value = systemPrompt,
@@ -1374,7 +1447,7 @@ private fun EditorialMessageBubble(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = if (message.isFromUser) "Vous" else "Max",
+            text = message.senderLabel,
             color = TextSecondary.copy(alpha = 0.88f),
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(start = if (message.isFromUser) 0.dp else 6.dp)
@@ -1392,16 +1465,20 @@ private fun EditorialMessageBubble(
 
             Surface(
                 shape = bubbleShape,
-                color = if (message.isFromUser) UserBubbleColor else MaxBubbleColor,
+                color = when {
+                    message.isFromUser -> UserBubbleColor
+                    message.isToolEvent -> ToolBubbleColor
+                    else -> MaxBubbleColor
+                },
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
                     .widthIn(max = 440.dp)
                     .border(
                         width = 1.dp,
-                        color = if (message.isFromUser) {
-                            AccentBlue.copy(alpha = 0.28f)
-                        } else {
-                            EditorialPanelBorder
+                        color = when {
+                            message.isFromUser -> AccentBlue.copy(alpha = 0.28f)
+                            message.isToolEvent -> Color(0xFF7A5A34)
+                            else -> EditorialPanelBorder
                         },
                         shape = bubbleShape
                     )
@@ -1446,7 +1523,7 @@ private fun EditorialMessageBubble(
             style = MaterialTheme.typography.labelSmall
         )
 
-        if (!message.isFromUser) {
+        if (!message.isFromUser && !message.isToolEvent) {
             MessageActionRow(
                 onCopy = onCopy,
                 onRetry = onRetry,
@@ -1548,6 +1625,7 @@ private fun MarkdownContent(text: String) {
             }
         }
     }
+
 }
 
 private fun parseInlineMarkdown(text: String): AnnotatedString {

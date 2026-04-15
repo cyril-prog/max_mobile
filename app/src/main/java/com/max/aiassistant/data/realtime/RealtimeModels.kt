@@ -316,8 +316,31 @@ data class Response(
     val statusDetails: Any?,
 
     @SerializedName("output")
-    val output: List<Any>,
+    val output: List<ResponseOutputItem>,
 
     @SerializedName("usage")
     val usage: Any?
+)
+
+data class ResponseOutputItem(
+    @SerializedName("id")
+    val id: String? = null,
+
+    @SerializedName("object")
+    val objectType: String? = null,
+
+    @SerializedName("type")
+    val type: String? = null,
+
+    @SerializedName("status")
+    val status: String? = null,
+
+    @SerializedName("name")
+    val name: String? = null,
+
+    @SerializedName("call_id")
+    val callId: String? = null,
+
+    @SerializedName("arguments")
+    val arguments: String? = null
 )

@@ -16,5 +16,7 @@ data class Message(
     val content: String,
     val isFromUser: Boolean,
     val timestamp: Long = System.currentTimeMillis(),
-    val imageUri: Uri? = null
+    val imageUri: Uri? = null,
+    val senderLabel: String = if (isFromUser) "Vous" else "Max",
+    val isToolEvent: Boolean = false
 )

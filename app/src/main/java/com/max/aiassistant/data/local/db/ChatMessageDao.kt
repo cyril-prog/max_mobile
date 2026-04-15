@@ -43,6 +43,21 @@ interface ChatMessageDao {
 
     @Query(
         """
+        SELECT * FROM chat_messages
+        WHERE conversation_id = :conversationId
+          AND role != :excludedRole
+        ORDER BY created_at DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun getRecentMessagesExcludingRole(
+        conversationId: String,
+        limit: Int,
+        excludedRole: String
+    ): List<ChatMessageEntity>
+
+    @Query(
+        """
         UPDATE chat_messages
         SET content = :content, status = :status
         WHERE id = :messageId

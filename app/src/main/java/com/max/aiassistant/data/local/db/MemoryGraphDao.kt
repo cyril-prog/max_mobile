@@ -8,6 +8,15 @@ import androidx.room.Query
 @Dao
 interface MemoryGraphDao {
 
+    @Query(
+        """
+        SELECT * FROM memory_entities
+        WHERE id = :entityId
+        LIMIT 1
+        """
+    )
+    suspend fun getEntityById(entityId: String): MemoryEntityRecord?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertEntity(entity: MemoryEntityRecord)
 
@@ -29,6 +38,20 @@ interface MemoryGraphDao {
         query: String,
         limit: Int = 20
     ): List<MemoryEntityRecord>
+
+    @Query(
+        """
+        SELECT entity_id FROM memory_facts
+        WHERE fact_type LIKE '%' || :query || '%' OR value LIKE '%' || :query || '%'
+        GROUP BY entity_id
+        ORDER BY MAX(created_at) DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun searchEntityIdsByFacts(
+        query: String,
+        limit: Int = 20
+    ): List<String>
 
     @Query(
         """

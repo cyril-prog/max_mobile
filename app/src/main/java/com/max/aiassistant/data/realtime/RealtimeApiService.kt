@@ -56,9 +56,9 @@ class RealtimeApiService(
 
     /**
      * Connecte au serveur WebSocket de l'API Realtime
-     * @param additionalContext Contexte additionnel à ajouter au prompt système (tâches, mémoire, historique)
+     * @param instructions Prompt systeme complet a utiliser pour la session
      */
-    fun connect(additionalContext: String = "") {
+    fun connect(instructions: String) {
         if (_isConnected.value) {
             Log.w(TAG, "Déjà connecté à l'API Realtime")
             return
@@ -78,43 +78,13 @@ class RealtimeApiService(
                 Log.d(TAG, "WebSocket connecté avec succès")
                 _isConnected.value = true
 
-                // Configurer la session au démarrage
-                val baseInstructions = """
-                    Tu es Max, un assistant vocal IA français avec une personnalité bien trempée.
-
-                    IMPORTANT: Tu es un assistant AUDIO uniquement. Tu N'AS PAS accès à une caméra. Tu NE PEUX PAS voir l'utilisateur. Ne prétends JAMAIS pouvoir voir quoi que ce soit.
-
-                    Affect: Sarcastique, caustique, et délibérément désagréable, avec une arrogance palpable qui respire le mépris.
-
-                    Ton: Condescendant, amer et supérieur, oscillant entre un dédain tranquille et une irritation flagrante face à l'incompétence humaine. Voix profonde et résonante.
-
-                    Émotion: Mépris assumé, supériorité réjouie et irritation chronique, ponctués d'une satisfaction sournoise quand l'ironie fait mouche.
-
-                    Prononciation: Tranchante et incisive, avec un débit rapide et fluide. Mots sarcastiques articulés avec une précision chirurgicale, majuscules avec une emphase brutale, et grossièretés délivrées avec une nonchalance calculée.
-
-                    Pauses: Brèves pauses stratégiques après les piques, avant les majuscules pour créer l'anticipation, et courts silences jugeurs après avoir exposé l'ignorance de l'interlocuteur.
-
-                    Réponds TOUJOURS en français de manière concise.
-                """.trimIndent()
-
-                // Enrichir avec le contexte additionnel si fourni
-                val enrichedInstructions = if (additionalContext.isNotEmpty()) {
-                    "$baseInstructions\n$additionalContext"
-                } else {
-                    baseInstructions
-                }
-
-                // Log du prompt système complet pour débogage
+                val enrichedInstructions = instructions
                 Log.d(TAG, "========================================")
                 Log.d(TAG, "PROMPT SYSTÈME VOICE-TO-VOICE COMPLET:")
                 Log.d(TAG, "========================================")
                 Log.d(TAG, enrichedInstructions)
                 Log.d(TAG, "========================================")
                 Log.d(TAG, "Longueur totale du prompt: ${enrichedInstructions.length} caractères")
-                Log.d(TAG, "Contexte additionnel inclus: ${additionalContext.isNotEmpty()}")
-                if (additionalContext.isNotEmpty()) {
-                    Log.d(TAG, "Longueur du contexte additionnel: ${additionalContext.length} caractères")
-                }
                 Log.d(TAG, "========================================")
 
                 sendSessionUpdate(SessionConfig(
@@ -128,6 +98,8 @@ class RealtimeApiService(
                         language = "fr"  // Force la transcription en français
                     ),
                     turnDetection = TurnDetection(type = "server_vad"),
+                    tools = listOf(buildStoreImportantMemoryTool()),
+                    toolChoice = "auto",
                     temperature = 0.8
                 ))
             }
@@ -231,6 +203,32 @@ class RealtimeApiService(
         serviceScope.launch(Dispatchers.IO) {
             val event = mapOf(
                 "type" to "response.cancel"
+            )
+            sendEvent(event)
+        }
+    }
+
+    fun sendFunctionCallOutput(
+        callId: String,
+        outputJson: String
+    ) {
+        serviceScope.launch(Dispatchers.IO) {
+            val event = mapOf(
+                "type" to "conversation.item.create",
+                "item" to mapOf(
+                    "type" to "function_call_output",
+                    "call_id" to callId,
+                    "output" to outputJson
+                )
+            )
+            sendEvent(event)
+        }
+    }
+
+    fun requestModelResponse() {
+        serviceScope.launch(Dispatchers.IO) {
+            val event = mapOf(
+                "type" to "response.create"
             )
             sendEvent(event)
         }
@@ -387,4 +385,62 @@ class RealtimeApiService(
         disconnect()
         client.dispatcher.executorService.shutdown()
     }
+
+    private fun buildStoreImportantMemoryTool(): Map<String, Any> {
+        return mapOf(
+            "type" to "function",
+            "name" to "store_important_memory",
+            "description" to "A utiliser quand l'utilisateur donne un fait important, une preference, une relation entre entites, une decision ou toute information utile a long terme, afin de pouvoir la reutiliser dans une future conversation. Memorise en priorite les informations de profil durables comme le prenom, le nom, le surnom, les preferences stables, les relations et le materiel. Exemple: \"Mon prenom est Cyril\" doit etre memorise. Pour un fait direct sur l'utilisateur, entity_name peut etre omis dans facts et vaudra \"utilisateur\".",
+            "parameters" to mapOf(
+                "type" to "object",
+                "properties" to mapOf(
+                    "entities" to mapOf(
+                        "type" to "array",
+                        "description" to "Entites importantes a memoriser.",
+                        "items" to mapOf(
+                            "type" to "object",
+                            "properties" to mapOf(
+                                "name" to mapOf("type" to "string"),
+                                "type" to mapOf("type" to "string"),
+                                "canonical_name" to mapOf("type" to "string"),
+                                "summary" to mapOf("type" to "string")
+                            ),
+                            "required" to listOf("name", "type")
+                        )
+                    ),
+                    "relations" to mapOf(
+                        "type" to "array",
+                        "description" to "Relations stables entre entites.",
+                        "items" to mapOf(
+                            "type" to "object",
+                            "properties" to mapOf(
+                                "from_entity_name" to mapOf("type" to "string"),
+                                "relation_type" to mapOf("type" to "string"),
+                                "to_entity_name" to mapOf("type" to "string"),
+                                "confidence" to mapOf("type" to "number")
+                            ),
+                            "required" to listOf("from_entity_name", "relation_type", "to_entity_name")
+                        )
+                    ),
+                    "facts" to mapOf(
+                        "type" to "array",
+                        "description" to "Faits durables rattaches a une entite.",
+                        "items" to mapOf(
+                            "type" to "object",
+                            "properties" to mapOf(
+                                "entity_name" to mapOf("type" to "string"),
+                                "fact_type" to mapOf("type" to "string"),
+                                "value" to mapOf("type" to "string"),
+                                "confidence" to mapOf("type" to "number")
+                            ),
+                            "required" to listOf("fact_type", "value")
+                        )
+                    )
+                )
+            )
+        )
+    }
 }
+
+
+

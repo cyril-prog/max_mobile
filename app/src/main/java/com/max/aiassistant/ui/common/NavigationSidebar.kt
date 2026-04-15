@@ -3,6 +3,7 @@ package com.max.aiassistant.ui.common
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -46,6 +47,16 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
+
+private val NavigationSidebarSurface = Brush.verticalGradient(
+    colors = listOf(
+        Color(0xFF1A2F4A).copy(alpha = 0.96f),
+        Color(0xFF122133).copy(alpha = 0.94f),
+        Color(0xFF0B1420).copy(alpha = 0.92f)
+    )
+)
+
+private val NavigationSidebarScrim = Color(0xFF07111C)
 
 /**
  * Identifiants des écrans de navigation
@@ -167,7 +178,7 @@ fun NavigationSidebarScaffold(
                 modifier = Modifier
                     .fillMaxSize()
                     .alpha(overlayAlpha)
-                    .background(Color.Black)
+                    .background(NavigationSidebarScrim)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
@@ -284,12 +295,12 @@ private fun FloatingNavigationSidebar(
         Column(
             modifier = Modifier
                 .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            DarkSurface.copy(alpha = 0.95f),
-                            DarkSurfaceElevated.copy(alpha = 0.95f)
-                        )
-                    ),
+                    brush = NavigationSidebarSurface,
+                    shape = RoundedCornerShape(28.dp)
+                )
+                .border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.08f),
                     shape = RoundedCornerShape(28.dp)
                 )
                 .padding(vertical = 12.dp, horizontal = 10.dp)
@@ -504,12 +515,16 @@ private fun LiquidNavButton(
     )
     
     // Couleur de fond
-    val backgroundColor = DarkSurfaceVariant
+    val backgroundColor = when {
+        isPressed -> Color.White.copy(alpha = 0.14f)
+        isSelected -> Color.White.copy(alpha = 0.10f)
+        else -> Color.White.copy(alpha = 0.07f)
+    }
     
     // Couleur de l'icône
     val iconColor = when {
         isPressed || isSelected -> Color.White
-        else -> Color.White.copy(alpha = 0.6f)
+        else -> Color.White.copy(alpha = 0.72f)
     }
 
     Box(

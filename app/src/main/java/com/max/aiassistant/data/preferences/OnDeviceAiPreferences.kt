@@ -7,7 +7,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.max.aiassistant.data.local.DEFAULT_MAX_CONTEXT_TOKENS
 import com.max.aiassistant.data.local.DEFAULT_MODEL_VARIANT
-import com.max.aiassistant.data.local.DEFAULT_SYSTEM_PROMPT
 import com.max.aiassistant.data.local.OnDeviceAiSettings
 import com.max.aiassistant.data.local.OnDeviceModelVariant
 import kotlinx.coroutines.flow.Flow
@@ -26,7 +25,7 @@ class OnDeviceAiPreferences(private val context: Context) {
             OnDeviceAiSettings(
                 modelVariant = OnDeviceModelVariant.fromStorageName(prefs[MODEL_VARIANT_KEY]),
                 maxContextTokens = prefs[MAX_CONTEXT_TOKENS_KEY] ?: DEFAULT_MAX_CONTEXT_TOKENS,
-                systemPrompt = prefs[SYSTEM_PROMPT_KEY] ?: DEFAULT_SYSTEM_PROMPT
+                systemPrompt = prefs[SYSTEM_PROMPT_KEY] ?: DEFAULT_SHARED_SYSTEM_PROMPT
             )
         }
 
@@ -42,7 +41,7 @@ class OnDeviceAiPreferences(private val context: Context) {
         val DEFAULT_SETTINGS = OnDeviceAiSettings(
             modelVariant = DEFAULT_MODEL_VARIANT,
             maxContextTokens = DEFAULT_MAX_CONTEXT_TOKENS,
-            systemPrompt = DEFAULT_SYSTEM_PROMPT
+            systemPrompt = DEFAULT_SHARED_SYSTEM_PROMPT
         )
     }
 }
