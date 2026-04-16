@@ -1,6 +1,8 @@
 ﻿package com.max.aiassistant.ui.weather
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -139,18 +141,7 @@ private fun PollenCard(
     weatherData: WeatherData,
     onClick: () -> Unit
 ) {
-    val items = listOf(
-        "Graminées" to (weatherData.grassPollen ?: 0.0),
-        "Arbres" to maxOf(
-            weatherData.birchPollen ?: 0.0,
-            weatherData.alderPollen ?: 0.0,
-            weatherData.olivePollen ?: 0.0
-        ),
-        "Herbacées" to maxOf(
-            weatherData.mugwortPollen ?: 0.0,
-            weatherData.ragweedPollen ?: 0.0
-        )
-    )
+    val sections = remember(weatherData) { buildPollenSections(weatherData) }
 
     Card(
         onClick = onClick,
@@ -198,11 +189,11 @@ private fun PollenCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items.forEach { (label, value) ->
-                    val chipWeight = when (label) {
-                        "Graminées" -> 1.2f
-                        "Herbacées" -> 1.15f
-                        else -> 0.825f
+                sections.forEach { section ->
+                    val chipWeight = when (section.category) {
+                        PollenCategory.GRASSES -> 1.2f
+                        PollenCategory.HERBACEOUS -> 1.15f
+                        PollenCategory.TREES -> 0.825f
                     }
                     Surface(
                         modifier = Modifier.weight(chipWeight),
@@ -216,12 +207,12 @@ private fun PollenCard(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                label,
+                                section.category.title(),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color.White.copy(alpha = 0.75f)
                             )
                             Text(
-                                getPollenLevel(value),
+                                section.summaryLabel,
                                 style = MaterialTheme.typography.labelLarge,
                                 color = Color.White,
                                 fontWeight = FontWeight.SemiBold
@@ -238,38 +229,7 @@ private fun PollenDetailsDialog(
     weatherData: WeatherData,
     onDismiss: () -> Unit
 ) {
-    val sections = listOf(
-        PollenSection(
-            title = "Graminées",
-            icon = Icons.Default.Spa,
-            accentColor = Color(0xFF59E297),
-            containerColor = Color(0xFF103721),
-            rows = listOf(
-                "Graminées" to weatherData.grassPollen
-            )
-        ),
-        PollenSection(
-            title = "Arbres",
-            icon = Icons.Default.Park,
-            accentColor = Color(0xFF8EE7A7),
-            containerColor = Color(0xFF213A2F),
-            rows = listOf(
-                "Bouleau" to weatherData.birchPollen,
-                "Aulne" to weatherData.alderPollen,
-                "Olivier" to weatherData.olivePollen
-            )
-        ),
-        PollenSection(
-            title = "Herbacées",
-            icon = Icons.Default.LocalFlorist,
-            accentColor = Color(0xFFF4C24D),
-            containerColor = Color(0xFF3A2B20),
-            rows = listOf(
-                "Armoise" to weatherData.mugwortPollen,
-                "Ambroisie" to weatherData.ragweedPollen
-            )
-        )
-    )
+    val sections = remember(weatherData) { buildPollenSections(weatherData) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -282,7 +242,13 @@ private fun PollenDetailsDialog(
             )
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 520.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 sections.forEach { section ->
                     PollenDetailSection(section)
                 }
@@ -301,19 +267,12 @@ private fun PollenDetailsDialog(
         }
     )
 }
-private data class PollenSection(
-    val title: String,
-    val icon: ImageVector,
-    val accentColor: Color,
-    val containerColor: Color,
-    val rows: List<Pair<String, Double?>>
-)
 
 @Composable
-private fun PollenDetailSection(section: PollenSection) {
+private fun PollenDetailSection(section: PollenSectionUiState) {
     Surface(
         shape = RoundedCornerShape(24.dp),
-        color = section.containerColor
+        color = section.category.containerColor()
     ) {
         Column(
             modifier = Modifier
@@ -326,20 +285,20 @@ private fun PollenDetailSection(section: PollenSection) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = section.icon,
-                    contentDescription = section.title,
-                    tint = section.accentColor,
+                    imageVector = section.category.icon(),
+                    contentDescription = section.category.title(),
+                    tint = section.category.accentColor(),
                     modifier = Modifier.size(28.dp)
                 )
                 Text(
-                    section.title,
+                    section.category.title(),
                     style = MaterialTheme.typography.headlineSmall,
-                    color = section.accentColor,
+                    color = section.category.accentColor(),
                     fontWeight = FontWeight.Medium
                 )
             }
-            section.rows.forEach { (label, value) ->
-                PollenDetailRow(label = label, value = value)
+            section.rows.forEach { row ->
+                PollenDetailRow(row = row)
             }
         }
     }
@@ -347,8 +306,7 @@ private fun PollenDetailSection(section: PollenSection) {
 
 @Composable
 private fun PollenDetailRow(
-    label: String,
-    value: Double?
+    row: PollenReading
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -360,22 +318,22 @@ private fun PollenDetailRow(
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text(
-                label,
+                row.label,
                 style = MaterialTheme.typography.titleLarge,
                 color = Color.White
             )
             Text(
-                formatPollenValue(value),
+                row.valueText,
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.68f)
             )
         }
         Surface(
             shape = RoundedCornerShape(14.dp),
-            color = Color(getPollenColor(value))
+            color = pollenBadgeColor(row.severity)
         ) {
             Text(
-                text = getPollenLevel(value),
+                text = row.levelText,
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.labelLarge,
                 color = PollenBadgeText,
@@ -388,4 +346,36 @@ private fun PollenDetailRow(
 @Composable
 private fun chipColors() = FilterChipDefaults.filterChipColors(selectedContainerColor = AccentBlue.copy(alpha = 0.18f), selectedLabelColor = AccentBlue, containerColor = DarkSurface, labelColor = TextSecondary)
 private fun fmt(v: Double) = "${v.toInt()}°"
-private fun formatPollenValue(value: Double?): String = "${(value ?: 0.0).toInt()} grains/m³"
+private fun pollenBadgeColor(severity: Int?): Color = when (severity) {
+    null -> Color(0xFF6B7280)
+    0 -> Color(0xFF6B7280)
+    1 -> Color(0xFF34D399)
+    2 -> Color(0xFF10B981)
+    3 -> Color(0xFFFBBF24)
+    4 -> Color(0xFFF59E0B)
+    else -> Color(0xFFEF4444)
+}
+
+private fun PollenCategory.title(): String = when (this) {
+    PollenCategory.GRASSES -> "Graminées"
+    PollenCategory.TREES -> "Arbres"
+    PollenCategory.HERBACEOUS -> "Herbacées"
+}
+
+private fun PollenCategory.icon(): ImageVector = when (this) {
+    PollenCategory.GRASSES -> Icons.Default.Spa
+    PollenCategory.TREES -> Icons.Default.Park
+    PollenCategory.HERBACEOUS -> Icons.Default.LocalFlorist
+}
+
+private fun PollenCategory.accentColor(): Color = when (this) {
+    PollenCategory.GRASSES -> Color(0xFF59E297)
+    PollenCategory.TREES -> Color(0xFF8EE7A7)
+    PollenCategory.HERBACEOUS -> Color(0xFFF4C24D)
+}
+
+private fun PollenCategory.containerColor(): Color = when (this) {
+    PollenCategory.GRASSES -> Color(0xFF103721)
+    PollenCategory.TREES -> Color(0xFF213A2F)
+    PollenCategory.HERBACEOUS -> Color(0xFF3A2B20)
+}

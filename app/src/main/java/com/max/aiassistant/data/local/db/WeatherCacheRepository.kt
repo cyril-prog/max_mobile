@@ -5,6 +5,8 @@ import com.google.gson.reflect.TypeToken
 import com.max.aiassistant.data.api.CurrentPollenData
 import com.max.aiassistant.data.api.DailyForecast
 import com.max.aiassistant.data.api.HourlyForecast
+import com.max.aiassistant.data.api.PollenPlantData
+import com.max.aiassistant.data.api.PollenTypeData
 import com.max.aiassistant.data.api.WeatherData
 import java.util.Locale
 
@@ -60,7 +62,10 @@ class WeatherCacheRepository(
                 alderPollen = alderPollen,
                 olivePollen = olivePollen,
                 mugwortPollen = mugwortPollen,
-                ragweedPollen = ragweedPollen
+                ragweedPollen = ragweedPollen,
+                pollenTypes = fromJson(pollenTypesJson, pollenTypeListType),
+                pollenPlants = fromJson(pollenPlantsJson, pollenPlantListType),
+                pollenSource = pollenSource
             ),
             weatherFetchedAt = weatherFetchedAt,
             pollenFetchedAt = pollenFetchedAt
@@ -85,6 +90,9 @@ class WeatherCacheRepository(
             olivePollen = weatherData.olivePollen,
             mugwortPollen = weatherData.mugwortPollen,
             ragweedPollen = weatherData.ragweedPollen,
+            pollenTypesJson = gson.toJson(weatherData.pollenTypes),
+            pollenPlantsJson = gson.toJson(weatherData.pollenPlants),
+            pollenSource = weatherData.pollenSource,
             weatherFetchedAt = weatherFetchedAt,
             pollenFetchedAt = pollenFetchedAt,
             updatedAt = maxOf(weatherFetchedAt, pollenFetchedAt ?: 0L)
@@ -99,7 +107,10 @@ class WeatherCacheRepository(
             alderPollen = pollen.alderPollen,
             olivePollen = pollen.olivePollen,
             mugwortPollen = pollen.mugwortPollen,
-            ragweedPollen = pollen.ragweedPollen
+            ragweedPollen = pollen.ragweedPollen,
+            pollenTypes = pollen.pollenTypes,
+            pollenPlants = pollen.pollenPlants,
+            pollenSource = pollen.pollenSource
         )
     }
 
@@ -114,5 +125,7 @@ class WeatherCacheRepository(
     private companion object {
         val hourlyForecastListType = object : TypeToken<List<HourlyForecast>>() {}.type
         val dailyForecastListType = object : TypeToken<List<DailyForecast>>() {}.type
+        val pollenTypeListType = object : TypeToken<List<PollenTypeData>>() {}.type
+        val pollenPlantListType = object : TypeToken<List<PollenPlantData>>() {}.type
     }
 }

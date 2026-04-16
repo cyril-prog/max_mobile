@@ -13,14 +13,17 @@ import com.max.aiassistant.data.api.MessageData
 import com.max.aiassistant.data.api.toEvent
 import com.max.aiassistant.data.api.toActuArticle
 import com.max.aiassistant.data.api.toCurrentPollen
+import com.max.aiassistant.data.api.toCurrentPollenData
 import com.max.aiassistant.data.api.toRechercheArticle
 import com.max.aiassistant.data.api.toWeatherData
 import com.max.aiassistant.data.chat.ChatTitleFormatter
 import com.max.aiassistant.data.local.OnDeviceAiSettings
+import com.max.aiassistant.data.local.AndroidSpeechRecognizerManager
 import com.max.aiassistant.data.local.OnDeviceChatEngine
 import com.max.aiassistant.data.local.OnDeviceModelManager
 import com.max.aiassistant.data.local.OnDeviceModelProvisioningState
 import com.max.aiassistant.data.local.OnDeviceModelVariant
+import com.max.aiassistant.data.local.AndroidTextToSpeechManager
 import com.max.aiassistant.data.local.ToolDebugEvent
 import com.max.aiassistant.data.local.ToolDebugPhase
 import com.max.aiassistant.data.local.db.ChatConversationEntity
@@ -73,6 +76,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val MAX_MESSAGES_PER_CONVERSATION = 300
         private const val WEATHER_CACHE_TTL_MILLIS = 60 * 60 * 1000L
         private const val CHAT_IMAGE_DIRECTORY = "chat-images"
+        private const val VOICE_ASSISTANT_CONVERSATION_KEY = "__voice_local_assistant__"
     }
 
     // ========== SERVICES API ==========
@@ -80,12 +84,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val apiService = MaxApiService.create()
     private val weatherApiService = com.max.aiassistant.data.api.WeatherApiService.create()
     private val pollenApiService = com.max.aiassistant.data.api.PollenApiService.create()
+    private val googlePollenApiService = com.max.aiassistant.data.api.GooglePollenApiService.create()
     private val geocodingApiService = com.max.aiassistant.data.api.GeocodingApiService.create()
     private val weatherPreferences = com.max.aiassistant.data.preferences.WeatherPreferences(application.applicationContext)
     private val notesPreferences = com.max.aiassistant.data.preferences.NotesPreferences(application.applicationContext)
     private val onDeviceAiPreferences = OnDeviceAiPreferences(application.applicationContext)
     private val onDeviceModelManager = OnDeviceModelManager(application.applicationContext)
     private val onDeviceChatEngine = OnDeviceChatEngine(application.applicationContext)
+    private val speechRecognizerManager = AndroidSpeechRecognizerManager(application.applicationContext)
+    private val textToSpeechManager = AndroidTextToSpeechManager(application.applicationContext)
     private val chatDatabase = MaxDatabase.getInstance(application.applicationContext)
     private val chatRepository = ChatRepository(chatDatabase)
     private val memoryGraphRepository = MemoryGraphRepository(chatDatabase.memoryGraphDao())
@@ -95,6 +102,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Clé API OpenAI pour l'API Realtime (chargée depuis local.properties via BuildConfig)
     private val OPENAI_API_KEY = BuildConfig.OPENAI_API_KEY
+    private val GOOGLE_MAPS_API_KEY = BuildConfig.GOOGLE_MAPS_API_KEY
 
     // Service Realtime (initialisé paresseusement)
     private var realtimeService: RealtimeApiService? = null
@@ -104,6 +112,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var realtimeEventsJob: Job? = null
     private var realtimeErrorsJob: Job? = null
     private var realtimeConnectionJob: Job? = null
+    private var voiceProcessingJob: Job? = null
 
     // Contexte système pour enrichir le prompt du voice-to-voice
     private var sharedSystemContext: String = ""
@@ -141,6 +150,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _onDeviceModelProvisioningState.asStateFlow()
     private val _realtimeError = MutableStateFlow<String?>(null)
     val realtimeError: StateFlow<String?> = _realtimeError.asStateFlow()
+    private val _voiceError = MutableStateFlow<String?>(null)
+    val voiceError: StateFlow<String?> = _voiceError.asStateFlow()
+    private val _voiceStatus = MutableStateFlow("Pret pour un message vocal local.")
+    val voiceStatus: StateFlow<String> = _voiceStatus.asStateFlow()
+    private val _isVoiceRecording = MutableStateFlow(false)
+    val isVoiceRecording: StateFlow<Boolean> = _isVoiceRecording.asStateFlow()
+    private val _isVoiceProcessing = MutableStateFlow(false)
+    val isVoiceProcessing: StateFlow<Boolean> = _isVoiceProcessing.asStateFlow()
+    private val _isVoiceSpeaking = MutableStateFlow(false)
+    val isVoiceSpeaking: StateFlow<Boolean> = _isVoiceSpeaking.asStateFlow()
+    private val _voiceConversationLines = MutableStateFlow<List<String>>(emptyList())
+    val voiceConversationLines: StateFlow<List<String>> = _voiceConversationLines.asStateFlow()
     private var onDeviceProvisioningJob: Job? = null
     private var activeConversationJob: Job? = null
     private var activeMessagesJob: Job? = null
@@ -1004,6 +1025,194 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ========== ÉTAT DES TÂCHES ==========
 
+    private fun buildVoiceAssistantSystemInstruction(): String {
+        return buildString {
+            append(buildOnDeviceSystemInstruction())
+            appendLine()
+            appendLine("Contraintes du mode vocal local:")
+            appendLine("- Reponds en francais naturel et facile a lire a voix haute.")
+            appendLine("- Evite le markdown, les tableaux et les longues listes.")
+            appendLine("- Va a l'essentiel et privilegie des phrases fluides.")
+        }
+    }
+
+    fun toggleVoiceRecording() {
+        when {
+            _isVoiceRecording.value -> stopVoiceRecordingAndProcess()
+            _isVoiceProcessing.value -> cancelVoiceInteraction()
+            _isVoiceSpeaking.value -> cancelVoiceInteraction()
+            else -> startVoiceRecording()
+        }
+    }
+
+    private fun startVoiceRecording() {
+        Log.d(TAG, "Demarrage d'une interaction vocale locale")
+        _voiceError.value = null
+        textToSpeechManager.stop()
+        _isVoiceSpeaking.value = false
+
+        if (!speechRecognizerManager.isRecognitionAvailable()) {
+            _voiceError.value = "La reconnaissance vocale Android n'est pas disponible sur cet appareil."
+            updateVoiceIdleStatus()
+            return
+        }
+
+        if (!_isOnDeviceModelReady.value) {
+            ensureOnDeviceModelAvailable()
+            _voiceStatus.value = buildProvisioningStatusMessage()
+            return
+        }
+
+        val readiness = onDeviceChatEngine.getRuntimeReadiness()
+        if (!readiness.canRun) {
+            _voiceError.value = readiness.reason
+            _voiceStatus.value = readiness.reason
+            return
+        }
+
+        runCatching {
+            speechRecognizerManager.startListening(
+                onReady = {
+                    Log.d(TAG, "Reconnaissance vocale prete")
+                    _isVoiceRecording.value = true
+                    _voiceStatus.value = "J'ecoute. Parlez puis touchez a nouveau pour terminer."
+                },
+                onPartialTranscript = { partialTranscript ->
+                    val normalized = partialTranscript.trim()
+                    if (normalized.isNotBlank()) {
+                        Log.d(TAG, "Transcript partiel vocal local: ${normalized.take(80)}")
+                        _voiceStatus.value = "J'entends: $normalized"
+                    }
+                },
+                onFinalTranscript = { transcript ->
+                    Log.d(TAG, "Transcript final vocal local: ${transcript.take(120)}")
+                    _isVoiceRecording.value = false
+                    _isVoiceProcessing.value = true
+                    _voiceError.value = null
+                    _voiceStatus.value = "Transcription recue. Generation de la reponse..."
+
+                    voiceProcessingJob?.cancel()
+                    voiceProcessingJob = viewModelScope.launch {
+                        try {
+                            processVoiceTranscript(transcript)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Erreur pendant le traitement vocal local", e)
+                            _voiceError.value = e.message ?: "Le traitement vocal local a echoue."
+                        } finally {
+                            _isVoiceProcessing.value = false
+                            if (!_isVoiceSpeaking.value) {
+                                updateVoiceIdleStatus()
+                            }
+                        }
+                    }
+                },
+                onError = { message ->
+                    Log.w(TAG, "Erreur de reconnaissance vocale locale: $message")
+                    _isVoiceRecording.value = false
+                    _isVoiceProcessing.value = false
+                    _voiceError.value = message
+                    updateVoiceIdleStatus()
+                }
+            )
+        }.onSuccess {
+            _voiceStatus.value = "Preparation de l'ecoute..."
+        }.onFailure { throwable ->
+            Log.e(TAG, "Impossible de demarrer l'enregistrement local", throwable)
+            _voiceError.value = throwable.message ?: "Impossible d'acceder au micro."
+            updateVoiceIdleStatus()
+        }
+    }
+
+    private fun stopVoiceRecordingAndProcess() {
+        if (!_isVoiceRecording.value) {
+            return
+        }
+
+        Log.d(TAG, "Demande utilisateur de finalisation de la transcription vocale")
+        _voiceStatus.value = "Finalisation de la transcription..."
+        speechRecognizerManager.stopListening()
+    }
+
+    private fun cancelVoiceInteraction() {
+        Log.d(TAG, "Annulation d'une interaction vocale locale")
+        if (_isVoiceRecording.value) {
+            speechRecognizerManager.cancelListening()
+        }
+
+        voiceProcessingJob?.cancel()
+        textToSpeechManager.stop()
+        _isVoiceRecording.value = false
+        _isVoiceProcessing.value = false
+        _isVoiceSpeaking.value = false
+        _voiceError.value = "Interaction vocale annulee."
+        updateVoiceIdleStatus()
+    }
+
+    private suspend fun processVoiceTranscript(transcript: String) {
+        val modelReady = awaitOnDeviceModelAvailable()
+        if (!modelReady) {
+            throw IllegalStateException("Le modele local n'est pas pret. ${buildProvisioningStatusMessage()}")
+        }
+
+        val readiness = onDeviceChatEngine.getRuntimeReadiness()
+        if (!readiness.canRun) {
+            throw IllegalStateException(readiness.reason)
+        }
+
+        val normalizedTranscript = sanitizeVoiceTranscript(transcript)
+        Log.d(TAG, "Traitement du transcript vocal normalise: ${normalizedTranscript.take(120)}")
+        if (normalizedTranscript.isBlank()) {
+            throw IllegalStateException("Je n'ai pas reussi a comprendre clairement l'audio.")
+        }
+
+        _voiceStatus.value = "Generation de la reponse locale..."
+        val responseText = onDeviceChatEngine.generateResponse(
+            userMessage = normalizedTranscript,
+            modelVariant = _onDeviceAiSettings.value.modelVariant,
+            maxContextTokens = _onDeviceAiSettings.value.maxContextTokens,
+            systemInstruction = buildVoiceAssistantSystemInstruction(),
+            conversationKey = VOICE_ASSISTANT_CONVERSATION_KEY
+        ).ifBlank {
+            "Je n'ai pas reussi a formuler une reponse exploitable."
+        }
+        Log.d(TAG, "Reponse vocale locale generee: ${responseText.take(120)}")
+
+        addConversationPair(
+            userTranscript = normalizedTranscript,
+            aiTranscript = responseText
+        )
+
+        _isVoiceSpeaking.value = true
+        _voiceStatus.value = "Lecture de la reponse..."
+        try {
+            textToSpeechManager.speak(
+                text = responseText,
+                onStart = {
+                    _voiceStatus.value = "Lecture de la reponse..."
+                }
+            )
+        } finally {
+            _isVoiceSpeaking.value = false
+        }
+    }
+
+    private fun sanitizeVoiceTranscript(transcript: String): String {
+        return transcript
+            .trim()
+            .removeSurrounding("\"")
+            .trim()
+    }
+
+    private fun updateVoiceIdleStatus() {
+        _voiceStatus.value = when {
+            _isVoiceRecording.value -> "Enregistrement en cours."
+            _isVoiceProcessing.value -> "Traitement local en cours..."
+            _isVoiceSpeaking.value -> "Lecture de la reponse..."
+            _voiceConversationLines.value.isEmpty() -> "Pret pour un message vocal local."
+            else -> "Pret pour un nouveau message vocal."
+        }
+    }
+
     private fun buildRealtimeSystemContext(): String {
         return buildString {
             if (sharedSystemContext.isNotBlank()) {
@@ -1573,19 +1782,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 if (shouldRefreshPollen) {
                     try {
-                        val pollenData = pollenApiService.getPollenForecast(
+                        val pollenData = fetchPollenData(
+                            googleMapsApiKey = GOOGLE_MAPS_API_KEY,
+                            googlePollenApiService = googlePollenApiService,
+                            pollenApiService = pollenApiService,
                             latitude = latitude,
-                            longitude = longitude
-                        ).toCurrentPollen()
+                            longitude = longitude,
+                            tag = TAG
+                        )
 
                         currentWeatherData = currentWeatherData?.let {
                             weatherCacheRepository.mergePollen(it, pollenData)
                         }
                         pollenFetchedAt = now
-                        Log.d(TAG, "Pollens actualises depuis l'API air-quality")
+                        Log.d(TAG, "Pollens actualises depuis l'API")
                     } catch (e: Exception) {
                         hasRefreshError = true
-                        Log.w(TAG, "Impossible de recuperer les pollens depuis l'API air-quality", e)
+                        Log.w(TAG, "Impossible de recuperer les pollens depuis l'API", e)
                     }
                 }
 
@@ -1620,12 +1833,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     longitude = longitude
                 )
                 val pollenData = try {
-                    pollenApiService.getPollenForecast(
+                    fetchPollenData(
+                        googleMapsApiKey = GOOGLE_MAPS_API_KEY,
+                        googlePollenApiService = googlePollenApiService,
+                        pollenApiService = pollenApiService,
                         latitude = latitude,
-                        longitude = longitude
-                    ).toCurrentPollen()
+                        longitude = longitude,
+                        tag = TAG
+                    )
                 } catch (e: Exception) {
-                    Log.w(TAG, "Impossible de recuperer les pollens depuis l'API air-quality", e)
+                    Log.w(TAG, "Impossible de recuperer les pollens depuis l'API", e)
                     null
                 }
                 val weatherData = response.toWeatherData(pollenData)
@@ -2047,6 +2264,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Message utilisateur
         if (userTranscript.isNotEmpty()) {
+            _voiceConversationLines.value = _voiceConversationLines.value + "Vous: $userTranscript"
             val userMessage = MessageData(
                 id = messageIdCounter++,
                 sessionId = sessionId,
@@ -2063,6 +2281,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Message IA
         if (aiTranscript.isNotEmpty()) {
+            _voiceConversationLines.value = _voiceConversationLines.value + "Max: $aiTranscript"
             val aiMessage = MessageData(
                 id = messageIdCounter++,
                 sessionId = sessionId,
@@ -2127,6 +2346,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         sessionId = UUID.randomUUID().toString()
         messageIdCounter = 0
         pendingUserTranscripts.clear()
+        _voiceConversationLines.value = emptyList()
+        _voiceError.value = null
+        _isVoiceRecording.value = false
+        _isVoiceProcessing.value = false
+        _isVoiceSpeaking.value = false
+        updateVoiceIdleStatus()
         Log.d(TAG, "Conversation réinitialisée avec nouveau session ID: $sessionId")
     }
 
@@ -2171,7 +2396,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     override fun onCleared() {
         super.onCleared()
+        voiceProcessingJob?.cancel()
         onDeviceChatEngine.close()
+        speechRecognizerManager.destroy()
+        textToSpeechManager.shutdown()
         audioManager?.cleanup()
         realtimeService?.cleanup()
     }
@@ -2195,6 +2423,44 @@ private fun ChatMessageEntity.toUiMessage(): Message {
     )
 }
 
+private suspend fun fetchPollenData(
+    googleMapsApiKey: String,
+    googlePollenApiService: com.max.aiassistant.data.api.GooglePollenApiService,
+    pollenApiService: com.max.aiassistant.data.api.PollenApiService,
+    latitude: Double,
+    longitude: Double,
+    tag: String
+): com.max.aiassistant.data.api.CurrentPollenData? {
+    if (googleMapsApiKey.isNotBlank()) {
+        try {
+            val googlePollenData = googlePollenApiService.lookupForecast(
+                apiKey = googleMapsApiKey,
+                latitude = latitude,
+                longitude = longitude
+            ).toCurrentPollenData()
+            Log.d(
+                tag,
+                "Pollens recuperes via Google Pollen API: types=${googlePollenData?.pollenTypes?.size ?: 0}, plantes=${googlePollenData?.pollenPlants?.size ?: 0}"
+            )
+            return googlePollenData
+        } catch (e: Exception) {
+            Log.w(tag, "Impossible de recuperer les pollens depuis Google Pollen API, fallback Open-Meteo", e)
+        }
+    } else {
+        Log.d(tag, "GOOGLE_MAPS_API_KEY absente, utilisation du fallback Open-Meteo pour les pollens")
+    }
+
+    val openMeteoPollenData = pollenApiService.getPollenForecast(
+        latitude = latitude,
+        longitude = longitude
+    ).toCurrentPollen()
+    Log.d(
+        tag,
+        "Pollens recuperes via Open-Meteo: plantes=${openMeteoPollenData.pollenPlants.size}, source=${openMeteoPollenData.pollenSource}"
+    )
+    return openMeteoPollenData
+}
+
 private fun com.max.aiassistant.data.api.WeatherData.toCurrentPollenData():
     com.max.aiassistant.data.api.CurrentPollenData {
     return com.max.aiassistant.data.api.CurrentPollenData(
@@ -2203,7 +2469,10 @@ private fun com.max.aiassistant.data.api.WeatherData.toCurrentPollenData():
         alderPollen = alderPollen,
         olivePollen = olivePollen,
         mugwortPollen = mugwortPollen,
-        ragweedPollen = ragweedPollen
+        ragweedPollen = ragweedPollen,
+        pollenTypes = pollenTypes,
+        pollenPlants = pollenPlants,
+        pollenSource = pollenSource
     )
 }
 

@@ -44,6 +44,12 @@ data class WeatherCacheEntity(
     val mugwortPollen: Double?,
     @ColumnInfo(name = "ragweed_pollen")
     val ragweedPollen: Double?,
+    @ColumnInfo(name = "pollen_types_json")
+    val pollenTypesJson: String,
+    @ColumnInfo(name = "pollen_plants_json")
+    val pollenPlantsJson: String,
+    @ColumnInfo(name = "pollen_source")
+    val pollenSource: String?,
     @ColumnInfo(name = "weather_fetched_at")
     val weatherFetchedAt: Long,
     @ColumnInfo(name = "pollen_fetched_at")

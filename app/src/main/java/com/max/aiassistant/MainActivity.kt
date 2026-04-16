@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
 
     // Gestionnaire de permissions
     private lateinit var permissionHelper: PermissionHelper
+    private var onRecordAudioPermissionGranted: (() -> Unit)? = null
 
     // État pour le texte partagé (accessible depuis onNewIntent)
     private val _sharedText = mutableStateOf<String?>(null)
@@ -57,12 +58,14 @@ class MainActivity : ComponentActivity() {
         permissionHelper = PermissionHelper(
             activity = this,
             onPermissionGranted = {
-                // Permission accordée
+                onRecordAudioPermissionGranted?.invoke()
+                onRecordAudioPermissionGranted = null
             },
             onPermissionDenied = {
+                onRecordAudioPermissionGranted = null
                 Toast.makeText(
                     this,
-                    "Permission microphone requise pour utiliser l'API Realtime",
+                    "Permission microphone requise pour utiliser le mode vocal",
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -92,9 +95,12 @@ class MainActivity : ComponentActivity() {
                 val taskError by viewModel.taskError.collectAsState()
                 val isLoadingEvents by viewModel.isLoadingEvents.collectAsState()
                 val eventsError by viewModel.eventsError.collectAsState()
-                val isRealtimeConnected by viewModel.isRealtimeConnected.collectAsState()
-                val realtimeError by viewModel.realtimeError.collectAsState()
-                val voiceTranscript by viewModel.voiceTranscript.collectAsState()
+                val isVoiceRecording by viewModel.isVoiceRecording.collectAsState()
+                val isVoiceProcessing by viewModel.isVoiceProcessing.collectAsState()
+                val isVoiceSpeaking by viewModel.isVoiceSpeaking.collectAsState()
+                val voiceError by viewModel.voiceError.collectAsState()
+                val voiceStatus by viewModel.voiceStatus.collectAsState()
+                val voiceConversationLines by viewModel.voiceConversationLines.collectAsState()
                 val weatherData by viewModel.weatherData.collectAsState()
                 val isLoadingWeather by viewModel.isLoadingWeather.collectAsState()
                 val weatherError by viewModel.weatherError.collectAsState()
@@ -388,14 +394,22 @@ class MainActivity : ComponentActivity() {
                             }
                             AppShellRoute.VOICE -> {
                                 VoiceScreen(
-                                    isRealtimeConnected = isRealtimeConnected,
-                                    errorMessage = realtimeError,
+                                    isVoiceRecording = isVoiceRecording,
+                                    isVoiceProcessing = isVoiceProcessing,
+                                    isVoiceSpeaking = isVoiceSpeaking,
+                                    errorMessage = voiceError,
+                                    statusMessage = if (isOnDeviceModelReady) voiceStatus else onDeviceModelStatus,
+                                    isOnDeviceModelReady = isOnDeviceModelReady,
                                     isOffline = isOffline,
-                                    transcript = voiceTranscript,
-                                    onToggleRealtime = {
+                                    conversationLines = voiceConversationLines,
+                                    onToggleVoiceRecording = {
                                         if (permissionHelper.hasRecordAudioPermission()) {
-                                            viewModel.toggleRealtimeConnection()
+                                            onRecordAudioPermissionGranted = null
+                                            viewModel.toggleVoiceRecording()
                                         } else {
+                                            onRecordAudioPermissionGranted = {
+                                                viewModel.toggleVoiceRecording()
+                                            }
                                             permissionHelper.requestRecordAudioPermission()
                                         }
                                     },

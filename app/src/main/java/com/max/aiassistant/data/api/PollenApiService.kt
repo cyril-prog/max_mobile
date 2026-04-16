@@ -99,7 +99,8 @@ fun PollenApiResponse.toCurrentPollen(
         alderPollen = hourly.alderPollen.getOrNull(index),
         olivePollen = hourly.olivePollen.getOrNull(index),
         mugwortPollen = hourly.mugwortPollen.getOrNull(index),
-        ragweedPollen = hourly.ragweedPollen.getOrNull(index)
+        ragweedPollen = hourly.ragweedPollen.getOrNull(index),
+        pollenSource = "open_meteo"
     )
 }
 

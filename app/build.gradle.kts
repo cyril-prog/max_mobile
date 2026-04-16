@@ -43,6 +43,10 @@ android {
         // Expose OpenAI API Key via BuildConfig
         val openAiKey = localProperties.getProperty("OPENAI_API_KEY", "")
         buildConfigField("String", "OPENAI_API_KEY", "\"$openAiKey\"")
+
+        // Optional Google Maps Platform key used by the generic Pollen API
+        val googleMapsKey = localProperties.getProperty("GOOGLE_MAPS_API_KEY", "")
+        buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsKey\"")
     }
 
     buildTypes {

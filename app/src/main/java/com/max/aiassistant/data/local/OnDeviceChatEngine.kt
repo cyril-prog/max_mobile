@@ -72,6 +72,7 @@ class OnDeviceChatEngine(
     private var loadedSystemInstruction: String? = null
     private var loadedMaxContextTokens: Int? = null
     private var loadedVisionEnabled: Boolean? = null
+    private var loadedAudioEnabled: Boolean? = null
     var onToolDebugEvent: ((ToolDebugEvent) -> Unit)? = null
     private val memoryGraphRepository = MemoryGraphRepository(MaxDatabase.getInstance(context).memoryGraphDao())
     private val toolProviders: List<ToolProvider> = listOf(
@@ -131,6 +132,7 @@ class OnDeviceChatEngine(
     suspend fun generateResponse(
         userMessage: String,
         userImageUri: Uri? = null,
+        userAudioClip: ByteArray? = null,
         modelVariant: OnDeviceModelVariant,
         maxContextTokens: Int,
         systemInstruction: String? = null,
@@ -146,6 +148,7 @@ class OnDeviceChatEngine(
             throw IllegalStateException(runtimeReadiness.reason)
         }
         val enableVision = userImageUri != null || initialHistory.any { !it.imageUri.isNullOrBlank() }
+        val enableAudio = userAudioClip != null
 
         val activeConversation = getOrCreateConversation(
             modelPath = modelPath,
@@ -153,12 +156,14 @@ class OnDeviceChatEngine(
             maxContextTokens = maxContextTokens,
             conversationKey = conversationKey,
             initialHistory = initialHistory,
-            enableVision = enableVision
+            enableVision = enableVision,
+            enableAudio = enableAudio
         )
         val response = activeConversation.sendMessage(
             buildUserInputContents(
                 text = userMessage,
-                imageUri = userImageUri
+                imageUri = userImageUri,
+                audioClip = userAudioClip
             ),
             emptyMap<String, Any>()
         )
@@ -168,6 +173,7 @@ class OnDeviceChatEngine(
     suspend fun generateResponseStreaming(
         userMessage: String,
         userImageUri: Uri? = null,
+        userAudioClip: ByteArray? = null,
         modelVariant: OnDeviceModelVariant,
         maxContextTokens: Int,
         systemInstruction: String? = null,
@@ -184,6 +190,7 @@ class OnDeviceChatEngine(
             throw IllegalStateException(runtimeReadiness.reason)
         }
         val enableVision = userImageUri != null || initialHistory.any { !it.imageUri.isNullOrBlank() }
+        val enableAudio = userAudioClip != null
 
         val activeConversation = getOrCreateConversation(
             modelPath = modelPath,
@@ -191,11 +198,13 @@ class OnDeviceChatEngine(
             maxContextTokens = maxContextTokens,
             conversationKey = conversationKey,
             initialHistory = initialHistory,
-            enableVision = enableVision
+            enableVision = enableVision,
+            enableAudio = enableAudio
         )
         val userInput = buildUserInputContents(
             text = userMessage,
-            imageUri = userImageUri
+            imageUri = userImageUri,
+            audioClip = userAudioClip
         )
 
         suspendCancellableCoroutine { continuation ->
@@ -254,6 +263,7 @@ class OnDeviceChatEngine(
         loadedSystemInstruction = null
         loadedMaxContextTokens = null
         loadedVisionEnabled = null
+        loadedAudioEnabled = null
     }
 
     private fun resolveModelFile(modelVariant: OnDeviceModelVariant): File? {
@@ -279,7 +289,8 @@ class OnDeviceChatEngine(
         maxContextTokens: Int,
         conversationKey: String?,
         initialHistory: List<ChatMessageEntity>,
-        enableVision: Boolean
+        enableVision: Boolean,
+        enableAudio: Boolean
     ): Conversation {
         if (
             conversation != null &&
@@ -288,7 +299,8 @@ class OnDeviceChatEngine(
             loadedModelPath == modelPath &&
             loadedSystemInstruction == systemInstruction &&
             loadedMaxContextTokens == maxContextTokens &&
-            loadedVisionEnabled == enableVision
+            loadedVisionEnabled == enableVision &&
+            loadedAudioEnabled == enableAudio
         ) {
             return conversation!!
         }
@@ -308,7 +320,8 @@ class OnDeviceChatEngine(
             backend = backend,
             maxContextTokens = maxContextTokens,
             cacheDir = cacheDir,
-            enableVision = enableVision
+            enableVision = enableVision,
+            enableAudio = enableAudio
         )
         val newConversation = newEngine.createConversation(
             ConversationConfig(
@@ -334,6 +347,7 @@ class OnDeviceChatEngine(
         loadedSystemInstruction = systemInstruction
         loadedMaxContextTokens = maxContextTokens
         loadedVisionEnabled = enableVision
+        loadedAudioEnabled = enableAudio
         return newConversation
     }
 
@@ -360,15 +374,17 @@ class OnDeviceChatEngine(
         backend: Backend,
         maxContextTokens: Int,
         cacheDir: String?,
-        enableVision: Boolean
+        enableVision: Boolean,
+        enableAudio: Boolean
     ): Engine {
+        val audioBackend = if (enableAudio) Backend.CPU() else null
         val engineConfigs = buildList {
             add(
                 EngineConfig(
                     modelPath,
                     backend,
                     if (enableVision) Backend.GPU() else null,
-                    null,
+                    audioBackend,
                     maxContextTokens,
                     cacheDir
                 )
@@ -379,7 +395,7 @@ class OnDeviceChatEngine(
                         modelPath,
                         backend,
                         Backend.CPU(CPU_THREADS),
-                        null,
+                        audioBackend,
                         maxContextTokens,
                         cacheDir
                     )
@@ -422,7 +438,8 @@ class OnDeviceChatEngine(
 
     private fun buildUserInputContents(
         text: String,
-        imageUri: Uri?
+        imageUri: Uri?,
+        audioClip: ByteArray?
     ): Contents {
         val contents = mutableListOf<Content>()
 
@@ -431,6 +448,12 @@ class OnDeviceChatEngine(
                 imageUri = imageUri,
                 requireReadable = true
             ) ?: error("resolveImageContent returned null while requireReadable=true")
+        }
+        if (audioClip != null) {
+            if (audioClip.isEmpty()) {
+                throw IllegalArgumentException("Le clip audio utilisateur est vide.")
+            }
+            contents += Content.AudioBytes(audioClip)
         }
         if (text.isNotBlank()) {
             contents += Content.Text(text)

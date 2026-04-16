@@ -163,7 +163,10 @@ data class WeatherData(
     val alderPollen: Double?,
     val olivePollen: Double?,
     val mugwortPollen: Double?,
-    val ragweedPollen: Double?
+    val ragweedPollen: Double?,
+    val pollenTypes: List<PollenTypeData> = emptyList(),
+    val pollenPlants: List<PollenPlantData> = emptyList(),
+    val pollenSource: String? = null
 )
 
 data class CurrentPollenData(
@@ -172,7 +175,27 @@ data class CurrentPollenData(
     val alderPollen: Double?,
     val olivePollen: Double?,
     val mugwortPollen: Double?,
-    val ragweedPollen: Double?
+    val ragweedPollen: Double?,
+    val pollenTypes: List<PollenTypeData> = emptyList(),
+    val pollenPlants: List<PollenPlantData> = emptyList(),
+    val pollenSource: String? = null
+)
+
+data class PollenTypeData(
+    val code: String,
+    val displayName: String,
+    val indexValue: Int?,
+    val category: String?,
+    val inSeason: Boolean?
+)
+
+data class PollenPlantData(
+    val code: String,
+    val displayName: String,
+    val plantType: String,
+    val indexValue: Int?,
+    val category: String?,
+    val inSeason: Boolean?
 )
 
 /**
@@ -259,7 +282,10 @@ fun WeatherApiResponse.toWeatherData(pollenData: CurrentPollenData? = null): Wea
         alderPollen = pollenData?.alderPollen ?: current.alderPollen,
         olivePollen = pollenData?.olivePollen ?: current.olivePollen,
         mugwortPollen = pollenData?.mugwortPollen ?: current.mugwortPollen,
-        ragweedPollen = pollenData?.ragweedPollen ?: current.ragweedPollen
+        ragweedPollen = pollenData?.ragweedPollen ?: current.ragweedPollen,
+        pollenTypes = pollenData?.pollenTypes ?: emptyList(),
+        pollenPlants = pollenData?.pollenPlants ?: emptyList(),
+        pollenSource = pollenData?.pollenSource
     )
 }
 

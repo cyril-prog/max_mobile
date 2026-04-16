@@ -10,6 +10,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -46,8 +47,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -89,11 +88,15 @@ private val VoiceAlert = Color(0xFFFF8A65)
 
 @Composable
 fun VoiceScreen(
-    isRealtimeConnected: Boolean,
+    isVoiceRecording: Boolean,
+    isVoiceProcessing: Boolean,
+    isVoiceSpeaking: Boolean,
     errorMessage: String? = null,
+    statusMessage: String,
+    isOnDeviceModelReady: Boolean,
     isOffline: Boolean = false,
-    transcript: String,
-    onToggleRealtime: () -> Unit,
+    conversationLines: List<String>,
+    onToggleVoiceRecording: () -> Unit,
     onNavigateToHome: () -> Unit = {},
     onNavigateToChat: () -> Unit,
     onNavigateToTasks: () -> Unit,
@@ -124,21 +127,29 @@ fun VoiceScreen(
             sidebarState = sidebarState
         ) {
             VoiceScreenContent(
-                isRealtimeConnected = isRealtimeConnected,
+                isVoiceRecording = isVoiceRecording,
+                isVoiceProcessing = isVoiceProcessing,
+                isVoiceSpeaking = isVoiceSpeaking,
                 errorMessage = errorMessage,
+                statusMessage = statusMessage,
+                isOnDeviceModelReady = isOnDeviceModelReady,
                 isOffline = isOffline,
-                transcript = transcript,
-                onToggleRealtime = onToggleRealtime,
+                conversationLines = conversationLines,
+                onToggleVoiceRecording = onToggleVoiceRecording,
                 modifier = modifier
             )
         }
     } else {
         VoiceScreenContent(
-            isRealtimeConnected = isRealtimeConnected,
+            isVoiceRecording = isVoiceRecording,
+            isVoiceProcessing = isVoiceProcessing,
+            isVoiceSpeaking = isVoiceSpeaking,
             errorMessage = errorMessage,
+            statusMessage = statusMessage,
+            isOnDeviceModelReady = isOnDeviceModelReady,
             isOffline = isOffline,
-            transcript = transcript,
-            onToggleRealtime = onToggleRealtime,
+            conversationLines = conversationLines,
+            onToggleVoiceRecording = onToggleVoiceRecording,
             modifier = modifier
         )
     }
@@ -146,21 +157,23 @@ fun VoiceScreen(
 
 @Composable
 private fun VoiceScreenContent(
-    isRealtimeConnected: Boolean,
+    isVoiceRecording: Boolean,
+    isVoiceProcessing: Boolean,
+    isVoiceSpeaking: Boolean,
     errorMessage: String?,
+    statusMessage: String,
+    isOnDeviceModelReady: Boolean,
     isOffline: Boolean,
-    transcript: String,
-    onToggleRealtime: () -> Unit,
+    conversationLines: List<String>,
+    onToggleVoiceRecording: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val transcriptLines = remember { mutableStateListOf<String>() }
     val listState = rememberLazyListState()
+    val isVoiceActive = isVoiceRecording || isVoiceProcessing || isVoiceSpeaking
 
-    LaunchedEffect(transcript) {
-        val cleaned = transcript.trim()
-        if (cleaned.isNotEmpty() && (transcriptLines.isEmpty() || transcriptLines.last() != cleaned)) {
-            transcriptLines.add(cleaned)
-            listState.animateScrollToItem(transcriptLines.lastIndex)
+    LaunchedEffect(conversationLines.size) {
+        if (conversationLines.isNotEmpty()) {
+            listState.animateScrollToItem(conversationLines.lastIndex)
         }
     }
 
@@ -193,31 +206,39 @@ private fun VoiceScreenContent(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(14.dp))
-            } else if (isOffline && !isRealtimeConnected) {
+            } else if (!isOnDeviceModelReady) {
                 InlineStatusBanner(
-                    title = "Connexion requise",
-                    subtitle = "Le studio vocal a besoin d'une connexion stable avant de lancer l'ecoute.",
-                    tone = BannerTone.Offline,
+                    title = if (isOffline) "Modele local indisponible hors ligne" else "Modele local en preparation",
+                    subtitle = statusMessage,
+                    tone = if (isOffline) BannerTone.Offline else BannerTone.Warning,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(14.dp))
             }
 
             VoiceHeroStage(
-                isRealtimeConnected = isRealtimeConnected,
-                onToggleRealtime = onToggleRealtime
+                isVoiceRecording = isVoiceRecording,
+                isVoiceProcessing = isVoiceProcessing,
+                isVoiceSpeaking = isVoiceSpeaking,
+                statusMessage = statusMessage,
+                isControlEnabled = isOnDeviceModelReady,
+                onToggleVoiceRecording = onToggleVoiceRecording
             )
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            VoiceMetricsRow(isRealtimeConnected = isRealtimeConnected)
+            VoiceMetricsRow(
+                isVoiceRecording = isVoiceRecording,
+                isVoiceProcessing = isVoiceProcessing,
+                isVoiceSpeaking = isVoiceSpeaking
+            )
 
             Spacer(modifier = Modifier.height(18.dp))
 
             TranscriptConsole(
-                lines = transcriptLines,
+                lines = conversationLines,
                 listState = listState,
-                isRealtimeConnected = isRealtimeConnected,
+                isVoiceActive = isVoiceActive,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -276,7 +297,7 @@ private fun VoiceTopLabel() {
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Parlez, laissez Max ecouter, puis reprenez la main instantanement.",
+            text = "Parlez, laissez Gemma transcrire localement, puis ecoutez la reponse en voix.",
             style = MaterialTheme.typography.bodyMedium,
             color = VoiceMuted
         )
@@ -285,9 +306,14 @@ private fun VoiceTopLabel() {
 
 @Composable
 private fun VoiceHeroStage(
-    isRealtimeConnected: Boolean,
-    onToggleRealtime: () -> Unit
+    isVoiceRecording: Boolean,
+    isVoiceProcessing: Boolean,
+    isVoiceSpeaking: Boolean,
+    statusMessage: String,
+    isControlEnabled: Boolean,
+    onToggleVoiceRecording: () -> Unit
 ) {
+    val isVoiceActive = isVoiceRecording || isVoiceProcessing || isVoiceSpeaking
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.Transparent
@@ -295,6 +321,10 @@ private fun VoiceHeroStage(
         Column(
             modifier = Modifier
                 .clip(RoundedCornerShape(32.dp))
+                .clickable(
+                    enabled = isControlEnabled,
+                    onClick = onToggleVoiceRecording
+                )
                 .background(
                     brush = Brush.linearGradient(
                         colors = listOf(
@@ -313,18 +343,28 @@ private fun VoiceHeroStage(
                 .padding(horizontal = 22.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            VoiceStageHeader(isRealtimeConnected = isRealtimeConnected)
+            VoiceStageHeader(
+                isVoiceRecording = isVoiceRecording,
+                isVoiceProcessing = isVoiceProcessing,
+                isVoiceSpeaking = isVoiceSpeaking
+            )
             Spacer(modifier = Modifier.height(18.dp))
             VoicePulseCore(
-                isRealtimeConnected = isRealtimeConnected,
-                modifier = Modifier.size(244.dp)
+                isVoiceActive = isVoiceActive,
+                modifier = Modifier
+                    .size(244.dp)
+                    .clickable(
+                        enabled = isControlEnabled,
+                        onClick = onToggleVoiceRecording
+                    )
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = if (isRealtimeConnected) {
-                    "Le micro est ouvert. Parlez naturellement."
-                } else {
-                    "Pret pour une conversation vocale nette et continue."
+                text = when {
+                    isVoiceRecording -> "Le micro enregistre votre message."
+                    isVoiceProcessing -> "Le modele local analyse votre voix."
+                    isVoiceSpeaking -> "Max lit sa reponse."
+                    else -> "Pret pour un message vocal 100 % local."
                 },
                 style = MaterialTheme.typography.titleMedium,
                 color = VoiceText,
@@ -333,26 +373,30 @@ private fun VoiceHeroStage(
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = if (isRealtimeConnected) {
-                    "Max transcrit et repond en direct sans quitter cet ecran."
-                } else {
-                    "Un appui lance la session. Un second coupe immediatement l'ecoute."
-                },
+                text = statusMessage,
                 style = MaterialTheme.typography.bodyMedium,
                 color = VoiceMuted,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(20.dp))
             VoicePrimaryControl(
-                isRealtimeConnected = isRealtimeConnected,
-                onToggleRealtime = onToggleRealtime
+                isVoiceRecording = isVoiceRecording,
+                isVoiceProcessing = isVoiceProcessing,
+                isVoiceSpeaking = isVoiceSpeaking,
+                enabled = isControlEnabled,
+                onToggleVoiceRecording = onToggleVoiceRecording
             )
         }
     }
 }
 
 @Composable
-private fun VoiceStageHeader(isRealtimeConnected: Boolean) {
+private fun VoiceStageHeader(
+    isVoiceRecording: Boolean,
+    isVoiceProcessing: Boolean,
+    isVoiceSpeaking: Boolean
+) {
+    val isVoiceActive = isVoiceRecording || isVoiceProcessing || isVoiceSpeaking
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -360,13 +404,18 @@ private fun VoiceStageHeader(isRealtimeConnected: Boolean) {
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                text = "Studio temps reel",
+                text = "Studio vocal local",
                 style = MaterialTheme.typography.titleMedium,
                 color = VoiceText,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = if (isRealtimeConnected) "Session en direct" else "En attente",
+                text = when {
+                    isVoiceRecording -> "Capture micro en cours"
+                    isVoiceProcessing -> "Traitement local"
+                    isVoiceSpeaking -> "Lecture TTS"
+                    else -> "Pret a ecouter"
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = VoiceMuted
             )
@@ -376,7 +425,7 @@ private fun VoiceStageHeader(isRealtimeConnected: Boolean) {
             modifier = Modifier
                 .clip(RoundedCornerShape(999.dp))
                 .background(
-                    if (isRealtimeConnected) VoiceAccent.copy(alpha = 0.14f)
+                    if (isVoiceActive) VoiceAccent.copy(alpha = 0.14f)
                     else VoicePanelSoft
                 )
                 .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -387,12 +436,12 @@ private fun VoiceStageHeader(isRealtimeConnected: Boolean) {
                 modifier = Modifier
                     .size(8.dp)
                     .background(
-                        color = if (isRealtimeConnected) VoiceAccentSoft else VoiceMuted.copy(alpha = 0.45f),
+                        color = if (isVoiceActive) VoiceAccentSoft else VoiceMuted.copy(alpha = 0.45f),
                         shape = CircleShape
                     )
             )
             Text(
-                text = if (isRealtimeConnected) "Ouvert" else "Ferme",
+                text = if (isVoiceActive) "Actif" else "Pret",
                 style = MaterialTheme.typography.labelLarge,
                 color = VoiceText
             )
@@ -402,7 +451,7 @@ private fun VoiceStageHeader(isRealtimeConnected: Boolean) {
 
 @Composable
 private fun VoicePulseCore(
-    isRealtimeConnected: Boolean,
+    isVoiceActive: Boolean,
     modifier: Modifier = Modifier
 ) {
     val motionEnabled = rememberMotionEnabled()
@@ -456,7 +505,7 @@ private fun VoicePulseCore(
         ) {
             val radius = size.minDimension / 2f
             val center = center
-            val liveScale = if (isRealtimeConnected) pulse else 0.94f
+            val liveScale = if (isVoiceActive) pulse else 0.94f
 
             drawCircle(
                 brush = Brush.radialGradient(
@@ -515,9 +564,9 @@ private fun VoicePulseCore(
             repeat(bars) { index ->
                 val x = center.x - radius * 0.48f + index * (barWidth * 1.45f)
                 val wave = ((sin((index * 0.42f) + waveformDrift * 6f) + 1f) / 2f)
-                val barHeight = radius * (if (isRealtimeConnected) 0.2f + wave * 0.36f else 0.12f)
+                val barHeight = radius * (if (isVoiceActive) 0.2f + wave * 0.36f else 0.12f)
                 drawRoundRect(
-                    color = if (isRealtimeConnected) VoiceAccent.copy(alpha = 0.92f) else VoiceMuted.copy(alpha = 0.42f),
+                    color = if (isVoiceActive) VoiceAccent.copy(alpha = 0.92f) else VoiceMuted.copy(alpha = 0.42f),
                     topLeft = Offset(x, center.y - barHeight / 2f),
                     size = Size(barWidth, barHeight),
                     cornerRadius = CornerRadius(barWidth, barWidth)
@@ -527,20 +576,20 @@ private fun VoicePulseCore(
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
-                imageVector = if (isRealtimeConnected) Icons.Default.RecordVoiceOver else Icons.Default.Mic,
+                imageVector = if (isVoiceActive) Icons.Default.RecordVoiceOver else Icons.Default.Mic,
                 contentDescription = null,
                 tint = VoiceText,
                 modifier = Modifier.size(34.dp)
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = if (isRealtimeConnected) "Live" else "Standby",
+                text = if (isVoiceActive) "Local" else "Pret",
                 style = MaterialTheme.typography.titleLarge,
                 color = VoiceText,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = if (isRealtimeConnected) "Detection ouverte" else "Session fermee",
+                text = if (isVoiceActive) "Pipeline actif" else "Touchez pour parler",
                 style = MaterialTheme.typography.bodySmall,
                 color = VoiceMuted
             )
@@ -550,23 +599,30 @@ private fun VoicePulseCore(
 
 @Composable
 private fun VoicePrimaryControl(
-    isRealtimeConnected: Boolean,
-    onToggleRealtime: () -> Unit
+    isVoiceRecording: Boolean,
+    isVoiceProcessing: Boolean,
+    isVoiceSpeaking: Boolean,
+    enabled: Boolean,
+    onToggleVoiceRecording: () -> Unit
 ) {
     Surface(
-        onClick = onToggleRealtime,
+        onClick = onToggleVoiceRecording,
         shape = RoundedCornerShape(999.dp),
-        color = Color.Transparent
+        color = Color.Transparent,
+        enabled = enabled
     ) {
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(999.dp))
                 .background(
                     brush = Brush.horizontalGradient(
-                        colors = if (isRealtimeConnected) {
+                        colors = if (isVoiceRecording) {
                             listOf(Color(0xFF14324A), Color(0xFF0B2238))
                         } else {
-                            listOf(VoiceAccentStrong, Color(0xFF0A7FDF))
+                            listOf(
+                                if (enabled) VoiceAccentStrong else VoiceOutline,
+                                if (enabled) Color(0xFF0A7FDF) else VoicePanelStrong
+                            )
                         }
                     )
                 )
@@ -578,7 +634,7 @@ private fun VoicePrimaryControl(
                 modifier = Modifier
                     .size(44.dp)
                     .background(
-                        color = Color.White.copy(alpha = if (isRealtimeConnected) 0.08f else 0.18f),
+                        color = Color.White.copy(alpha = if (isVoiceRecording) 0.08f else 0.18f),
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -592,13 +648,23 @@ private fun VoicePrimaryControl(
             }
             Column {
                 Text(
-                    text = if (isRealtimeConnected) "Couper le micro" else "Lancer la session",
+                    text = when {
+                        isVoiceProcessing -> "Annuler le traitement"
+                        isVoiceRecording -> "Stopper et envoyer"
+                        isVoiceSpeaking -> "Stopper la lecture"
+                        else -> "Enregistrer un message"
+                    },
                     style = MaterialTheme.typography.titleMedium,
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = if (isRealtimeConnected) "Arret immediat de l'ecoute" else "Active Max en mode vocal",
+                    text = when {
+                        isVoiceProcessing -> "Interrompt l'analyse vocale en cours"
+                        isVoiceRecording -> "Fin d'enregistrement et envoi au modele"
+                        isVoiceSpeaking -> "Arrete la synthese vocale en cours"
+                        else -> "Capture locale puis reponse en synthese vocale"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.76f)
                 )
@@ -608,7 +674,11 @@ private fun VoicePrimaryControl(
 }
 
 @Composable
-private fun VoiceMetricsRow(isRealtimeConnected: Boolean) {
+private fun VoiceMetricsRow(
+    isVoiceRecording: Boolean,
+    isVoiceProcessing: Boolean,
+    isVoiceSpeaking: Boolean
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -617,15 +687,20 @@ private fun VoiceMetricsRow(isRealtimeConnected: Boolean) {
             modifier = Modifier.weight(1f),
             icon = Icons.Default.GraphicEq,
             label = "Capture",
-            value = if (isRealtimeConnected) "Active" else "Pause",
-            accent = if (isRealtimeConnected) VoiceAccentSoft else VoiceMuted
+            value = if (isVoiceRecording) "Active" else "Pause",
+            accent = if (isVoiceRecording) VoiceAccentSoft else VoiceMuted
         )
         VoiceMetricCard(
             modifier = Modifier.weight(1f),
             icon = Icons.Default.Tune,
-            label = "Clarte",
-            value = if (isRealtimeConnected) "Direct" else "Prete",
-            accent = VoiceAccent
+            label = "Pipeline",
+            value = when {
+                isVoiceProcessing -> "Analyse"
+                isVoiceSpeaking -> "Lecture"
+                isVoiceRecording -> "Ecoute"
+                else -> "Pret"
+            },
+            accent = if (isVoiceSpeaking) VoiceAccentSoft else VoiceAccent
         )
     }
 }
@@ -689,7 +764,7 @@ private fun VoiceMetricCard(
 private fun TranscriptConsole(
     lines: List<String>,
     listState: LazyListState,
-    isRealtimeConnected: Boolean,
+    isVoiceActive: Boolean,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -720,7 +795,7 @@ private fun TranscriptConsole(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = if (isRealtimeConnected) "Le flux s'ajoute ici en continu." else "Le journal reste visible entre deux sessions.",
+                    text = if (isVoiceActive) "Les echanges locaux s'ajoutent ici." else "Le journal reste visible entre deux prises.",
                     style = MaterialTheme.typography.bodySmall,
                     color = VoiceMuted
                 )
@@ -737,7 +812,7 @@ private fun TranscriptConsole(
         Spacer(modifier = Modifier.height(14.dp))
 
         if (lines.isEmpty()) {
-            VoiceEmptyConsole(isRealtimeConnected = isRealtimeConnected)
+            VoiceEmptyConsole(isVoiceActive = isVoiceActive)
         } else {
             LazyColumn(
                 state = listState,
@@ -754,7 +829,7 @@ private fun TranscriptConsole(
 }
 
 @Composable
-private fun VoiceEmptyConsole(isRealtimeConnected: Boolean) {
+private fun VoiceEmptyConsole(isVoiceActive: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -776,17 +851,17 @@ private fun VoiceEmptyConsole(isRealtimeConnected: Boolean) {
         }
         Spacer(modifier = Modifier.height(18.dp))
         Text(
-            text = if (isRealtimeConnected) "Ecoute en cours" else "Aucune phrase captee",
+            text = if (isVoiceActive) "Session locale en cours" else "Aucune phrase captee",
             style = MaterialTheme.typography.titleMedium,
             color = VoiceText,
             fontWeight = FontWeight.SemiBold
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = if (isRealtimeConnected) {
-                "Commencez a parler. Les phrases apparaitront ici au fil de la session."
+            text = if (isVoiceActive) {
+                "L'audio, la transcription et la reponse vocale locale apparaitront ici."
             } else {
-                "Lancez la session pour ouvrir le micro et construire l'historique vocal."
+                "Enregistrez un message pour construire l'historique vocal local."
             },
             style = MaterialTheme.typography.bodyMedium,
             color = VoiceMuted,

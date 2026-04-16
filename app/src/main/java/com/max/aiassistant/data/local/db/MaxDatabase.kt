@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TaskEntity::class,
         SubTaskEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class MaxDatabase : RoomDatabase() {
@@ -109,6 +109,20 @@ abstract class MaxDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE weather_cache ADD COLUMN pollen_types_json TEXT NOT NULL DEFAULT '[]'"
+                )
+                db.execSQL(
+                    "ALTER TABLE weather_cache ADD COLUMN pollen_plants_json TEXT NOT NULL DEFAULT '[]'"
+                )
+                db.execSQL(
+                    "ALTER TABLE weather_cache ADD COLUMN pollen_source TEXT"
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: MaxDatabase? = null
 
@@ -121,6 +135,7 @@ abstract class MaxDatabase : RoomDatabase() {
                 )
                     .addMigrations(MIGRATION_1_2)
                     .addMigrations(MIGRATION_2_3)
+                    .addMigrations(MIGRATION_3_4)
                     .build()
                     .also { INSTANCE = it }
             }
