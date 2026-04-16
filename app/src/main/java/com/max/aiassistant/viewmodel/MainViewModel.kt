@@ -3,6 +3,7 @@ package com.max.aiassistant.viewmodel
 import android.app.Application
 import android.net.Uri
 import android.util.Log
+import android.webkit.MimeTypeMap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.max.aiassistant.BuildConfig
@@ -47,8 +48,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.util.*
 
 /**
@@ -69,6 +72,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val CHAT_CONTEXT_MESSAGE_LIMIT = 10
         private const val MAX_MESSAGES_PER_CONVERSATION = 300
         private const val WEATHER_CACHE_TTL_MILLIS = 60 * 60 * 1000L
+        private const val CHAT_IMAGE_DIRECTORY = "chat-images"
     }
 
     // ========== SERVICES API ==========
@@ -415,13 +419,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
             val shouldGenerateTitle = conversation.messageCount == 0
             val aiSettings = _onDeviceAiSettings.value
+            val storedImageUri = if (imageUri != null) {
+                persistChatImageLocallyIfNeeded(imageUri)
+            } else {
+                null
+            }
             val userMessage = ChatMessageEntity(
                 id = UUID.randomUUID().toString(),
                 conversationId = conversation.id,
                 role = ChatMessageRole.USER,
                 content = content,
                 createdAt = System.currentTimeMillis(),
-                imageUri = imageUri?.toString(),
+                imageUri = storedImageUri?.toString(),
                 status = ChatMessageStatus.COMPLETED
             )
 
@@ -436,7 +445,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             var latestPartialResponse = ""
 
             try {
-                Log.d(TAG, "Envoi du message au moteur local: $content, avec image: ${imageUri != null}")
+                Log.d(TAG, "Envoi du message au moteur local: $content, avec image: ${storedImageUri != null}")
                 val modelReady = awaitOnDeviceModelAvailable()
 
                 onDeviceChatEngine.onToolDebugEvent = { event ->
@@ -450,10 +459,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         "Le modele local n'est pas pret. ${buildProvisioningStatusMessage()}"
                     }
 
-                    imageUri != null -> {
-                        "Le mode chat local est branche sur le modele on-device, mais l'analyse d'image n'est pas encore connectee. Envoie un message texte ou ajoute ensuite l'entree vision dans la session LiteRT."
-                    }
-
                     else -> {
                         val readiness = onDeviceChatEngine.getRuntimeReadiness()
                         if (!readiness.canRun) {
@@ -461,6 +466,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         } else {
                             onDeviceChatEngine.generateResponseStreaming(
                                 userMessage = content,
+                                userImageUri = storedImageUri,
                                 modelVariant = aiSettings.modelVariant,
                                 maxContextTokens = aiSettings.maxContextTokens,
                                 systemInstruction = buildOnDeviceSystemInstruction(),
@@ -809,6 +815,66 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun retryOnDeviceModelDownload() {
         ensureOnDeviceModelAvailable(forceDownload = true)
+    }
+
+    private suspend fun persistChatImageLocallyIfNeeded(imageUri: Uri): Uri = withContext(Dispatchers.IO) {
+        val application = getApplication<Application>()
+        val imageDirectory = File(application.filesDir, CHAT_IMAGE_DIRECTORY).apply {
+            mkdirs()
+        }
+
+        if (imageUri.scheme == "file") {
+            imageUri.path
+                ?.let(::File)
+                ?.takeIf { it.exists() && it.parentFile?.absolutePath == imageDirectory.absolutePath }
+                ?.let { return@withContext imageUri }
+        }
+
+        val targetFile = File(
+            imageDirectory,
+            "chat_${System.currentTimeMillis()}_${UUID.randomUUID()}${resolveChatImageExtension(imageUri)}"
+        )
+
+        runCatching {
+            application.contentResolver.openInputStream(imageUri)?.use { input ->
+                targetFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            } ?: throw IllegalStateException("Impossible d'ouvrir l'image source.")
+
+            Uri.fromFile(targetFile)
+        }.getOrElse { throwable ->
+            if (targetFile.exists()) {
+                targetFile.delete()
+            }
+            Log.w(
+                TAG,
+                "Impossible de copier l'image dans le stockage local, l'URI source sera conservee.",
+                throwable
+            )
+            imageUri
+        }
+    }
+
+    private fun resolveChatImageExtension(imageUri: Uri): String {
+        val application = getApplication<Application>()
+        val mimeExtension = application.contentResolver.getType(imageUri)
+            ?.let(MimeTypeMap.getSingleton()::getExtensionFromMimeType)
+            ?.trim()
+            ?.trimStart('.')
+
+        val pathExtension = imageUri.lastPathSegment
+            ?.substringAfterLast('.', "")
+            ?.trim()
+            ?.trimStart('.')
+            ?.lowercase(Locale.ROOT)
+
+        val extension = mimeExtension
+            ?.takeIf { it.isNotBlank() }
+            ?: pathExtension?.takeIf { it.isNotBlank() }
+            ?: "jpg"
+
+        return ".$extension"
     }
 
     private suspend fun awaitOnDeviceModelAvailable(forceDownload: Boolean = false): Boolean {

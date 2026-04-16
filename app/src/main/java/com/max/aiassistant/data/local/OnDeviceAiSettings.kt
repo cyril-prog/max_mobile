@@ -10,13 +10,14 @@ enum class OnDeviceModelVariant(
 ) {
     GEMMA_4_E2B(
         storageFileName = "gemma-4-E2B-it.litertlm",
-        downloadUrl = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm?download=true",
+        // Pin the download to the current published model revision so the URL stays aligned with expectedSha256.
+        downloadUrl = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/7fa1d78/gemma-4-E2B-it.litertlm?download=true",
         expectedSha256 = "AB7838CDFC8F77E54D8CA45EADCEB20452D9F01E4BFADE03E5DCE27911B27E42",
         displayName = "Gemma 4 E2B"
     ),
     GEMMA_4_E4B(
         storageFileName = "gemma-4-E4B-it.litertlm",
-        downloadUrl = "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm?download=true",
+        downloadUrl = "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/9695417/gemma-4-E4B-it.litertlm?download=true",
         expectedSha256 = "F335F2BFD1B758DC6476DB16C0F41854BD6237E2658D604CBE566BCEFD00A7BC",
         displayName = "Gemma 4 E4B"
     );

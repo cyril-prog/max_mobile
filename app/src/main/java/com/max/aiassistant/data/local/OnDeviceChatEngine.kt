@@ -1,7 +1,9 @@
 package com.max.aiassistant.data.local
 
 import android.app.ActivityManager
+import android.content.ContentResolver
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
@@ -69,6 +71,7 @@ class OnDeviceChatEngine(
     private var loadedModelPath: String? = null
     private var loadedSystemInstruction: String? = null
     private var loadedMaxContextTokens: Int? = null
+    private var loadedVisionEnabled: Boolean? = null
     var onToolDebugEvent: ((ToolDebugEvent) -> Unit)? = null
     private val memoryGraphRepository = MemoryGraphRepository(MaxDatabase.getInstance(context).memoryGraphDao())
     private val toolProviders: List<ToolProvider> = listOf(
@@ -127,6 +130,7 @@ class OnDeviceChatEngine(
 
     suspend fun generateResponse(
         userMessage: String,
+        userImageUri: Uri? = null,
         modelVariant: OnDeviceModelVariant,
         maxContextTokens: Int,
         systemInstruction: String? = null,
@@ -141,20 +145,29 @@ class OnDeviceChatEngine(
         if (!runtimeReadiness.canRun) {
             throw IllegalStateException(runtimeReadiness.reason)
         }
+        val enableVision = userImageUri != null || initialHistory.any { !it.imageUri.isNullOrBlank() }
 
         val activeConversation = getOrCreateConversation(
             modelPath = modelPath,
             systemInstruction = systemInstruction,
             maxContextTokens = maxContextTokens,
             conversationKey = conversationKey,
-            initialHistory = initialHistory
+            initialHistory = initialHistory,
+            enableVision = enableVision
         )
-        val response = activeConversation.sendMessage(userMessage, emptyMap<String, Any>())
+        val response = activeConversation.sendMessage(
+            buildUserInputContents(
+                text = userMessage,
+                imageUri = userImageUri
+            ),
+            emptyMap<String, Any>()
+        )
         response.extractText()
     }
 
     suspend fun generateResponseStreaming(
         userMessage: String,
+        userImageUri: Uri? = null,
         modelVariant: OnDeviceModelVariant,
         maxContextTokens: Int,
         systemInstruction: String? = null,
@@ -170,13 +183,19 @@ class OnDeviceChatEngine(
         if (!runtimeReadiness.canRun) {
             throw IllegalStateException(runtimeReadiness.reason)
         }
+        val enableVision = userImageUri != null || initialHistory.any { !it.imageUri.isNullOrBlank() }
 
         val activeConversation = getOrCreateConversation(
             modelPath = modelPath,
             systemInstruction = systemInstruction,
             maxContextTokens = maxContextTokens,
             conversationKey = conversationKey,
-            initialHistory = initialHistory
+            initialHistory = initialHistory,
+            enableVision = enableVision
+        )
+        val userInput = buildUserInputContents(
+            text = userMessage,
+            imageUri = userImageUri
         )
 
         suspendCancellableCoroutine { continuation ->
@@ -187,7 +206,7 @@ class OnDeviceChatEngine(
             }
 
             activeConversation.sendMessageAsync(
-                userMessage,
+                userInput,
                 object : MessageCallback {
                     override fun onMessage(message: Message) {
                         val partialText = message.extractText()
@@ -234,6 +253,7 @@ class OnDeviceChatEngine(
         loadedModelPath = null
         loadedSystemInstruction = null
         loadedMaxContextTokens = null
+        loadedVisionEnabled = null
     }
 
     private fun resolveModelFile(modelVariant: OnDeviceModelVariant): File? {
@@ -258,7 +278,8 @@ class OnDeviceChatEngine(
         systemInstruction: String?,
         maxContextTokens: Int,
         conversationKey: String?,
-        initialHistory: List<ChatMessageEntity>
+        initialHistory: List<ChatMessageEntity>,
+        enableVision: Boolean
     ): Conversation {
         if (
             conversation != null &&
@@ -266,7 +287,8 @@ class OnDeviceChatEngine(
             loadedConversationKey == conversationKey &&
             loadedModelPath == modelPath &&
             loadedSystemInstruction == systemInstruction &&
-            loadedMaxContextTokens == maxContextTokens
+            loadedMaxContextTokens == maxContextTokens &&
+            loadedVisionEnabled == enableVision
         ) {
             return conversation!!
         }
@@ -281,15 +303,13 @@ class OnDeviceChatEngine(
             null
         }
 
-        val engineConfig = EngineConfig(
-            modelPath,
-            backend,
-            null,
-            null,
-            maxContextTokens,
-            cacheDir
+        val newEngine = createEngine(
+            modelPath = modelPath,
+            backend = backend,
+            maxContextTokens = maxContextTokens,
+            cacheDir = cacheDir,
+            enableVision = enableVision
         )
-        val newEngine = Engine(engineConfig).also { it.initialize() }
         val newConversation = newEngine.createConversation(
             ConversationConfig(
                 systemInstruction = systemInstruction
@@ -313,6 +333,7 @@ class OnDeviceChatEngine(
         loadedModelPath = modelPath
         loadedSystemInstruction = systemInstruction
         loadedMaxContextTokens = maxContextTokens
+        loadedVisionEnabled = enableVision
         return newConversation
     }
 
@@ -334,13 +355,157 @@ class OnDeviceChatEngine(
         }
     }
 
+    private fun createEngine(
+        modelPath: String,
+        backend: Backend,
+        maxContextTokens: Int,
+        cacheDir: String?,
+        enableVision: Boolean
+    ): Engine {
+        val engineConfigs = buildList {
+            add(
+                EngineConfig(
+                    modelPath,
+                    backend,
+                    if (enableVision) Backend.GPU() else null,
+                    null,
+                    maxContextTokens,
+                    cacheDir
+                )
+            )
+            if (enableVision) {
+                add(
+                    EngineConfig(
+                        modelPath,
+                        backend,
+                        Backend.CPU(CPU_THREADS),
+                        null,
+                        maxContextTokens,
+                        cacheDir
+                    )
+                )
+            }
+        }
+
+        var lastError: Throwable? = null
+        engineConfigs.forEachIndexed { index, engineConfig ->
+            try {
+                return Engine(engineConfig).also { it.initialize() }
+            } catch (throwable: Throwable) {
+                lastError = throwable
+                if (enableVision && index == 0) {
+                    Log.w(
+                        TAG,
+                        "Backend vision GPU indisponible, nouvelle tentative en CPU.",
+                        throwable
+                    )
+                }
+            }
+        }
+
+        throw IllegalStateException(
+            buildString {
+                append("Impossible d'initialiser le moteur local")
+                if (enableVision) {
+                    append(" avec support image")
+                }
+                lastError?.message
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let {
+                        append(". ")
+                        append(it)
+                    }
+            },
+            lastError
+        )
+    }
+
+    private fun buildUserInputContents(
+        text: String,
+        imageUri: Uri?
+    ): Contents {
+        val contents = mutableListOf<Content>()
+
+        if (imageUri != null) {
+            contents += resolveImageContent(
+                imageUri = imageUri,
+                requireReadable = true
+            ) ?: error("resolveImageContent returned null while requireReadable=true")
+        }
+        if (text.isNotBlank()) {
+            contents += Content.Text(text)
+        }
+
+        if (contents.isEmpty()) {
+            throw IllegalArgumentException("Le message utilisateur est vide.")
+        }
+
+        return Contents.of(contents)
+    }
+
     private fun List<ChatMessageEntity>.toOnDeviceMessages(): List<Message> {
         return mapNotNull { message ->
             when (message.role) {
-                ChatMessageRole.USER -> Message.user(message.content)
+                ChatMessageRole.USER -> message.toOnDeviceUserMessage()
                 ChatMessageRole.ASSISTANT -> Message.model(message.content)
                 else -> null
             }
+        }
+    }
+
+    private fun ChatMessageEntity.toOnDeviceUserMessage(): Message? {
+        val contents = mutableListOf<Content>()
+
+        imageUri
+            ?.takeIf { it.isNotBlank() }
+            ?.let(Uri::parse)
+            ?.let { uri ->
+                resolveImageContent(
+                    imageUri = uri,
+                    requireReadable = false
+                )?.let(contents::add)
+            }
+
+        if (content.isNotBlank()) {
+            contents += Content.Text(content)
+        }
+
+        return contents
+            .takeIf { it.isNotEmpty() }
+            ?.let { Message.user(Contents.of(it)) }
+    }
+
+    private fun resolveImageContent(
+        imageUri: Uri,
+        requireReadable: Boolean
+    ): Content? {
+        if (imageUri.scheme == ContentResolver.SCHEME_FILE || imageUri.scheme.isNullOrBlank()) {
+            imageUri.path
+                ?.takeIf { it.isNotBlank() }
+                ?.let(::File)
+                ?.takeIf { it.exists() && it.isFile }
+                ?.absolutePath
+                ?.let { return Content.ImageFile(it) }
+        }
+
+        return runCatching {
+            context.contentResolver.openInputStream(imageUri)?.use { input ->
+                val bytes = input.readBytes()
+                if (bytes.isEmpty()) {
+                    throw IllegalStateException("Le fichier image selectionne est vide.")
+                }
+                Content.ImageBytes(bytes)
+            } ?: throw IllegalStateException("Impossible d'ouvrir l'image selectionnee.")
+        }.getOrElse { throwable ->
+            if (requireReadable) {
+                throw IllegalStateException(
+                    "Impossible de preparer l'image pour le modele local.",
+                    throwable
+                )
+            }
+
+            Log.w(TAG, "Image historique ignoree pour le contexte: $imageUri", throwable)
+            null
         }
     }
 
