@@ -29,7 +29,7 @@ interface WeatherApiService {
     suspend fun getWeatherForecast(
         @Query("latitude") latitude: Double = 47.2184,  // Nantes par défaut
         @Query("longitude") longitude: Double = -1.5536,
-        @Query("current") current: String = "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,grass_pollen,birch_pollen,alder_pollen,olive_pollen,mugwort_pollen,ragweed_pollen",
+        @Query("current") current: String = "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code",
         @Query("hourly") hourly: String = "temperature_2m,relative_humidity_2m,precipitation_probability,weather_code",
         @Query("daily") daily: String = "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code",
         @Query("timezone") timezone: String = "Europe/Paris",
