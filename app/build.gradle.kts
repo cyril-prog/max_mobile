@@ -47,6 +47,10 @@ android {
         // Optional Google Maps Platform key used by the generic Pollen API
         val googleMapsKey = localProperties.getProperty("GOOGLE_MAPS_API_KEY", "")
         buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsKey\"")
+
+        // Optional official polleninformation.at API key
+        val pollenInformationKey = localProperties.getProperty("POLLENINFORMATION_API_KEY", "")
+        buildConfigField("String", "POLLENINFORMATION_API_KEY", "\"$pollenInformationKey\"")
     }
 
     buildTypes {

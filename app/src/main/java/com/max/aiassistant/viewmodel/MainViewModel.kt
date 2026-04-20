@@ -84,6 +84,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val apiService = MaxApiService.create()
     private val weatherApiService = com.max.aiassistant.data.api.WeatherApiService.create()
     private val pollenApiService = com.max.aiassistant.data.api.PollenApiService.create()
+    private val pollenInformationApiService = com.max.aiassistant.data.api.PollenInformationApiService.create()
     private val googlePollenApiService = com.max.aiassistant.data.api.GooglePollenApiService.create()
     private val geocodingApiService = com.max.aiassistant.data.api.GeocodingApiService.create()
     private val weatherPreferences = com.max.aiassistant.data.preferences.WeatherPreferences(application.applicationContext)
@@ -102,6 +103,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Clé API OpenAI pour l'API Realtime (chargée depuis local.properties via BuildConfig)
     private val OPENAI_API_KEY = BuildConfig.OPENAI_API_KEY
+    private val POLLENINFORMATION_API_KEY = BuildConfig.POLLENINFORMATION_API_KEY
     private val GOOGLE_MAPS_API_KEY = BuildConfig.GOOGLE_MAPS_API_KEY
 
     // Service Realtime (initialisé paresseusement)
@@ -1580,6 +1582,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _cityLongitude = MutableStateFlow(com.max.aiassistant.data.preferences.WeatherPreferences.DEFAULT_LONGITUDE)
     val cityLongitude: StateFlow<Double> = _cityLongitude.asStateFlow()
 
+    private val _cityCountryCode = MutableStateFlow(com.max.aiassistant.data.preferences.WeatherPreferences.DEFAULT_COUNTRY_CODE)
+    val cityCountryCode: StateFlow<String> = _cityCountryCode.asStateFlow()
+
     private val _showAllergies = MutableStateFlow(com.max.aiassistant.data.preferences.WeatherPreferences.DEFAULT_SHOW_ALLERGIES)
     val showAllergies: StateFlow<Boolean> = _showAllergies.asStateFlow()
 
@@ -1694,9 +1699,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _cityName.value = city.name
             _cityLatitude.value = city.latitude
             _cityLongitude.value = city.longitude
+            _cityCountryCode.value = city.countryCode?.uppercase(Locale.ROOT)
+                ?: com.max.aiassistant.data.preferences.WeatherPreferences.DEFAULT_COUNTRY_CODE
             Log.d(TAG, "Ville sélectionnée: ${city.name} (${city.latitude}, ${city.longitude})")
 
-            weatherPreferences.saveCity(city.name, city.latitude, city.longitude)
+            weatherPreferences.saveCity(
+                name = city.name,
+                latitude = city.latitude,
+                longitude = city.longitude,
+                countryCode = _cityCountryCode.value
+            )
             refreshWeather()
         }
     }
@@ -1728,6 +1740,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val cityName = _cityName.value
             val latitude = _cityLatitude.value
             val longitude = _cityLongitude.value
+            val countryCode = _cityCountryCode.value
             val now = System.currentTimeMillis()
             var hasRefreshError = false
 
@@ -1783,9 +1796,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (shouldRefreshPollen) {
                     try {
                         val pollenData = fetchPollenData(
+                            pollenInformationApiKey = POLLENINFORMATION_API_KEY,
+                            pollenInformationApiService = pollenInformationApiService,
                             googleMapsApiKey = GOOGLE_MAPS_API_KEY,
                             googlePollenApiService = googlePollenApiService,
                             pollenApiService = pollenApiService,
+                            countryCode = countryCode,
                             latitude = latitude,
                             longitude = longitude,
                             tag = TAG
@@ -1834,9 +1850,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 val pollenData = try {
                     fetchPollenData(
+                        pollenInformationApiKey = POLLENINFORMATION_API_KEY,
+                        pollenInformationApiService = pollenInformationApiService,
                         googleMapsApiKey = GOOGLE_MAPS_API_KEY,
                         googlePollenApiService = googlePollenApiService,
                         pollenApiService = pollenApiService,
+                        countryCode = countryCode,
                         latitude = latitude,
                         longitude = longitude,
                         tag = TAG
@@ -2376,10 +2395,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             weatherPreferences.cityPreferences.collect { prefs ->
                 val cityChanged = prefs.cityName != _cityName.value ||
                     prefs.latitude != _cityLatitude.value ||
-                    prefs.longitude != _cityLongitude.value
+                    prefs.longitude != _cityLongitude.value ||
+                    prefs.countryCode != _cityCountryCode.value
                 _cityName.value = prefs.cityName
                 _cityLatitude.value = prefs.latitude
                 _cityLongitude.value = prefs.longitude
+                _cityCountryCode.value = prefs.countryCode
                 _showAllergies.value = prefs.showAllergies
                 if (cityChanged) {
                     refreshWeather()
@@ -2424,13 +2445,45 @@ private fun ChatMessageEntity.toUiMessage(): Message {
 }
 
 private suspend fun fetchPollenData(
+    pollenInformationApiKey: String,
+    pollenInformationApiService: com.max.aiassistant.data.api.PollenInformationApiService,
     googleMapsApiKey: String,
     googlePollenApiService: com.max.aiassistant.data.api.GooglePollenApiService,
     pollenApiService: com.max.aiassistant.data.api.PollenApiService,
+    countryCode: String,
     latitude: Double,
     longitude: Double,
     tag: String
 ): com.max.aiassistant.data.api.CurrentPollenData? {
+    val normalizedCountryCode = countryCode.uppercase(Locale.ROOT)
+
+    if (pollenInformationApiKey.isNotBlank()) {
+        if (normalizedCountryCode in supportedPollenInformationCountryCodes) {
+            try {
+                val pollenInformationData = pollenInformationApiService.lookupForecast(
+                    countryCode = normalizedCountryCode,
+                    latitude = latitude,
+                    longitude = longitude,
+                    apiKey = pollenInformationApiKey
+                ).toCurrentPollenData()
+
+                if (pollenInformationData != null) {
+                    Log.d(
+                        tag,
+                        "Pollens recuperes via polleninformation.at: types=${pollenInformationData.pollenTypes.size}, plantes=${pollenInformationData.pollenPlants.size}"
+                    )
+                    return pollenInformationData
+                }
+            } catch (e: Exception) {
+                Log.w(tag, "Impossible de recuperer les pollens depuis polleninformation.at, fallback Google/Open-Meteo", e)
+            }
+        } else {
+            Log.d(tag, "Pays $normalizedCountryCode non supporte par polleninformation.at, fallback Google/Open-Meteo")
+        }
+    } else {
+        Log.d(tag, "POLLENINFORMATION_API_KEY absente, fallback Google/Open-Meteo pour les pollens")
+    }
+
     if (googleMapsApiKey.isNotBlank()) {
         try {
             val googlePollenData = googlePollenApiService.lookupForecast(
@@ -2460,6 +2513,10 @@ private suspend fun fetchPollenData(
     )
     return openMeteoPollenData
 }
+
+private val supportedPollenInformationCountryCodes = setOf(
+    "AT", "CH", "DE", "ES", "FR", "GB", "IT", "LV", "LT", "PL", "SE", "TR", "UA"
+)
 
 private fun com.max.aiassistant.data.api.WeatherData.toCurrentPollenData():
     com.max.aiassistant.data.api.CurrentPollenData {
