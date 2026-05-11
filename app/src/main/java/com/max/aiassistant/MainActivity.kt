@@ -112,8 +112,11 @@ class MainActivity : ComponentActivity() {
                 val cityLongitude by viewModel.cityLongitude.collectAsState()
                 val actuArticles by viewModel.actuArticles.collectAsState()
                 val rechercheArticles by viewModel.rechercheArticles.collectAsState()
+                val streamingReleases by viewModel.streamingReleases.collectAsState()
                 val isLoadingActu by viewModel.isLoadingActu.collectAsState()
+                val isLoadingStreaming by viewModel.isLoadingStreaming.collectAsState()
                 val actuError by viewModel.actuError.collectAsState()
+                val streamingError by viewModel.streamingError.collectAsState()
 
                 // Etat de navigation principal (shell)
                 var currentRoute by rememberSaveable { mutableStateOf(AppShellRoute.HOME) }
@@ -125,14 +128,15 @@ class MainActivity : ComponentActivity() {
 
                 // Statuts globaux shell
                 val isOffline = !isNetworkAvailable(context)
-                val isSyncing = isLoadingTasks || isLoadingEvents || isLoadingWeather || isLoadingActu
+                val isSyncing = isLoadingTasks || isLoadingEvents || isLoadingWeather || isLoadingActu || isLoadingStreaming
                 val hasLocalData =
                     tasks.isNotEmpty() ||
                     events.isNotEmpty() ||
                     notes.isNotEmpty() ||
                     weatherData != null ||
                     actuArticles.isNotEmpty() ||
-                    rechercheArticles.isNotEmpty()
+                    rechercheArticles.isNotEmpty() ||
+                    streamingReleases.isNotEmpty()
 
                 LaunchedEffect(Unit) {
                     viewModel.refreshTasks()
@@ -155,7 +159,6 @@ class MainActivity : ComponentActivity() {
                             viewModel.refreshTasks()
                             viewModel.refreshCalendarEvents()
                             viewModel.refreshWeather()
-                            viewModel.refreshActu()
                         }
                         AppShellRoute.TASKS -> {
                             viewModel.refreshTasks()
@@ -427,10 +430,13 @@ class MainActivity : ComponentActivity() {
                                 ActuScreen(
                                     actuArticles = actuArticles,
                                     rechercheArticles = rechercheArticles,
+                                    streamingReleases = streamingReleases,
                                     isRefreshing = isLoadingActu,
+                                    isStreamingRefreshing = isLoadingStreaming,
                                     errorMessage = actuError,
+                                    streamingErrorMessage = streamingError,
                                     isOffline = isOffline,
-                                    onRefresh = { viewModel.refreshActu() },
+                                    onRefresh = { viewModel.refreshActu(forceStreaming = true) },
                                     onNavigateToHome = { currentRoute = AppShellRoute.HOME },
                                     onNavigateToVoice = { currentRoute = AppShellRoute.VOICE },
                                     onNavigateToChat = openFreshChat,

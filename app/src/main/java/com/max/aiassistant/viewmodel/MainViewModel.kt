@@ -15,6 +15,8 @@ import com.max.aiassistant.data.api.toActuArticle
 import com.max.aiassistant.data.api.toCurrentPollen
 import com.max.aiassistant.data.api.toCurrentPollenData
 import com.max.aiassistant.data.api.toRechercheArticle
+import com.max.aiassistant.data.api.WatchmodePlatform
+import com.max.aiassistant.data.api.toStreamingRelease
 import com.max.aiassistant.data.api.toWeatherData
 import com.max.aiassistant.data.chat.ChatTitleFormatter
 import com.max.aiassistant.data.local.OnDeviceAiSettings
@@ -45,16 +47,22 @@ import com.max.aiassistant.data.realtime.RealtimeServerEvent
 import com.max.aiassistant.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 /**
@@ -75,13 +83,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val CHAT_CONTEXT_MESSAGE_LIMIT = 10
         private const val MAX_MESSAGES_PER_CONVERSATION = 300
         private const val WEATHER_CACHE_TTL_MILLIS = 60 * 60 * 1000L
+        private const val STREAMING_RELEASES_CACHE_TTL_MILLIS = 24 * 60 * 60 * 1000L
+        private const val STREAMING_RELEASES_MONTHS = 2L
+        private const val WATCHMODE_TITLES_PER_PLATFORM = 25
+        private const val WATCHMODE_DETAILS_PER_PLATFORM = 6
+        private const val STREAMING_RELEASES_REQUEST_DELAY_MILLIS = 350L
+        private const val STREAMING_RELEASES_MAX_ATTEMPTS = 2
+        private const val STREAMING_RELEASES_CACHE_KEY = "fr:watchmode-english:platform-batches:release-date-last2months:v5"
         private const val CHAT_IMAGE_DIRECTORY = "chat-images"
         private const val VOICE_ASSISTANT_CONVERSATION_KEY = "__voice_local_assistant__"
+        private val WATCHMODE_PLATFORMS = listOf(
+            WatchmodePlatform(sourceId = "203", platformId = "netflix", platformName = "Netflix"),
+            WatchmodePlatform(sourceId = "372", platformId = "disney", platformName = "Disney+"),
+            WatchmodePlatform(sourceId = "26", platformId = "prime", platformName = "Prime Video")
+        )
     }
 
     // ========== SERVICES API ==========
 
     private val apiService = MaxApiService.create()
+    private val watchmodeApiKey = BuildConfig.WATCHMODE_API_KEY
+    private val watchmodeApiService = com.max.aiassistant.data.api.WatchmodeApiService.create()
     private val weatherApiService = com.max.aiassistant.data.api.WeatherApiService.create()
     private val pollenApiService = com.max.aiassistant.data.api.PollenApiService.create()
     private val pollenInformationApiService = com.max.aiassistant.data.api.PollenInformationApiService.create()
@@ -89,6 +111,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val geocodingApiService = com.max.aiassistant.data.api.GeocodingApiService.create()
     private val weatherPreferences = com.max.aiassistant.data.preferences.WeatherPreferences(application.applicationContext)
     private val notesPreferences = com.max.aiassistant.data.preferences.NotesPreferences(application.applicationContext)
+    private val actuCache = com.max.aiassistant.data.preferences.ActuCache(application.applicationContext)
+    private val streamingReleasesCache = com.max.aiassistant.data.preferences.StreamingReleasesCache(application.applicationContext)
     private val onDeviceAiPreferences = OnDeviceAiPreferences(application.applicationContext)
     private val onDeviceModelManager = OnDeviceModelManager(application.applicationContext)
     private val onDeviceChatEngine = OnDeviceChatEngine(application.applicationContext)
@@ -100,6 +124,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val taskRepository = TaskRepository(chatDatabase)
     private val weatherCacheRepository = WeatherCacheRepository(chatDatabase.weatherCacheDao())
     private val TAG = "MainViewModel"
+    private val actuRefreshMutex = Mutex()
+    private val streamingRefreshMutex = Mutex()
 
     // Clé API OpenAI pour l'API Realtime (chargée depuis local.properties via BuildConfig)
     private val OPENAI_API_KEY = BuildConfig.OPENAI_API_KEY
@@ -1644,16 +1670,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _rechercheArticles = MutableStateFlow<List<com.max.aiassistant.data.api.RechercheArticle>>(emptyList())
     val rechercheArticles: StateFlow<List<com.max.aiassistant.data.api.RechercheArticle>> = _rechercheArticles.asStateFlow()
 
+    private val _streamingReleases = MutableStateFlow<List<com.max.aiassistant.data.api.StreamingRelease>>(emptyList())
+    val streamingReleases: StateFlow<List<com.max.aiassistant.data.api.StreamingRelease>> = _streamingReleases.asStateFlow()
+
+    private val _isLoadingStreaming = MutableStateFlow(false)
+    val isLoadingStreaming: StateFlow<Boolean> = _isLoadingStreaming.asStateFlow()
+
     private val _isLoadingActu = MutableStateFlow(false)
     val isLoadingActu: StateFlow<Boolean> = _isLoadingActu.asStateFlow()
     private val _actuError = MutableStateFlow<String?>(null)
     val actuError: StateFlow<String?> = _actuError.asStateFlow()
+    private val _streamingError = MutableStateFlow<String?>(null)
+    val streamingError: StateFlow<String?> = _streamingError.asStateFlow()
 
     /**
      * Récupère les actualités et les recherches IA depuis l'API N8N
      */
-    fun refreshActu() {
+    fun refreshActu(forceStreaming: Boolean = false) {
         viewModelScope.launch {
+            refreshEditorialActu()
+        }
+        viewModelScope.launch {
+            refreshStreamingReleases(force = forceStreaming)
+        }
+    }
+
+    private suspend fun refreshEditorialActu() {
+        actuRefreshMutex.withLock {
+            val cachedSnapshot = actuCache.get()
+            if (cachedSnapshot != null && _actuArticles.value.isEmpty() && _rechercheArticles.value.isEmpty()) {
+                _actuArticles.value = cachedSnapshot.actuArticles
+                _rechercheArticles.value = cachedSnapshot.rechercheArticles
+                Log.d(TAG, "Actualites chargees depuis le cache local: ${cachedSnapshot.actuArticles.size} actu, ${cachedSnapshot.rechercheArticles.size} recherches")
+            }
+
             try {
                 _isLoadingActu.value = true
                 _actuError.value = null
@@ -1664,14 +1714,199 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     ?.sortedByDescending { it.score } ?: emptyList()
                 _rechercheArticles.value = response.response?.recherche
                     ?.mapNotNull { it.toRechercheArticle() } ?: emptyList()
+                if (_actuArticles.value.isNotEmpty() || _rechercheArticles.value.isNotEmpty()) {
+                    actuCache.save(
+                        com.max.aiassistant.data.preferences.ActuCacheSnapshot(
+                            actuArticles = _actuArticles.value,
+                            rechercheArticles = _rechercheArticles.value,
+                            fetchedAt = System.currentTimeMillis()
+                        )
+                    )
+                }
                 Log.d(TAG, "Actualités récupérées: ${_actuArticles.value.size} actu, ${_rechercheArticles.value.size} recherches")
             } catch (e: Exception) {
                 Log.e(TAG, "Erreur lors de la récupération des actualités", e)
-                _actuError.value = "Impossible de récupérer les actualités."
+                if (cachedSnapshot != null) {
+                    _actuArticles.value = cachedSnapshot.actuArticles
+                    _rechercheArticles.value = cachedSnapshot.rechercheArticles
+                    _actuError.value = "Affichage du dernier cache disponible. Le webhook actualites renvoie une erreur."
+                } else {
+                    _actuError.value = "Impossible de récupérer les actualités. Le webhook actualites renvoie une erreur."
+                }
             } finally {
                 _isLoadingActu.value = false
             }
         }
+    }
+
+    private suspend fun refreshStreamingReleases(force: Boolean = false) {
+        streamingRefreshMutex.withLock {
+            val now = System.currentTimeMillis()
+            val cachedSnapshot = streamingReleasesCache.get(STREAMING_RELEASES_CACHE_KEY)
+            if (!force && cachedSnapshot != null && !cachedSnapshot.isExpired(now, STREAMING_RELEASES_CACHE_TTL_MILLIS)) {
+                _streamingReleases.value = cachedSnapshot.releases
+                _isLoadingStreaming.value = false
+                Log.d(TAG, "Nouveautes streaming chargees depuis le cache 24h: ${cachedSnapshot.releases.size}")
+                return
+            }
+
+            _isLoadingStreaming.value = true
+            _streamingError.value = null
+            if (watchmodeApiKey.isBlank()) {
+                _streamingError.value = "Ajoute WATCHMODE_API_KEY dans local.properties pour charger les nouveautes films et series."
+                cachedSnapshot?.let {
+                    _streamingReleases.value = it.releases
+                    _streamingError.value = "Affichage du dernier cache disponible. La cle Watchmode est absente."
+                }
+                _isLoadingStreaming.value = false
+                return
+            }
+
+            try {
+                Log.d(TAG, "Recuperation des nouveautes streaming France${if (force) " forcee" else ""}...")
+                val releases = fetchWatchmodeStreamingReleases()
+                _streamingReleases.value = releases
+                if (releases.isNotEmpty()) {
+                    streamingReleasesCache.save(
+                        com.max.aiassistant.data.preferences.StreamingReleasesCacheSnapshot(
+                            cacheKey = STREAMING_RELEASES_CACHE_KEY,
+                            releases = releases,
+                            fetchedAt = now
+                        )
+                    )
+                } else if (cachedSnapshot != null) {
+                    _streamingReleases.value = cachedSnapshot.releases
+                    _streamingError.value = "Affichage du dernier cache disponible. Les nouveautes n'ont pas pu etre actualisees."
+                } else {
+                    _streamingError.value = "Impossible de recuperer les nouveautes films et series pour le moment."
+                }
+                Log.d(TAG, "Nouveautes streaming recuperees: ${_streamingReleases.value.size}")
+            } catch (e: Exception) {
+                Log.w(TAG, "Actualisation streaming ignoree apres echec API", e)
+                cachedSnapshot?.let {
+                    _streamingReleases.value = it.releases
+                    _streamingError.value = "Affichage du dernier cache disponible. Les nouveautes n'ont pas pu etre actualisees."
+                }
+            } finally {
+                _isLoadingStreaming.value = false
+            }
+        }
+    }
+
+    private suspend fun fetchWatchmodeStreamingReleases(): List<com.max.aiassistant.data.api.StreamingRelease> {
+        val endDate = LocalDate.now()
+        val startDate = endDate.minusMonths(STREAMING_RELEASES_MONTHS)
+        val dateFormatter = DateTimeFormatter.BASIC_ISO_DATE
+
+        val platformJobs = WATCHMODE_PLATFORMS.map { platform ->
+            viewModelScope.async {
+                fetchWatchmodePlatformReleases(
+                    platform = platform,
+                    startDate = startDate.format(dateFormatter),
+                    endDate = endDate.format(dateFormatter)
+                ).also { platformReleases ->
+                    if (platformReleases.isNotEmpty()) {
+                        publishStreamingReleases(platformReleases)
+                    }
+                }
+            }
+        }
+
+        return platformJobs.awaitAll().flatten()
+            .distinctBy { it.id }
+            .sortedByDescending { it.addedAt }
+    }
+
+    private fun publishStreamingReleases(newReleases: List<com.max.aiassistant.data.api.StreamingRelease>) {
+        _streamingReleases.value = (_streamingReleases.value + newReleases)
+            .distinctBy { it.id }
+            .sortedByDescending { it.addedAt }
+    }
+
+    private suspend fun fetchWatchmodePlatformReleases(
+        platform: WatchmodePlatform,
+        startDate: String,
+        endDate: String
+    ): List<com.max.aiassistant.data.api.StreamingRelease> {
+        return try {
+            val listResponse = getWatchmodeListTitlesWithRetry(
+                platform = platform,
+                startDate = startDate,
+                endDate = endDate
+            )
+            val summaries = listResponse.titles.orEmpty()
+                .take(WATCHMODE_TITLES_PER_PLATFORM)
+            val summaryReleases = summaries.mapNotNull { it.toStreamingRelease(platform) }
+            publishStreamingReleases(summaryReleases)
+
+            summaries
+                .take(WATCHMODE_DETAILS_PER_PLATFORM)
+                .mapNotNull { summary ->
+                    val id = summary.id ?: return@mapNotNull null
+                    delay(STREAMING_RELEASES_REQUEST_DELAY_MILLIS)
+                    getWatchmodeTitleDetailsWithRetry(id)?.toStreamingRelease(platform)
+                }
+                .let { detailed ->
+                    mergeDetailedStreamingReleases(summaryReleases, detailed)
+                }
+        } catch (e: Exception) {
+            Log.w(TAG, "Catalogue Watchmode indisponible: ${platform.platformName}", e)
+            emptyList()
+        }
+    }
+
+    private fun mergeDetailedStreamingReleases(
+        base: List<com.max.aiassistant.data.api.StreamingRelease>,
+        detailed: List<com.max.aiassistant.data.api.StreamingRelease>
+    ): List<com.max.aiassistant.data.api.StreamingRelease> {
+        if (detailed.isEmpty()) return base
+        val detailedById = detailed.associateBy { it.id }
+        return base.map { detailedById[it.id] ?: it }
+    }
+
+    private suspend fun getWatchmodeListTitlesWithRetry(
+        platform: WatchmodePlatform,
+        startDate: String,
+        endDate: String
+    ): com.max.aiassistant.data.api.WatchmodeListTitlesResponse {
+        var lastError: Exception? = null
+        repeat(STREAMING_RELEASES_MAX_ATTEMPTS) { attempt ->
+            try {
+                return watchmodeApiService.listTitles(
+                    apiKey = watchmodeApiKey,
+                    sourceIds = platform.sourceId,
+                    releaseDateStart = startDate,
+                    releaseDateEnd = endDate
+                )
+            } catch (e: Exception) {
+                lastError = e
+                if (attempt < STREAMING_RELEASES_MAX_ATTEMPTS - 1) {
+                    delay(STREAMING_RELEASES_REQUEST_DELAY_MILLIS * (attempt + 1))
+                }
+            }
+        }
+        throw lastError ?: IllegalStateException("Requete Watchmode impossible")
+    }
+
+    private suspend fun getWatchmodeTitleDetailsWithRetry(
+        id: Int
+    ): com.max.aiassistant.data.api.WatchmodeTitleDetails? {
+        var lastError: Exception? = null
+        repeat(STREAMING_RELEASES_MAX_ATTEMPTS) { attempt ->
+            try {
+                return watchmodeApiService.getTitleDetails(
+                    id = id,
+                    apiKey = watchmodeApiKey
+                )
+            } catch (e: Exception) {
+                lastError = e
+                if (attempt < STREAMING_RELEASES_MAX_ATTEMPTS - 1) {
+                    delay(STREAMING_RELEASES_REQUEST_DELAY_MILLIS * (attempt + 1))
+                }
+            }
+        }
+        Log.w(TAG, "Details Watchmode indisponibles pour $id", lastError)
+        return null
     }
 
     /**

@@ -51,6 +51,11 @@ android {
         // Optional official polleninformation.at API key
         val pollenInformationKey = localProperties.getProperty("POLLENINFORMATION_API_KEY", "")
         buildConfigField("String", "POLLENINFORMATION_API_KEY", "\"$pollenInformationKey\"")
+
+        // Optional Watchmode API key for France streaming releases
+        val watchmodeKey = localProperties.getProperty("WATCHMODE_API_KEY", "")
+        buildConfigField("String", "WATCHMODE_API_KEY", "\"$watchmodeKey\"")
+
     }
 
     buildTypes {
