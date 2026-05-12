@@ -416,14 +416,15 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             AppShellRoute.TRANSLATION -> {
+                                val isOpenAiVoiceSelected = onDeviceAiSettings.selectedModel.isOpenAi
                                 TranslationScreen(
                                     isVoiceRecording = isVoiceRecording,
                                     isVoiceProcessing = isVoiceProcessing,
                                     isVoiceSpeaking = isVoiceSpeaking,
                                     errorMessage = voiceError,
-                                    statusMessage = if (isOnDeviceModelReady) voiceStatus else onDeviceModelStatus,
-                                    isOnDeviceModelReady = isOnDeviceModelReady,
-                                    isUsingOpenAiVoice = onDeviceAiSettings.selectedModel.isOpenAi,
+                                    statusMessage = if (isOpenAiVoiceSelected || isOnDeviceModelReady) voiceStatus else onDeviceModelStatus,
+                                    isOnDeviceModelReady = isOpenAiVoiceSelected || isOnDeviceModelReady,
+                                    isUsingOpenAiVoice = isOpenAiVoiceSelected,
                                     isOffline = isOffline,
                                     conversationLines = voiceConversationLines,
                                     voiceMode = voiceMode,
