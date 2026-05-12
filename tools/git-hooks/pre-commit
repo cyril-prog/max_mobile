@@ -1,0 +1,24 @@
+#!/bin/sh
+set -eu
+
+git diff --cached --name-only | while IFS= read -r path; do
+  case "$path" in
+    .env|.env.*|*/.env|*/.env.*|local.properties|*/local.properties|.codex/config.toml|*/.codex/config.toml)
+      echo "pre-commit: fichier sensible bloque: $path" >&2
+      exit 1
+      ;;
+    dist/*|dist-admin/*|node_modules/*|POC/*|*/dist/*|*/dist-admin/*|*/node_modules/*|*/POC/*)
+      echo "pre-commit: dossier non versionnable bloque: $path" >&2
+      exit 1
+      ;;
+    *.jks|*.keystore|*.apk|*.aab|*.log)
+      echo "pre-commit: artefact ou secret potentiel bloque: $path" >&2
+      exit 1
+      ;;
+  esac
+done
+
+if git diff --cached --unified=0 -- . ':!tools/git-hooks/pre-commit' | grep -E '^\+.*(sk-proj-|ghp_|github_pat_|AIza|xox[baprs]-|BEGIN (RSA|OPENSSH|PRIVATE) KEY|[A-Z0-9_]*(API_KEY|TOKEN|SECRET|PASSWORD)[A-Z0-9_]*[[:space:]]*[=:][[:space:]]*["'\'']?[A-Za-z0-9_./+=-]{16,})' >/dev/null 2>&1; then
+  echo "pre-commit: secret potentiel detecte dans le diff stage." >&2
+  exit 1
+fi
