@@ -2,6 +2,44 @@ package com.max.aiassistant.data.realtime
 
 import com.google.gson.annotations.SerializedName
 
+enum class RealtimeVoiceMode(
+    val label: String,
+    val shortLabel: String,
+    val description: String
+) {
+    CHAT(
+        label = "Conversation avec l'IA",
+        shortLabel = "Conversation",
+        description = "Parler naturellement avec GPT-Realtime-2."
+    ),
+    TRANSLATE_TEXT(
+        label = "Traduction ecrite",
+        shortLabel = "Texte",
+        description = "Ecouter une langue et afficher la traduction."
+    ),
+    TRANSLATE_SPEECH(
+        label = "Traduction orale",
+        shortLabel = "Oral",
+        description = "Traduire vers du texte et une voix cible."
+    );
+
+    val isTranslation: Boolean
+        get() = this != CHAT
+}
+
+data class RealtimeVoiceLanguage(
+    val code: String,
+    val label: String
+)
+
+data class RealtimeConnectionConfig(
+    val endpointPath: String,
+    val model: String,
+    val audioAppendEventType: String = "input_audio_buffer.append",
+    val audioClearEventType: String = "input_audio_buffer.clear",
+    val sessionConfig: SessionConfig
+)
+
 /**
  * Modèles de données pour l'API Realtime d'OpenAI
  *
@@ -13,38 +51,67 @@ import com.google.gson.annotations.SerializedName
  * Configuration de la session Realtime
  */
 data class SessionConfig(
-    @SerializedName("modalities")
-    val modalities: List<String> = listOf("text", "audio"),
+    @SerializedName("type")
+    val type: String? = null,
+
+    @SerializedName("model")
+    val model: String? = null,
+
+    @SerializedName("output_modalities")
+    val outputModalities: List<String>? = null,
 
     @SerializedName("instructions")
-    val instructions: String = "",
+    val instructions: String? = null,
 
-    @SerializedName("voice")
-    val voice: String = "alloy",
-
-    @SerializedName("input_audio_format")
-    val inputAudioFormat: String = "pcm16",
-
-    @SerializedName("output_audio_format")
-    val outputAudioFormat: String = "pcm16",
-
-    @SerializedName("input_audio_transcription")
-    val inputAudioTranscription: InputAudioTranscription? = null,
-
-    @SerializedName("turn_detection")
-    val turnDetection: TurnDetection? = TurnDetection(type = "server_vad"),
+    @SerializedName("audio")
+    val audio: RealtimeAudioConfig? = null,
 
     @SerializedName("tools")
-    val tools: List<Any> = emptyList(),
+    val tools: List<Any>? = null,
 
     @SerializedName("tool_choice")
-    val toolChoice: String = "auto",
+    val toolChoice: String? = null,
 
-    @SerializedName("temperature")
-    val temperature: Double = 0.8,
+    @SerializedName("max_output_tokens")
+    val maxResponseOutputTokens: String? = null
+)
 
-    @SerializedName("max_response_output_tokens")
-    val maxResponseOutputTokens: String = "inf"
+data class RealtimeAudioConfig(
+    @SerializedName("input")
+    val input: RealtimeAudioInputConfig? = null,
+
+    @SerializedName("output")
+    val output: RealtimeAudioOutputConfig? = null
+)
+
+data class RealtimeAudioInputConfig(
+    @SerializedName("format")
+    val format: RealtimeAudioFormat? = RealtimeAudioFormat(),
+
+    @SerializedName("transcription")
+    val transcription: InputAudioTranscription? = null,
+
+    @SerializedName("turn_detection")
+    val turnDetection: TurnDetection? = null
+)
+
+data class RealtimeAudioOutputConfig(
+    @SerializedName("format")
+    val format: RealtimeAudioFormat? = RealtimeAudioFormat(),
+
+    @SerializedName("voice")
+    val voice: String? = "echo",
+
+    @SerializedName("language")
+    val language: String? = null
+)
+
+data class RealtimeAudioFormat(
+    @SerializedName("type")
+    val type: String = "audio/pcm",
+
+    @SerializedName("rate")
+    val rate: Int = 24000
 )
 
 data class InputAudioTranscription(
@@ -66,7 +133,13 @@ data class TurnDetection(
     val prefixPaddingMs: Int = 300,
 
     @SerializedName("silence_duration_ms")
-    val silenceDurationMs: Int = 200
+    val silenceDurationMs: Int = 500,
+
+    @SerializedName("create_response")
+    val createResponse: Boolean = true,
+
+    @SerializedName("interrupt_response")
+    val interruptResponse: Boolean = true
 )
 
 /**
@@ -274,6 +347,20 @@ sealed class RealtimeServerEvent {
     /**
      * Événement non géré (fallback)
      */
+    data class TranslationInputTranscriptDelta(
+        val delta: String
+    ) : RealtimeServerEvent()
+
+    data class TranslationOutputTranscriptDelta(
+        val delta: String
+    ) : RealtimeServerEvent()
+
+    data class TranslationOutputAudioDelta(
+        val delta: String
+    ) : RealtimeServerEvent()
+
+    object TranslationOutputAudioDone : RealtimeServerEvent()
+
     data class Unknown(
         val type: String,
         val rawJson: String

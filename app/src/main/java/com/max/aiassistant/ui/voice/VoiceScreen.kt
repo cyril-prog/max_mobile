@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,8 +34,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Mic
@@ -94,6 +97,7 @@ fun VoiceScreen(
     errorMessage: String? = null,
     statusMessage: String,
     isOnDeviceModelReady: Boolean,
+    isUsingOpenAiVoice: Boolean,
     isOffline: Boolean = false,
     conversationLines: List<String>,
     onToggleVoiceRecording: () -> Unit,
@@ -133,6 +137,7 @@ fun VoiceScreen(
                 errorMessage = errorMessage,
                 statusMessage = statusMessage,
                 isOnDeviceModelReady = isOnDeviceModelReady,
+                isUsingOpenAiVoice = isUsingOpenAiVoice,
                 isOffline = isOffline,
                 conversationLines = conversationLines,
                 onToggleVoiceRecording = onToggleVoiceRecording,
@@ -147,6 +152,7 @@ fun VoiceScreen(
             errorMessage = errorMessage,
             statusMessage = statusMessage,
             isOnDeviceModelReady = isOnDeviceModelReady,
+            isUsingOpenAiVoice = isUsingOpenAiVoice,
             isOffline = isOffline,
             conversationLines = conversationLines,
             onToggleVoiceRecording = onToggleVoiceRecording,
@@ -163,17 +169,19 @@ private fun VoiceScreenContent(
     errorMessage: String?,
     statusMessage: String,
     isOnDeviceModelReady: Boolean,
+    isUsingOpenAiVoice: Boolean,
     isOffline: Boolean,
     conversationLines: List<String>,
     onToggleVoiceRecording: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
+    val screenScrollState = rememberScrollState()
     val isVoiceActive = isVoiceRecording || isVoiceProcessing || isVoiceSpeaking
 
-    LaunchedEffect(conversationLines.size) {
+    LaunchedEffect(conversationLines) {
         if (conversationLines.isNotEmpty()) {
-            listState.animateScrollToItem(conversationLines.lastIndex)
+            listState.animateScrollToItem(conversationLines.size)
         }
     }
 
@@ -193,9 +201,10 @@ private fun VoiceScreenContent(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
+                .verticalScroll(screenScrollState)
                 .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
-            VoiceTopLabel()
+            VoiceTopLabel(isUsingOpenAiVoice = isUsingOpenAiVoice)
             Spacer(modifier = Modifier.height(18.dp))
 
             if (errorMessage != null) {
@@ -220,6 +229,7 @@ private fun VoiceScreenContent(
                 isVoiceRecording = isVoiceRecording,
                 isVoiceProcessing = isVoiceProcessing,
                 isVoiceSpeaking = isVoiceSpeaking,
+                isUsingOpenAiVoice = isUsingOpenAiVoice,
                 statusMessage = statusMessage,
                 isControlEnabled = isOnDeviceModelReady,
                 onToggleVoiceRecording = onToggleVoiceRecording
@@ -239,8 +249,10 @@ private fun VoiceScreenContent(
                 lines = conversationLines,
                 listState = listState,
                 isVoiceActive = isVoiceActive,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.heightIn(min = 220.dp, max = 360.dp)
             )
+
+            Spacer(modifier = Modifier.height(18.dp))
         }
     }
 }
@@ -284,7 +296,7 @@ private fun VoiceBackdrop() {
 }
 
 @Composable
-private fun VoiceTopLabel() {
+private fun VoiceTopLabel(isUsingOpenAiVoice: Boolean) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.Start
@@ -297,7 +309,10 @@ private fun VoiceTopLabel() {
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Parlez, laissez Gemma transcrire localement, puis ecoutez la reponse en voix.",
+            text = when {
+                !isUsingOpenAiVoice -> "Gemma reste actif en local pour la conversation vocale classique."
+                else -> "Realtime OpenAI gere la conversation vocale bidirectionnelle."
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = VoiceMuted
         )
@@ -309,6 +324,7 @@ private fun VoiceHeroStage(
     isVoiceRecording: Boolean,
     isVoiceProcessing: Boolean,
     isVoiceSpeaking: Boolean,
+    isUsingOpenAiVoice: Boolean,
     statusMessage: String,
     isControlEnabled: Boolean,
     onToggleVoiceRecording: () -> Unit
@@ -346,7 +362,8 @@ private fun VoiceHeroStage(
             VoiceStageHeader(
                 isVoiceRecording = isVoiceRecording,
                 isVoiceProcessing = isVoiceProcessing,
-                isVoiceSpeaking = isVoiceSpeaking
+                isVoiceSpeaking = isVoiceSpeaking,
+                isUsingOpenAiVoice = isUsingOpenAiVoice
             )
             Spacer(modifier = Modifier.height(18.dp))
             VoicePulseCore(
@@ -362,9 +379,11 @@ private fun VoiceHeroStage(
             Text(
                 text = when {
                     isVoiceRecording -> "Le micro enregistre votre message."
-                    isVoiceProcessing -> "Le modele local analyse votre voix."
-                    isVoiceSpeaking -> "Max lit sa reponse."
-                    else -> "Pret pour un message vocal 100 % local."
+                    isVoiceProcessing && !isUsingOpenAiVoice -> "Le modele local analyse votre voix."
+                    isVoiceProcessing -> "Realtime prepare la reponse."
+                    isVoiceSpeaking -> "Lecture de la reponse en cours."
+                    !isUsingOpenAiVoice -> "Pret pour un message vocal 100 % local."
+                    else -> "Pret pour une conversation vocale Realtime."
                 },
                 style = MaterialTheme.typography.titleMedium,
                 color = VoiceText,
@@ -383,6 +402,7 @@ private fun VoiceHeroStage(
                 isVoiceRecording = isVoiceRecording,
                 isVoiceProcessing = isVoiceProcessing,
                 isVoiceSpeaking = isVoiceSpeaking,
+                isUsingOpenAiVoice = isUsingOpenAiVoice,
                 enabled = isControlEnabled,
                 onToggleVoiceRecording = onToggleVoiceRecording
             )
@@ -394,7 +414,8 @@ private fun VoiceHeroStage(
 private fun VoiceStageHeader(
     isVoiceRecording: Boolean,
     isVoiceProcessing: Boolean,
-    isVoiceSpeaking: Boolean
+    isVoiceSpeaking: Boolean,
+    isUsingOpenAiVoice: Boolean
 ) {
     val isVoiceActive = isVoiceRecording || isVoiceProcessing || isVoiceSpeaking
     Row(
@@ -404,7 +425,10 @@ private fun VoiceStageHeader(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                text = "Studio vocal local",
+                text = when {
+                    !isUsingOpenAiVoice -> "Studio vocal local"
+                    else -> "Conversation Realtime"
+                },
                 style = MaterialTheme.typography.titleMedium,
                 color = VoiceText,
                 fontWeight = FontWeight.SemiBold
@@ -412,8 +436,9 @@ private fun VoiceStageHeader(
             Text(
                 text = when {
                     isVoiceRecording -> "Capture micro en cours"
-                    isVoiceProcessing -> "Traitement local"
-                    isVoiceSpeaking -> "Lecture TTS"
+                    isVoiceProcessing && !isUsingOpenAiVoice -> "Traitement local"
+                    isVoiceProcessing -> "Traitement cloud"
+                    isVoiceSpeaking -> "Lecture audio"
                     else -> "Pret a ecouter"
                 },
                 style = MaterialTheme.typography.bodySmall,
@@ -602,6 +627,7 @@ private fun VoicePrimaryControl(
     isVoiceRecording: Boolean,
     isVoiceProcessing: Boolean,
     isVoiceSpeaking: Boolean,
+    isUsingOpenAiVoice: Boolean,
     enabled: Boolean,
     onToggleVoiceRecording: () -> Unit
 ) {
@@ -650,6 +676,7 @@ private fun VoicePrimaryControl(
                 Text(
                     text = when {
                         isVoiceProcessing -> "Annuler le traitement"
+                        isVoiceRecording && isUsingOpenAiVoice -> "Arreter la session"
                         isVoiceRecording -> "Stopper et envoyer"
                         isVoiceSpeaking -> "Stopper la lecture"
                         else -> "Enregistrer un message"
@@ -661,9 +688,11 @@ private fun VoicePrimaryControl(
                 Text(
                     text = when {
                         isVoiceProcessing -> "Interrompt l'analyse vocale en cours"
+                        isVoiceRecording && isUsingOpenAiVoice -> "Ferme la session Realtime en cours"
                         isVoiceRecording -> "Fin d'enregistrement et envoi au modele"
                         isVoiceSpeaking -> "Arrete la synthese vocale en cours"
-                        else -> "Capture locale puis reponse en synthese vocale"
+                        !isUsingOpenAiVoice -> "Capture locale puis reponse en synthese vocale"
+                        else -> "Conversation vocale OpenAI Realtime"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.76f)
@@ -822,6 +851,9 @@ private fun TranscriptConsole(
             ) {
                 items(lines) { line ->
                     VoiceTranscriptBubble(text = line)
+                }
+                item(key = "transcript-bottom-anchor") {
+                    Spacer(modifier = Modifier.height(1.dp))
                 }
             }
         }

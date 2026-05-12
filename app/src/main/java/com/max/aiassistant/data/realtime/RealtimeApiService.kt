@@ -12,121 +12,94 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import okhttp3.*
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import java.util.concurrent.TimeUnit
 
 /**
- * Service pour gérer la connexion WebSocket avec l'API Realtime d'OpenAI
- *
- * Ce service permet :
- * - Connexion/déconnexion à l'API Realtime via WebSocket
- * - Envoi d'événements au serveur (audio, configuration)
- * - Réception d'événements du serveur (audio, transcriptions)
- * - Gestion automatique de la reconnexion
+ * Service pour gerer la connexion WebSocket avec l'API Realtime d'OpenAI.
  */
 class RealtimeApiService(
-    private val apiKey: String,
-    private val model: String = "gpt-realtime"
+    private val apiKey: String
 ) {
-    private val TAG = "RealtimeApiService"
+    private val tag = "RealtimeApiService"
     private val gson = Gson()
 
-    // Client OkHttp pour WebSocket
     private val client = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .connectTimeout(30, TimeUnit.SECONDS)
         .build()
 
     private var webSocket: WebSocket? = null
+    private var activeConnectionConfig: RealtimeConnectionConfig? = null
 
-    // État de la connexion
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
-    // Flux d'événements reçus du serveur
     private val _serverEvents = MutableSharedFlow<RealtimeServerEvent>(replay = 0)
     val serverEvents: SharedFlow<RealtimeServerEvent> = _serverEvents.asSharedFlow()
 
-    // Flux d'erreurs
     private val _errors = MutableSharedFlow<String>(replay = 0)
     val errors: SharedFlow<String> = _errors.asSharedFlow()
 
-    // Scope pour les coroutines
     private val serviceScope = CoroutineScope(Dispatchers.IO)
 
-    /**
-     * Connecte au serveur WebSocket de l'API Realtime
-     * @param instructions Prompt systeme complet a utiliser pour la session
-     */
-    fun connect(instructions: String) {
+    fun connect(connectionConfig: RealtimeConnectionConfig) {
         if (_isConnected.value) {
-            Log.w(TAG, "Déjà connecté à l'API Realtime")
+            Log.w(tag, "Deja connecte a l'API Realtime")
             return
         }
 
-        val url = "wss://api.openai.com/v1/realtime?model=$model"
-        Log.d(TAG, "Connexion à l'API Realtime: $url")
+        val url = "wss://api.openai.com${connectionConfig.endpointPath}?model=${connectionConfig.model}"
+        Log.d(tag, "Connexion a l'API Realtime: $url")
+        activeConnectionConfig = connectionConfig
 
         val request = Request.Builder()
             .url(url)
             .addHeader("Authorization", "Bearer $apiKey")
-            .addHeader("OpenAI-Beta", "realtime=v1")
             .build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: okhttp3.Response) {
-                Log.d(TAG, "WebSocket connecté avec succès")
+                Log.d(tag, "WebSocket connecte avec succes")
                 _isConnected.value = true
 
-                val enrichedInstructions = instructions
-                Log.d(TAG, "========================================")
-                Log.d(TAG, "PROMPT SYSTÈME VOICE-TO-VOICE COMPLET:")
-                Log.d(TAG, "========================================")
-                Log.d(TAG, enrichedInstructions)
-                Log.d(TAG, "========================================")
-                Log.d(TAG, "Longueur totale du prompt: ${enrichedInstructions.length} caractères")
-                Log.d(TAG, "========================================")
+                val sessionConfig = connectionConfig.sessionConfig
+                Log.d(tag, "========================================")
+                Log.d(tag, "PROMPT SYSTEME VOICE COMPLET:")
+                Log.d(tag, "========================================")
+                Log.d(tag, sessionConfig.instructions.orEmpty())
+                Log.d(tag, "========================================")
+                Log.d(tag, "Longueur totale du prompt: ${sessionConfig.instructions.orEmpty().length} caracteres")
+                Log.d(tag, "========================================")
 
-                sendSessionUpdate(SessionConfig(
-                    modalities = listOf("text", "audio"),
-                    instructions = enrichedInstructions,
-                    voice = "echo",
-                    inputAudioFormat = "pcm16",
-                    outputAudioFormat = "pcm16",
-                    inputAudioTranscription = InputAudioTranscription(
-                        model = "whisper-1",
-                        language = "fr"  // Force la transcription en français
-                    ),
-                    turnDetection = TurnDetection(type = "server_vad"),
-                    tools = listOf(buildStoreImportantMemoryTool()),
-                    toolChoice = "auto",
-                    temperature = 0.8
-                ))
+                sendSessionUpdate(sessionConfig)
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                // Log réduit pour éviter de saturer avec les événements audio
-                if (text.contains("response.audio.delta")) {
-                    Log.d(TAG, "Message reçu: response.audio.delta (audio chunk)")
+                if (text.contains("response.audio.delta") || text.contains("response.output_audio.delta")) {
+                    Log.d(tag, "Message recu: audio delta (audio chunk)")
                 } else {
-                    Log.d(TAG, "Message reçu: ${text.take(200)}...")
+                    Log.d(tag, "Message recu: ${text.take(200)}...")
                 }
                 handleServerMessage(text)
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                Log.d(TAG, "WebSocket en cours de fermeture: $code - $reason")
+                Log.d(tag, "WebSocket en cours de fermeture: $code - $reason")
                 webSocket.close(1000, null)
                 _isConnected.value = false
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                Log.d(TAG, "WebSocket fermé: $code - $reason")
+                Log.d(tag, "WebSocket ferme: $code - $reason")
                 _isConnected.value = false
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: okhttp3.Response?) {
-                Log.e(TAG, "Erreur WebSocket: ${t.message}", t)
+                Log.e(tag, "Erreur WebSocket: ${t.message}", t)
                 _isConnected.value = false
                 serviceScope.launch {
                     _errors.emit("Erreur de connexion: ${t.message}")
@@ -135,76 +108,57 @@ class RealtimeApiService(
         })
     }
 
-    /**
-     * Déconnecte du serveur WebSocket
-     */
     fun disconnect() {
-        Log.d(TAG, "Déconnexion de l'API Realtime")
+        Log.d(tag, "Deconnexion de l'API Realtime")
         webSocket?.close(1000, "Client disconnect")
         webSocket = null
+        activeConnectionConfig = null
         _isConnected.value = false
     }
 
-    /**
-     * Envoie une mise à jour de la configuration de session
-     */
     fun sendSessionUpdate(config: SessionConfig) {
         serviceScope.launch(Dispatchers.IO) {
-            val event = mapOf(
-                "type" to "session.update",
-                "session" to config
+            Log.d(
+                tag,
+                "Session.update VAD: type=${config.audio?.input?.turnDetection?.type}, " +
+                    "create_response=${config.audio?.input?.turnDetection?.createResponse}, " +
+                    "interrupt_response=${config.audio?.input?.turnDetection?.interruptResponse}"
             )
-            sendEvent(event)
+            sendEvent(
+                mapOf(
+                    "type" to "session.update",
+                    "session" to config
+                )
+            )
         }
     }
 
-    /**
-     * Envoie un chunk d'audio au serveur (Base64 encoded PCM16)
-     * Exécuté sur un thread background pour éviter de bloquer le thread principal
-     */
     fun sendAudioChunk(base64Audio: String) {
         serviceScope.launch(Dispatchers.IO) {
-            val event = mapOf(
-                "type" to "input_audio_buffer.append",
-                "audio" to base64Audio
+            sendEvent(
+                mapOf(
+                    "type" to (activeConnectionConfig?.audioAppendEventType ?: "input_audio_buffer.append"),
+                    "audio" to base64Audio
+                )
             )
-            sendEvent(event)
         }
     }
 
-    /**
-     * Commit le buffer audio (déclenche la transcription et la réponse)
-     */
     fun commitAudioBuffer() {
         serviceScope.launch(Dispatchers.IO) {
-            val event = mapOf(
-                "type" to "input_audio_buffer.commit"
-            )
-            sendEvent(event)
+            sendEvent(mapOf("type" to "input_audio_buffer.commit"))
         }
     }
 
-    /**
-     * Supprime le buffer audio en cours
-     */
     fun clearAudioBuffer() {
         serviceScope.launch(Dispatchers.IO) {
-            val event = mapOf(
-                "type" to "input_audio_buffer.clear"
-            )
-            sendEvent(event)
+            sendEvent(mapOf("type" to (activeConnectionConfig?.audioClearEventType ?: "input_audio_buffer.clear")))
         }
     }
 
-    /**
-     * Annule la réponse en cours
-     */
     fun cancelResponse() {
         serviceScope.launch(Dispatchers.IO) {
-            val event = mapOf(
-                "type" to "response.cancel"
-            )
-            sendEvent(event)
+            sendEvent(mapOf("type" to "response.cancel"))
         }
     }
 
@@ -213,47 +167,36 @@ class RealtimeApiService(
         outputJson: String
     ) {
         serviceScope.launch(Dispatchers.IO) {
-            val event = mapOf(
-                "type" to "conversation.item.create",
-                "item" to mapOf(
-                    "type" to "function_call_output",
-                    "call_id" to callId,
-                    "output" to outputJson
+            sendEvent(
+                mapOf(
+                    "type" to "conversation.item.create",
+                    "item" to mapOf(
+                        "type" to "function_call_output",
+                        "call_id" to callId,
+                        "output" to outputJson
+                    )
                 )
             )
-            sendEvent(event)
         }
     }
 
     fun requestModelResponse() {
         serviceScope.launch(Dispatchers.IO) {
-            val event = mapOf(
-                "type" to "response.create"
-            )
-            sendEvent(event)
+            sendEvent(mapOf("type" to "response.create"))
         }
     }
 
-    /**
-     * Envoie un événement générique au serveur
-     */
     private fun sendEvent(event: Map<String, Any>) {
         val json = gson.toJson(event)
-
-        // Log réduit pour éviter de saturer avec les chunks audio
         val eventType = event["type"] as? String ?: "unknown"
         if (eventType == "input_audio_buffer.append") {
-            Log.d(TAG, "Envoi événement: $eventType (audio chunk)")
+            Log.d(tag, "Envoi evenement: $eventType (audio chunk)")
         } else {
-            Log.d(TAG, "Envoi événement: ${json.take(200)}...")
+            Log.d(tag, "Envoi evenement: ${json.take(200)}...")
         }
-
         webSocket?.send(json)
     }
 
-    /**
-     * Traite un message JSON reçu du serveur
-     */
     private fun handleServerMessage(json: String) {
         try {
             val jsonObject = gson.fromJson(json, JsonObject::class.java)
@@ -308,7 +251,7 @@ class RealtimeApiService(
                     RealtimeServerEvent.ResponseDone(response)
                 }
 
-                "response.audio.delta" -> {
+                "response.audio.delta", "response.output_audio.delta" -> {
                     val responseId = jsonObject.get("response_id")?.asString ?: ""
                     val itemId = jsonObject.get("item_id")?.asString ?: ""
                     val outputIndex = jsonObject.get("output_index")?.asInt ?: 0
@@ -317,7 +260,7 @@ class RealtimeApiService(
                     RealtimeServerEvent.ResponseAudioDelta(responseId, itemId, outputIndex, contentIndex, delta)
                 }
 
-                "response.audio.done" -> {
+                "response.audio.done", "response.output_audio.done" -> {
                     val responseId = jsonObject.get("response_id")?.asString ?: ""
                     val itemId = jsonObject.get("item_id")?.asString ?: ""
                     val outputIndex = jsonObject.get("output_index")?.asInt ?: 0
@@ -325,7 +268,7 @@ class RealtimeApiService(
                     RealtimeServerEvent.ResponseAudioDone(responseId, itemId, outputIndex, contentIndex)
                 }
 
-                "response.audio_transcript.done" -> {
+                "response.audio_transcript.done", "response.output_audio_transcript.done" -> {
                     val responseId = jsonObject.get("response_id")?.asString ?: ""
                     val itemId = jsonObject.get("item_id")?.asString ?: ""
                     val outputIndex = jsonObject.get("output_index")?.asInt ?: 0
@@ -341,7 +284,7 @@ class RealtimeApiService(
                     RealtimeServerEvent.InputAudioTranscriptionCompleted(itemId, contentIndex, transcript)
                 }
 
-                "response.text.delta" -> {
+                "response.text.delta", "response.output_text.delta", "response.output_audio_transcript.delta" -> {
                     val responseId = jsonObject.get("response_id")?.asString ?: ""
                     val itemId = jsonObject.get("item_id")?.asString ?: ""
                     val outputIndex = jsonObject.get("output_index")?.asInt ?: 0
@@ -350,7 +293,7 @@ class RealtimeApiService(
                     RealtimeServerEvent.ResponseTextDelta(responseId, itemId, outputIndex, contentIndex, delta)
                 }
 
-                "response.text.done" -> {
+                "response.text.done", "response.output_text.done" -> {
                     val responseId = jsonObject.get("response_id")?.asString ?: ""
                     val itemId = jsonObject.get("item_id")?.asString ?: ""
                     val outputIndex = jsonObject.get("output_index")?.asInt ?: 0
@@ -359,88 +302,44 @@ class RealtimeApiService(
                     RealtimeServerEvent.ResponseTextDone(responseId, itemId, outputIndex, contentIndex, text)
                 }
 
+                "session.output_audio.delta" -> {
+                    val delta = jsonObject.get("delta")?.asString ?: ""
+                    RealtimeServerEvent.TranslationOutputAudioDelta(delta)
+                }
+
+                "session.output_audio.done" -> {
+                    RealtimeServerEvent.TranslationOutputAudioDone
+                }
+
+                "session.input_transcript.delta" -> {
+                    val delta = jsonObject.get("delta")?.asString ?: ""
+                    RealtimeServerEvent.TranslationInputTranscriptDelta(delta)
+                }
+
+                "session.output_transcript.delta" -> {
+                    val delta = jsonObject.get("delta")?.asString ?: ""
+                    RealtimeServerEvent.TranslationOutputTranscriptDelta(delta)
+                }
+
                 else -> {
-                    Log.d(TAG, "Événement non géré: $type")
+                    Log.d(tag, "Evenement non gere: $type")
                     RealtimeServerEvent.Unknown(type, json)
                 }
             }
 
-            // Émet l'événement dans le flux
             serviceScope.launch {
                 _serverEvents.emit(event)
             }
-
         } catch (e: Exception) {
-            Log.e(TAG, "Erreur lors du traitement du message serveur", e)
+            Log.e(tag, "Erreur lors du traitement du message serveur", e)
             serviceScope.launch {
                 _errors.emit("Erreur de traitement: ${e.message}")
             }
         }
     }
 
-    /**
-     * Nettoie les ressources
-     */
     fun cleanup() {
         disconnect()
         client.dispatcher.executorService.shutdown()
     }
-
-    private fun buildStoreImportantMemoryTool(): Map<String, Any> {
-        return mapOf(
-            "type" to "function",
-            "name" to "store_important_memory",
-            "description" to "A utiliser quand l'utilisateur donne un fait important, une preference, une relation entre entites, une decision ou toute information utile a long terme, afin de pouvoir la reutiliser dans une future conversation. Memorise en priorite les informations de profil durables comme le prenom, le nom, le surnom, les preferences stables, les relations et le materiel. Exemple: \"Mon prenom est Cyril\" doit etre memorise. Pour un fait direct sur l'utilisateur, entity_name peut etre omis dans facts et vaudra \"utilisateur\".",
-            "parameters" to mapOf(
-                "type" to "object",
-                "properties" to mapOf(
-                    "entities" to mapOf(
-                        "type" to "array",
-                        "description" to "Entites importantes a memoriser.",
-                        "items" to mapOf(
-                            "type" to "object",
-                            "properties" to mapOf(
-                                "name" to mapOf("type" to "string"),
-                                "type" to mapOf("type" to "string"),
-                                "canonical_name" to mapOf("type" to "string"),
-                                "summary" to mapOf("type" to "string")
-                            ),
-                            "required" to listOf("name", "type")
-                        )
-                    ),
-                    "relations" to mapOf(
-                        "type" to "array",
-                        "description" to "Relations stables entre entites.",
-                        "items" to mapOf(
-                            "type" to "object",
-                            "properties" to mapOf(
-                                "from_entity_name" to mapOf("type" to "string"),
-                                "relation_type" to mapOf("type" to "string"),
-                                "to_entity_name" to mapOf("type" to "string"),
-                                "confidence" to mapOf("type" to "number")
-                            ),
-                            "required" to listOf("from_entity_name", "relation_type", "to_entity_name")
-                        )
-                    ),
-                    "facts" to mapOf(
-                        "type" to "array",
-                        "description" to "Faits durables rattaches a une entite.",
-                        "items" to mapOf(
-                            "type" to "object",
-                            "properties" to mapOf(
-                                "entity_name" to mapOf("type" to "string"),
-                                "fact_type" to mapOf("type" to "string"),
-                                "value" to mapOf("type" to "string"),
-                                "confidence" to mapOf("type" to "number")
-                            ),
-                            "required" to listOf("fact_type", "value")
-                        )
-                    )
-                )
-            )
-        )
-    }
 }
-
-
-

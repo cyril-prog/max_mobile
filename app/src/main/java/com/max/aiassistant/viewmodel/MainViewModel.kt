@@ -2,6 +2,7 @@ package com.max.aiassistant.viewmodel
 
 import android.app.Application
 import android.net.Uri
+import android.util.Base64
 import android.util.Log
 import android.webkit.MimeTypeMap
 import androidx.lifecycle.AndroidViewModel
@@ -10,6 +11,9 @@ import com.max.aiassistant.BuildConfig
 import com.max.aiassistant.data.api.MaxApiService
 import com.max.aiassistant.data.api.MessageContent
 import com.max.aiassistant.data.api.MessageData
+import com.max.aiassistant.data.api.OpenAiResponsesPayloadBuilder
+import com.max.aiassistant.data.api.OpenAiResponsesParser
+import com.max.aiassistant.data.api.OpenAiResponsesService
 import com.max.aiassistant.data.api.toEvent
 import com.max.aiassistant.data.api.toActuArticle
 import com.max.aiassistant.data.api.toCurrentPollen
@@ -19,6 +23,7 @@ import com.max.aiassistant.data.api.WatchmodePlatform
 import com.max.aiassistant.data.api.toStreamingRelease
 import com.max.aiassistant.data.api.toWeatherData
 import com.max.aiassistant.data.chat.ChatTitleFormatter
+import com.max.aiassistant.data.local.AiModelSelection
 import com.max.aiassistant.data.local.OnDeviceAiSettings
 import com.max.aiassistant.data.local.AndroidSpeechRecognizerManager
 import com.max.aiassistant.data.local.OnDeviceChatEngine
@@ -43,7 +48,18 @@ import com.max.aiassistant.data.preferences.OnDeviceAiPreferences
 import com.max.aiassistant.data.preferences.DEFAULT_SHARED_SYSTEM_PROMPT
 import com.max.aiassistant.data.realtime.RealtimeApiService
 import com.max.aiassistant.data.realtime.RealtimeAudioManager
+import com.max.aiassistant.data.realtime.RealtimeAudioConfig
+import com.max.aiassistant.data.realtime.RealtimeAudioFormat
+import com.max.aiassistant.data.realtime.RealtimeAudioInputConfig
+import com.max.aiassistant.data.realtime.RealtimeAudioOutputConfig
+import com.max.aiassistant.data.realtime.RealtimeConnectionConfig
 import com.max.aiassistant.data.realtime.RealtimeServerEvent
+import com.max.aiassistant.data.realtime.SessionConfig
+import com.max.aiassistant.data.realtime.InputAudioTranscription
+import com.max.aiassistant.data.realtime.TurnDetection
+import com.max.aiassistant.data.realtime.SUPPORTED_VOICE_LANGUAGES
+import com.max.aiassistant.data.realtime.VoiceLanguage
+import com.max.aiassistant.data.realtime.VoiceMode
 import com.max.aiassistant.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -102,6 +118,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // ========== SERVICES API ==========
 
     private val apiService = MaxApiService.create()
+    private val openAiResponsesService by lazy { OpenAiResponsesService.create(OPENAI_API_KEY) }
     private val watchmodeApiKey = BuildConfig.WATCHMODE_API_KEY
     private val watchmodeApiService = com.max.aiassistant.data.api.WatchmodeApiService.create()
     private val weatherApiService = com.max.aiassistant.data.api.WeatherApiService.create()
@@ -190,10 +207,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isVoiceSpeaking: StateFlow<Boolean> = _isVoiceSpeaking.asStateFlow()
     private val _voiceConversationLines = MutableStateFlow<List<String>>(emptyList())
     val voiceConversationLines: StateFlow<List<String>> = _voiceConversationLines.asStateFlow()
+    private val _voiceMode = MutableStateFlow(VoiceMode.AI_CONVERSATION)
+    val voiceMode: StateFlow<VoiceMode> = _voiceMode.asStateFlow()
+    private val _voiceSourceLanguage = MutableStateFlow(defaultVoiceLanguage("fr"))
+    val voiceSourceLanguage: StateFlow<VoiceLanguage> = _voiceSourceLanguage.asStateFlow()
+    private val _voiceTargetLanguage = MutableStateFlow(defaultVoiceLanguage("en"))
+    val voiceTargetLanguage: StateFlow<VoiceLanguage> = _voiceTargetLanguage.asStateFlow()
+    val voiceLanguages: List<VoiceLanguage> = SUPPORTED_VOICE_LANGUAGES
     private var onDeviceProvisioningJob: Job? = null
     private var activeConversationJob: Job? = null
     private var activeMessagesJob: Job? = null
     private var hasLoadedOnDeviceAiSettings = false
+    private var appliedOnDeviceAiSettings = OnDeviceAiPreferences.DEFAULT_SETTINGS
+    private val completedRealtimeResponseIds = mutableSetOf<String>()
 
     /**
      * Charge le contexte système (tâches, mémoire, historique, calendrier) pour enrichir le prompt voice-to-voice
@@ -422,15 +448,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateOnDeviceAiSettings(
-        modelVariant: OnDeviceModelVariant,
+        selectedModel: AiModelSelection,
         maxContextTokens: Int,
         systemPrompt: String
     ) {
         val normalizedPrompt = systemPrompt.trim().ifBlank { DEFAULT_SHARED_SYSTEM_PROMPT }
+        val localVariant = selectedModel.localVariant ?: _onDeviceAiSettings.value.modelVariant
         val newSettings = OnDeviceAiSettings(
-            modelVariant = modelVariant,
+            selectedModel = selectedModel,
+            modelVariant = localVariant,
             maxContextTokens = maxContextTokens,
             systemPrompt = normalizedPrompt
+        )
+
+        _onDeviceAiSettings.value = newSettings
+        Log.d(
+            TAG,
+            "Reglages IA demandes: modele=${newSettings.selectedModel.storageKey}, " +
+                "variant=${newSettings.modelVariant.storageFileName}, tokens=${newSettings.maxContextTokens}"
         )
 
         viewModelScope.launch {
@@ -468,6 +503,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
             val shouldGenerateTitle = conversation.messageCount == 0
             val aiSettings = _onDeviceAiSettings.value
+            Log.d(
+                TAG,
+                "Moteur chat selectionne: ${aiSettings.selectedModel.storageKey} / ${aiSettings.selectedModel.displayName}"
+            )
             val storedImageUri = if (imageUri != null) {
                 persistChatImageLocallyIfNeeded(imageUri)
             } else {
@@ -494,16 +533,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             var latestPartialResponse = ""
 
             try {
-                Log.d(TAG, "Envoi du message au moteur local: $content, avec image: ${storedImageUri != null}")
-                val modelReady = awaitOnDeviceModelAvailable()
-
-                onDeviceChatEngine.onToolDebugEvent = { event ->
-                    viewModelScope.launch {
-                        persistToolDebugMessage(conversation.id, event)
+                val usesOpenAi = aiSettings.selectedModel.isOpenAi
+                Log.d(
+                    TAG,
+                    if (usesOpenAi) {
+                        "Routage chat vers OpenAI ${OpenAiResponsesService.GPT_5_5_MODEL}"
+                    } else {
+                        "Routage chat vers Gemma local ${aiSettings.modelVariant.displayName}"
                     }
+                )
+                if (usesOpenAi) {
+                    onDeviceChatEngine.onToolDebugEvent = null
                 }
+                val modelReady = if (usesOpenAi) true else awaitOnDeviceModelAvailable()
 
-                val responseText = when {
+                val responseText = if (usesOpenAi) {
+                    generateOpenAiChatResponse(
+                        userMessage = content,
+                        userImageUri = storedImageUri,
+                        initialHistory = previousContext,
+                        systemInstruction = buildOnDeviceSystemInstruction()
+                    )
+                } else {
+                    onDeviceChatEngine.onToolDebugEvent = { event ->
+                        viewModelScope.launch {
+                            persistToolDebugMessage(conversation.id, event)
+                        }
+                    }
+
+                    when {
                     !modelReady -> {
                         "Le modele local n'est pas pret. ${buildProvisioningStatusMessage()}"
                     }
@@ -535,6 +593,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                 }
+                }
 
                 // Ajoute la réponse de Max
                 val finalResponseText = responseText.ifBlank {
@@ -554,7 +613,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             } catch (e: Exception) {
                 Log.e(TAG, "Erreur lors de l'envoi du message", e)
-                ensureOnDeviceModelAvailable()
+                if (!aiSettings.selectedModel.isOpenAi) {
+                    ensureOnDeviceModelAvailable()
+                }
                 val rawReason = e.message?.takeIf { it.isNotBlank() }
                     ?: buildProvisioningStatusMessage()
                 val userFacingReason = if (
@@ -569,7 +630,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val fallbackMessage = if (latestPartialResponse.isNotBlank()) {
                     latestPartialResponse
                 } else {
-                    "Impossible d'interroger le modele local pour l'instant. $userFacingReason"
+                    val providerName = if (aiSettings.selectedModel.isOpenAi) {
+                        aiSettings.selectedModel.displayName
+                    } else {
+                        "le modele local"
+                    }
+                    "Impossible d'interroger $providerName pour l'instant. $userFacingReason"
                 }
 
                 chatRepository.upsertAssistantMessage(
@@ -637,6 +703,86 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private suspend fun generateOpenAiChatResponse(
+        userMessage: String,
+        userImageUri: Uri?,
+        initialHistory: List<ChatMessageEntity>,
+        systemInstruction: String
+    ): String = withContext(Dispatchers.IO) {
+        if (OPENAI_API_KEY.isBlank()) {
+            throw IllegalStateException("Cle OpenAI absente. Ajoute OPENAI_API_KEY dans local.properties puis reconstruis l'application.")
+        }
+
+        val history = initialHistory
+            .filter { it.status == ChatMessageStatus.COMPLETED }
+            .mapNotNull { message ->
+                val role = when (message.role) {
+                    ChatMessageRole.USER -> OpenAiResponsesPayloadBuilder.ROLE_USER
+                    ChatMessageRole.ASSISTANT -> OpenAiResponsesPayloadBuilder.ROLE_ASSISTANT
+                    else -> return@mapNotNull null
+                }
+                OpenAiResponsesPayloadBuilder.ChatTurn(
+                    role = role,
+                    text = message.content,
+                    imageDataUrl = message.imageUri
+                        ?.takeIf { role == OpenAiResponsesPayloadBuilder.ROLE_USER }
+                        ?.let(Uri::parse)
+                        ?.let(::encodeImageForOpenAi)
+                )
+            }
+
+        val requestBody = OpenAiResponsesPayloadBuilder.buildRequestBody(
+            model = OpenAiResponsesService.GPT_5_5_MODEL,
+            history = history,
+            userText = userMessage,
+            userImageDataUrl = userImageUri?.let(::encodeImageForOpenAi),
+            systemInstruction = systemInstruction
+        )
+        @Suppress("UNCHECKED_CAST")
+        val input = requestBody["input"] as List<Map<String, Any>>
+
+        Log.d(
+            TAG,
+            "Requete OpenAI Responses: model=${OpenAiResponsesService.GPT_5_5_MODEL}, " +
+                "historyItems=${history.size}, payloadItems=${input.size}, hasImage=${userImageUri != null}"
+        )
+        val response = openAiResponsesService.createResponse(requestBody)
+        Log.d(TAG, "Reponse recue depuis OpenAI ${OpenAiResponsesService.GPT_5_5_MODEL}")
+        OpenAiResponsesParser.extractErrorMessage(response)
+            ?.let { throw IllegalStateException(it) }
+
+        OpenAiResponsesParser.extractOutputText(response).ifBlank {
+            throw IllegalStateException("Reponse ${OpenAiResponsesService.GPT_5_5_MODEL} vide.")
+        }
+    }
+
+    private fun encodeImageForOpenAi(imageUri: Uri): String {
+        val application = getApplication<Application>()
+        val mimeType = resolveOpenAiImageMimeType(imageUri)
+        val bytes = application.contentResolver.openInputStream(imageUri)?.use { input ->
+            input.readBytes()
+        } ?: throw IllegalStateException("Impossible de lire l'image jointe pour GPT-5.5.")
+
+        return "data:$mimeType;base64,${Base64.encodeToString(bytes, Base64.NO_WRAP)}"
+    }
+
+    private fun resolveOpenAiImageMimeType(imageUri: Uri): String {
+        val application = getApplication<Application>()
+        application.contentResolver.getType(imageUri)
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return it }
+
+        val extension = imageUri.lastPathSegment
+            ?.substringAfterLast('.', "")
+            ?.lowercase(Locale.ROOT)
+            ?.takeIf { it.isNotBlank() }
+
+        return extension
+            ?.let(MimeTypeMap.getSingleton()::getMimeTypeFromExtension)
+            ?.takeIf { it.isNotBlank() }
+            ?: "image/jpeg"
+    }
+
     private fun observeConversations() {
         viewModelScope.launch {
             chatRepository.observeConversations().collectLatest { conversations ->
@@ -648,17 +794,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun observeOnDeviceAiSettings() {
         viewModelScope.launch {
             onDeviceAiPreferences.settings.collectLatest { settings ->
-                val previousSettings = _onDeviceAiSettings.value
+                val previousSettings = appliedOnDeviceAiSettings
                 val isFirstLoad = !hasLoadedOnDeviceAiSettings
 
                 _onDeviceAiSettings.value = settings
                 hasLoadedOnDeviceAiSettings = true
+                Log.d(
+                    TAG,
+                    "Reglages IA charges depuis DataStore: modele=${settings.selectedModel.storageKey}, " +
+                        "variant=${settings.modelVariant.storageFileName}, tokens=${settings.maxContextTokens}"
+                )
+
+                if (settings.selectedModel.isOpenAi) {
+                    onDeviceProvisioningJob?.cancel()
+                    onDeviceChatEngine.close()
+                    _isOnDeviceModelReady.value = true
+                    _onDeviceModelStatus.value = "GPT-5.5 pret via OpenAI. Aucun modele local a preparer."
+                    _onDeviceModelProvisioningState.value = OnDeviceModelProvisioningState.Ready(
+                        modelPath = OpenAiResponsesService.GPT_5_5_MODEL,
+                        message = "GPT-5.5 pret via OpenAI."
+                    )
+                    appliedOnDeviceAiSettings = settings
+                    return@collectLatest
+                }
+
+                if (_isRealtimeConnected.value) {
+                    disconnectRealtime()
+                }
+                if (_voiceMode.value != VoiceMode.AI_CONVERSATION) {
+                    _voiceMode.value = VoiceMode.AI_CONVERSATION
+                }
 
                 if (isFirstLoad) {
                     val cachedAvailability = onDeviceModelManager.getCachedAvailability(settings.modelVariant)
                     _isOnDeviceModelReady.value = cachedAvailability.isAvailable
                     _onDeviceModelStatus.value = cachedAvailability.statusMessage
                     ensureOnDeviceModelAvailable()
+                    appliedOnDeviceAiSettings = settings
                     return@collectLatest
                 }
 
@@ -668,7 +840,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 onDeviceChatEngine.close()
 
-                if (previousSettings.modelVariant != settings.modelVariant) {
+                if (previousSettings.modelVariant != settings.modelVariant ||
+                    previousSettings.selectedModel != settings.selectedModel
+                ) {
                     _isOnDeviceModelReady.value = false
                     _onDeviceModelStatus.value = "Changement de modele demande. Preparation de ${settings.modelVariant.displayName}..."
                     ensureOnDeviceModelAvailable()
@@ -683,6 +857,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         ensureOnDeviceModelAvailable()
                     }
                 }
+
+                appliedOnDeviceAiSettings = settings
             }
         }
     }
@@ -831,7 +1007,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             val fallbackTitle = ChatTitleFormatter.fallbackTitleFromPrompt(firstPrompt)
-            val finalTitle = if (modelReady && firstPrompt.isNotBlank()) {
+            val selectedModel = _onDeviceAiSettings.value.selectedModel
+            val finalTitle = if (modelReady && firstPrompt.isNotBlank() && !selectedModel.isOpenAi) {
                 runCatching {
                     val titleEngine = OnDeviceChatEngine(getApplication<Application>().applicationContext)
                     val aiSettings = _onDeviceAiSettings.value
@@ -1064,7 +1241,247 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun defaultVoiceLanguage(code: String): VoiceLanguage {
+        return SUPPORTED_VOICE_LANGUAGES.firstOrNull { it.code == code } ?: SUPPORTED_VOICE_LANGUAGES.first()
+    }
+
+    private fun effectiveVoiceMode(): VoiceMode {
+        return if (_onDeviceAiSettings.value.selectedModel.isOpenAi) _voiceMode.value else VoiceMode.AI_CONVERSATION
+    }
+
+    private fun buildRealtimeConversationInstruction(): String {
+        val realtimeContext = buildRealtimeSystemContext()
+        return buildString {
+            append(buildSharedAssistantInstructions())
+            appendLine()
+            appendLine("Contraintes du mode vocal:")
+            appendLine("- Tu es en mode audio uniquement.")
+            appendLine("- Tu n'as pas acces a une camera et tu ne vois pas l'utilisateur.")
+            appendLine("- Ne pretends jamais voir quoi que ce soit.")
+            if (realtimeContext.isNotBlank()) {
+                appendLine()
+                appendLine("Contexte utile:")
+                appendLine(realtimeContext)
+            }
+        }
+    }
+
+    private fun buildRealtimeTranslationInstruction(
+        sourceLanguage: VoiceLanguage,
+        targetLanguage: VoiceLanguage,
+        playsAudioResponse: Boolean
+    ): String {
+        return buildString {
+            appendLine("Tu es un traducteur vocal temps reel.")
+            appendLine("Langue source attendue: ${sourceLanguage.label} (${sourceLanguage.code}).")
+            appendLine("Langue cible attendue: ${targetLanguage.label} (${targetLanguage.code}).")
+            appendLine("Traduis fidelement le sens sans ajouter de commentaires.")
+            appendLine("Ne reformule pas la demande et n'explique pas ton travail.")
+            if (playsAudioResponse) {
+                appendLine("Retourne la traduction finale en texte et lis-la naturellement dans la langue cible.")
+            } else {
+                appendLine("Retourne uniquement la traduction finale en texte clair.")
+                appendLine("Ne genere pas d'audio de sortie.")
+            }
+        }
+    }
+
+    private fun buildRealtimeConnectionConfig(): RealtimeConnectionConfig {
+        val mode = effectiveVoiceMode()
+        val sourceLanguage = _voiceSourceLanguage.value
+        val targetLanguage = _voiceTargetLanguage.value
+        val usesTools = mode == VoiceMode.AI_CONVERSATION
+        val instructions = when (mode) {
+            VoiceMode.AI_CONVERSATION -> buildRealtimeConversationInstruction()
+            VoiceMode.AUDIO_TO_TEXT_TRANSLATION,
+            VoiceMode.AUDIO_TO_SPEECH_TRANSLATION -> buildRealtimeTranslationInstruction(
+                sourceLanguage = sourceLanguage,
+                targetLanguage = targetLanguage,
+                playsAudioResponse = mode.playsAudioResponse
+            )
+        }
+
+        return RealtimeConnectionConfig(
+            endpointPath = mode.endpointPath,
+            model = mode.model,
+            audioAppendEventType = mode.audioAppendEventType,
+            audioClearEventType = mode.audioClearEventType,
+            sessionConfig = if (mode == VoiceMode.AI_CONVERSATION) {
+                SessionConfig(
+                    type = "realtime",
+                    model = mode.model,
+                    outputModalities = mode.outputModalities,
+                    instructions = instructions,
+                    audio = buildRealtimeAudioConfig(
+                        mode = mode,
+                        sourceLanguage = sourceLanguage,
+                        targetLanguage = targetLanguage
+                    ),
+                    tools = if (usesTools) listOf(buildRealtimeMemoryTool()) else null,
+                    toolChoice = if (usesTools) "auto" else null,
+                    maxResponseOutputTokens = "inf"
+                )
+            } else {
+                SessionConfig(
+                    audio = RealtimeAudioConfig(
+                        output = RealtimeAudioOutputConfig(
+                            format = null,
+                            voice = null,
+                            language = targetLanguage.code
+                        )
+                    )
+                )
+            }
+        )
+    }
+
+    private fun buildRealtimeAudioConfig(
+        mode: VoiceMode,
+        sourceLanguage: VoiceLanguage,
+        targetLanguage: VoiceLanguage
+    ): RealtimeAudioConfig {
+        val pcm24k = RealtimeAudioFormat(
+            type = "audio/pcm",
+            rate = 24000
+        )
+        return RealtimeAudioConfig(
+            input = if (mode == VoiceMode.AI_CONVERSATION) {
+                RealtimeAudioInputConfig(
+                    format = pcm24k,
+                    transcription = InputAudioTranscription(
+                        model = "whisper-1",
+                        language = sourceLanguage.code
+                    ),
+                    turnDetection = TurnDetection(
+                        type = "server_vad",
+                        threshold = 0.5,
+                        prefixPaddingMs = 300,
+                        silenceDurationMs = 500,
+                        createResponse = true,
+                        interruptResponse = true
+                    )
+                )
+            } else {
+                RealtimeAudioInputConfig(format = pcm24k)
+            },
+            output = RealtimeAudioOutputConfig(
+                format = pcm24k,
+                voice = "echo",
+                language = if (mode == VoiceMode.AI_CONVERSATION) null else targetLanguage.code
+            )
+        )
+    }
+
+    private fun buildRealtimeMemoryTool(): Map<String, Any> {
+        return mapOf(
+            "type" to "function",
+            "name" to "store_important_memory",
+            "description" to "A utiliser quand l'utilisateur donne un fait durable, une preference, une relation ou une information utile a memoriser.",
+            "parameters" to mapOf(
+                "type" to "object",
+                "properties" to mapOf(
+                    "entities" to mapOf(
+                        "type" to "array",
+                        "items" to mapOf(
+                            "type" to "object",
+                            "properties" to mapOf(
+                                "name" to mapOf("type" to "string"),
+                                "type" to mapOf("type" to "string"),
+                                "canonical_name" to mapOf("type" to "string"),
+                                "summary" to mapOf("type" to "string")
+                            ),
+                            "required" to listOf("name", "type")
+                        )
+                    ),
+                    "relations" to mapOf(
+                        "type" to "array",
+                        "items" to mapOf(
+                            "type" to "object",
+                            "properties" to mapOf(
+                                "from_entity_name" to mapOf("type" to "string"),
+                                "relation_type" to mapOf("type" to "string"),
+                                "to_entity_name" to mapOf("type" to "string"),
+                                "confidence" to mapOf("type" to "number")
+                            ),
+                            "required" to listOf("from_entity_name", "relation_type", "to_entity_name")
+                        )
+                    ),
+                    "facts" to mapOf(
+                        "type" to "array",
+                        "items" to mapOf(
+                            "type" to "object",
+                            "properties" to mapOf(
+                                "entity_name" to mapOf("type" to "string"),
+                                "fact_type" to mapOf("type" to "string"),
+                                "value" to mapOf("type" to "string"),
+                                "confidence" to mapOf("type" to "number")
+                            ),
+                            "required" to listOf("fact_type", "value")
+                        )
+                    )
+                )
+            )
+        )
+    }
+
+    fun updateVoiceMode(mode: VoiceMode) {
+        if (!_onDeviceAiSettings.value.selectedModel.isOpenAi && mode != VoiceMode.AI_CONVERSATION) {
+            _voiceMode.value = VoiceMode.AI_CONVERSATION
+            resetRealtimeTranscriptState(clearLines = true)
+            updateVoiceIdleStatus()
+            return
+        }
+
+        if (_voiceMode.value == mode) {
+            return
+        }
+
+        val previousMode = _voiceMode.value
+        _voiceMode.value = mode
+        if (previousMode == VoiceMode.AI_CONVERSATION || mode == VoiceMode.AI_CONVERSATION) {
+            resetRealtimeTranscriptState(clearLines = true)
+        } else {
+            resetRealtimeTranscriptState(clearLines = false)
+        }
+        if (_isRealtimeConnected.value) {
+            disconnectRealtime()
+        } else {
+            updateVoiceIdleStatus()
+        }
+    }
+
+    fun updateVoiceSourceLanguage(language: VoiceLanguage) {
+        if (_voiceSourceLanguage.value == language) {
+            return
+        }
+
+        _voiceSourceLanguage.value = language
+        if (_isRealtimeConnected.value) {
+            disconnectRealtime()
+        } else {
+            updateVoiceIdleStatus()
+        }
+    }
+
+    fun updateVoiceTargetLanguage(language: VoiceLanguage) {
+        if (_voiceTargetLanguage.value == language) {
+            return
+        }
+
+        _voiceTargetLanguage.value = language
+        if (_isRealtimeConnected.value) {
+            disconnectRealtime()
+        } else {
+            updateVoiceIdleStatus()
+        }
+    }
+
     fun toggleVoiceRecording() {
+        if (_onDeviceAiSettings.value.selectedModel.isOpenAi) {
+            toggleRealtimeConnection()
+            return
+        }
+
         when {
             _isVoiceRecording.value -> stopVoiceRecordingAndProcess()
             _isVoiceProcessing.value -> cancelVoiceInteraction()
@@ -1232,11 +1649,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun updateVoiceIdleStatus() {
+        val mode = effectiveVoiceMode()
         _voiceStatus.value = when {
-            _isVoiceRecording.value -> "Enregistrement en cours."
-            _isVoiceProcessing.value -> "Traitement local en cours..."
+            _isVoiceRecording.value -> if (_onDeviceAiSettings.value.selectedModel.isOpenAi) {
+                "Session Realtime active. Parlez librement."
+            } else {
+                "Enregistrement en cours."
+            }
+            _isVoiceProcessing.value -> when {
+                !_onDeviceAiSettings.value.selectedModel.isOpenAi -> "Traitement local en cours..."
+                mode == VoiceMode.AUDIO_TO_TEXT_TRANSLATION -> "Traduction ecrite en cours..."
+                mode == VoiceMode.AUDIO_TO_SPEECH_TRANSLATION -> "Traduction orale en cours..."
+                else -> "Generation de la reponse vocale..."
+            }
             _isVoiceSpeaking.value -> "Lecture de la reponse..."
-            _voiceConversationLines.value.isEmpty() -> "Pret pour un message vocal local."
+            _voiceConversationLines.value.isEmpty() -> when {
+                !_onDeviceAiSettings.value.selectedModel.isOpenAi -> "Pret pour un message vocal local."
+                mode == VoiceMode.AUDIO_TO_TEXT_TRANSLATION -> "Pret pour une traduction ecrite Realtime."
+                mode == VoiceMode.AUDIO_TO_SPEECH_TRANSLATION -> "Pret pour une traduction orale Realtime."
+                else -> "Pret pour une conversation vocale Realtime."
+            }
             else -> "Pret pour un nouveau message vocal."
         }
     }
@@ -2174,6 +2606,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Dernière transcription utilisateur (en attente de la réponse IA)
     // File d'attente pour éviter qu'une transcription rapide écrase la précédente
     private val pendingUserTranscripts = kotlin.collections.ArrayDeque<String>()
+    private val translationInputTranscriptBuffer = StringBuilder()
+    private val translationOutputTranscriptBuffer = StringBuilder()
+    private var activeRealtimeAudioResponseId: String? = null
+    private val interruptedRealtimeResponseIds = mutableSetOf<String>()
 
     /**
      * Toggle la connexion à l'API Realtime
@@ -2197,6 +2633,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun connectRealtime() {
         Log.d(TAG, "Connexion à l'API Realtime...")
         _realtimeError.value = null
+        _voiceError.value = null
+        completedRealtimeResponseIds.clear()
+        translationInputTranscriptBuffer.clear()
+        translationOutputTranscriptBuffer.clear()
+        interruptedRealtimeResponseIds.clear()
+        activeRealtimeAudioResponseId = null
 
         // Annule les collecteurs de la session précédente (évite les doublons)
         realtimeEventsJob?.cancel()
@@ -2216,11 +2658,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // Callback appelé pour chaque chunk audio capturé
                 realtimeService?.sendAudioChunk(base64Audio)
             },
+            pauseInputWhileSpeaking = effectiveVoiceMode().playsAudioResponse,
+            onBargeInDetected = {
+                if (_isVoiceSpeaking.value) {
+                    Log.d(TAG, "Barge-in local: interruption de la lecture IA")
+                    activeRealtimeAudioResponseId?.let { interruptedRealtimeResponseIds.add(it) }
+                    audioManager?.interruptPlayback()
+                    _isVoiceSpeaking.value = false
+                    _isVoiceProcessing.value = false
+                    _isVoiceRecording.value = true
+                    updateVoiceIdleStatus()
+                }
+            },
             onSpeakingFinished = {
                 // Le playback IA est vraiment terminé (queue vidée) :
                 // purge le buffer d'entrée côté serveur pour éliminer ce que le micro
                 // a pu capter pendant le playback (écho résiduel avant que isSpeaking soit actif)
-                realtimeService?.clearAudioBuffer()
+                _isVoiceSpeaking.value = false
+                _isVoiceRecording.value = true
+                _isVoiceProcessing.value = false
+                updateVoiceIdleStatus()
+                if (effectiveVoiceMode() == VoiceMode.AI_CONVERSATION) {
+                    realtimeService?.clearAudioBuffer()
+                }
                 Log.d(TAG, "Playback IA terminé → input_audio_buffer.clear envoyé")
             }
         )
@@ -2228,6 +2688,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Observe les événements du serveur — Job stocké pour pouvoir l'annuler
         realtimeEventsJob = viewModelScope.launch {
             realtimeService?.serverEvents?.collect { event ->
+                if (event is RealtimeServerEvent.ResponseTextDone) {
+                    finalizeRealtimeAssistantResponse(
+                        responseId = event.responseId,
+                        assistantText = event.text
+                    )
+                    return@collect
+                }
                 handleRealtimeEvent(event)
             }
         }
@@ -2237,6 +2704,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             realtimeService?.errors?.collect { error ->
                 Log.e(TAG, "Erreur Realtime: $error")
                 _realtimeError.value = error
+                _voiceError.value = error
+                _isVoiceRecording.value = false
+                _isVoiceProcessing.value = false
+                _isVoiceSpeaking.value = false
+                updateVoiceIdleStatus()
             }
         }
 
@@ -2249,6 +2721,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (connected && !recordingStarted) {
                     recordingStarted = true
                     audioManager?.startRecording()
+                    _isVoiceRecording.value = true
+                    _isVoiceProcessing.value = false
+                    _isVoiceSpeaking.value = false
+                    updateVoiceIdleStatus()
                     Log.d(TAG, "Connexion Realtime établie, enregistrement démarré")
                 }
             }
@@ -2261,9 +2737,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             Log.d(TAG, "Aperçu du contexte envoyé: ${systemContext.take(200)}...")
         }
-        val realtimeInstructions = buildRealtimeSystemInstruction()
-        Log.d(TAG, "Prompt systeme envoye a Realtime (${realtimeInstructions.length} caracteres)")
-        realtimeService?.connect(realtimeInstructions)
+        val realtimeConfig = buildRealtimeConnectionConfig()
+        Log.d(
+            TAG,
+            "Connexion Realtime mode=${effectiveVoiceMode().name}, endpoint=${realtimeConfig.endpointPath}, model=${realtimeConfig.model}, auto_response=${realtimeConfig.sessionConfig.audio?.input?.turnDetection?.createResponse}"
+        )
+        Log.d(TAG, "Prompt systeme envoye a Realtime (${realtimeConfig.sessionConfig.instructions.orEmpty().length} caracteres)")
+        realtimeService?.connect(realtimeConfig)
     }
 
     /**
@@ -2290,9 +2770,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _realtimeError.value = null
         _voiceTranscript.value = ""
         _liveTranscript.value = ""
+        _isVoiceRecording.value = false
+        _isVoiceProcessing.value = false
+        _isVoiceSpeaking.value = false
+        pendingUserTranscripts.clear()
+        completedRealtimeResponseIds.clear()
+        conversationMessages.clear()
+        translationInputTranscriptBuffer.clear()
+        translationOutputTranscriptBuffer.clear()
+        interruptedRealtimeResponseIds.clear()
+        activeRealtimeAudioResponseId = null
+        sessionId = UUID.randomUUID().toString()
+        messageIdCounter = 0
+        updateVoiceIdleStatus()
 
         // Réinitialise la conversation pour la prochaine session
-        resetConversation()
 
         Log.d(TAG, "Déconnexion Realtime terminée")
     }
@@ -2303,8 +2795,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun handleRealtimeEvent(event: RealtimeServerEvent) {
         when (event) {
             is RealtimeServerEvent.Error -> {
+                if (isRecoverableRealtimeError(event.error.message)) {
+                    Log.w(TAG, "Erreur Realtime non bloquante ignoree: ${event.error.message}")
+                    return
+                }
                 Log.e(TAG, "Erreur serveur Realtime: ${event.error.message}")
                 _realtimeError.value = event.error.message
+                _voiceError.value = event.error.message
+                _isVoiceRecording.value = false
+                _isVoiceProcessing.value = false
+                _isVoiceSpeaking.value = false
+                updateVoiceIdleStatus()
             }
 
             is RealtimeServerEvent.SessionCreated -> {
@@ -2312,19 +2813,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             is RealtimeServerEvent.InputAudioBufferSpeechStarted -> {
+                if (_isVoiceSpeaking.value) {
+                    Log.d(TAG, "Barge-in detecte: interruption de la reponse IA en cours")
+                    activeRealtimeAudioResponseId?.let { interruptedRealtimeResponseIds.add(it) }
+                    audioManager?.interruptPlayback()
+                }
+                if (effectiveVoiceMode() != VoiceMode.AI_CONVERSATION) {
+                    resetRealtimeTranscriptState(clearLines = false)
+                }
+                _isVoiceSpeaking.value = false
+                _isVoiceProcessing.value = false
+                _isVoiceRecording.value = true
                 Log.d(TAG, "Détection de parole démarrée")
                 _liveTranscript.value = "Écoute en cours..."
+                updateVoiceIdleStatus()
             }
 
             is RealtimeServerEvent.InputAudioBufferSpeechStopped -> {
                 Log.d(TAG, "Détection de parole arrêtée")
+                _isVoiceRecording.value = false
+                _isVoiceProcessing.value = true
                 _liveTranscript.value = "Traitement..."
+                updateVoiceIdleStatus()
             }
 
             is RealtimeServerEvent.InputAudioTranscriptionCompleted -> {
                 Log.d(TAG, "*** Transcription utilisateur reçue: ${event.transcript}")
                 // Empile la transcription en attente de la réponse IA correspondante
-                pendingUserTranscripts.addLast(event.transcript)
+                val transcript = sanitizeVoiceTranscript(event.transcript)
+                if (transcript.isNotBlank()) {
+                    pendingUserTranscripts.addLast(transcript)
+                }
                 Log.d(TAG, "*** pendingUserTranscripts taille: ${pendingUserTranscripts.size}")
             }
 
@@ -2337,28 +2856,87 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _liveTranscript.value = ""
 
                 // Ajoute la paire utilisateur + IA à la conversation
-                addConversationPair(userTranscript, event.transcript)
+                finalizeRealtimeAssistantResponse(
+                    responseId = event.responseId,
+                    assistantText = event.transcript,
+                    preferredUserTranscript = userTranscript
+                )
             }
 
             is RealtimeServerEvent.ResponseDone -> {
+                interruptedRealtimeResponseIds.remove(event.response.id)
+                if (activeRealtimeAudioResponseId == event.response.id) {
+                    activeRealtimeAudioResponseId = null
+                }
                 handleRealtimeFunctionCalls(event.response)
             }
 
             is RealtimeServerEvent.ResponseAudioDelta -> {
                 // Chunk audio reçu de l'IA : pause micro + lecture
-                audioManager?.startSpeaking()
-                audioManager?.playAudioChunk(event.delta)
+                if (effectiveVoiceMode().playsAudioResponse && event.responseId !in interruptedRealtimeResponseIds) {
+                    activeRealtimeAudioResponseId = event.responseId
+                    _isVoiceSpeaking.value = true
+                    _isVoiceProcessing.value = false
+                    _isVoiceRecording.value = false
+                    audioManager?.startSpeaking()
+                    audioManager?.playAudioChunk(event.delta)
+                    updateVoiceIdleStatus()
+                }
             }
 
             is RealtimeServerEvent.ResponseAudioDone -> {
                 // Fin de l'envoi réseau : le micro reprendra quand la queue sera vidée
-                audioManager?.markAudioDone()
+                val wasInterrupted = event.responseId in interruptedRealtimeResponseIds
+                interruptedRealtimeResponseIds.remove(event.responseId)
+                if (activeRealtimeAudioResponseId == event.responseId) {
+                    activeRealtimeAudioResponseId = null
+                }
+                if (effectiveVoiceMode().playsAudioResponse && !wasInterrupted) {
+                    audioManager?.markAudioDone()
+                }
                 Log.d(TAG, "Réponse audio terminée (réseau)")
             }
 
             is RealtimeServerEvent.ResponseTextDelta -> {
                 // Delta de texte (si modalité texte activée)
                 Log.d(TAG, "Texte reçu: ${event.delta}")
+            }
+
+            is RealtimeServerEvent.TranslationInputTranscriptDelta -> {
+                translationInputTranscriptBuffer.append(event.delta)
+                updateTranslationLiveLines()
+                _liveTranscript.value = translationInputTranscriptBuffer.toString()
+            }
+
+            is RealtimeServerEvent.TranslationOutputTranscriptDelta -> {
+                translationOutputTranscriptBuffer.append(event.delta)
+                val translatedText = translationOutputTranscriptBuffer.toString()
+                _voiceTranscript.value = translatedText
+                _liveTranscript.value = translatedText
+                updateTranslationLiveLines()
+                _isVoiceProcessing.value = false
+                if (!effectiveVoiceMode().playsAudioResponse) {
+                    _isVoiceRecording.value = _isRealtimeConnected.value
+                }
+                updateVoiceIdleStatus()
+            }
+
+            is RealtimeServerEvent.TranslationOutputAudioDelta -> {
+                if (effectiveVoiceMode().playsAudioResponse) {
+                    _isVoiceSpeaking.value = true
+                    _isVoiceProcessing.value = false
+                    _isVoiceRecording.value = _isRealtimeConnected.value
+                    audioManager?.startSpeaking()
+                    audioManager?.playAudioChunk(event.delta)
+                    updateVoiceIdleStatus()
+                }
+            }
+
+            is RealtimeServerEvent.TranslationOutputAudioDone -> {
+                if (effectiveVoiceMode().playsAudioResponse) {
+                    audioManager?.markAudioDone()
+                }
+                _isVoiceRecording.value = _isRealtimeConnected.value
             }
 
             else -> {
@@ -2370,6 +2948,90 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Ajoute une paire de messages utilisateur + IA à la conversation
      */
+    private fun finalizeRealtimeAssistantResponse(
+        responseId: String,
+        assistantText: String,
+        preferredUserTranscript: String = ""
+    ) {
+        val normalizedText = sanitizeVoiceTranscript(assistantText)
+        if (normalizedText.isBlank() || !completedRealtimeResponseIds.add(responseId)) {
+            return
+        }
+
+        val userTranscript = preferredUserTranscript.ifBlank {
+            pendingUserTranscripts.removeFirstOrNull().orEmpty()
+        }
+        val mode = effectiveVoiceMode()
+        _voiceTranscript.value = normalizedText
+        _liveTranscript.value = ""
+        if (mode == VoiceMode.AI_CONVERSATION) {
+            addConversationPair(userTranscript, normalizedText)
+        } else {
+            if (userTranscript.isNotBlank()) {
+                _voiceConversationLines.value = _voiceConversationLines.value +
+                    "${_voiceSourceLanguage.value.label}: $userTranscript"
+            }
+            _voiceConversationLines.value = _voiceConversationLines.value +
+                "Traduction ${_voiceTargetLanguage.value.label}: $normalizedText"
+        }
+
+        _isVoiceProcessing.value = false
+        if (!mode.playsAudioResponse) {
+            _isVoiceSpeaking.value = false
+            _isVoiceRecording.value = _isRealtimeConnected.value
+        }
+        updateVoiceIdleStatus()
+    }
+
+    private fun isRecoverableRealtimeError(message: String): Boolean {
+        val normalizedMessage = message.lowercase()
+        return normalizedMessage.contains("cancellation failed") &&
+            normalizedMessage.contains("no active response")
+    }
+
+    private fun updateTranslationLiveLines() {
+        val inputText = translationInputTranscriptBuffer.toString().trim()
+        val outputText = translationOutputTranscriptBuffer.toString().trim()
+        val lines = buildList {
+            if (inputText.isNotBlank()) {
+                add("${_voiceSourceLanguage.value.label}: $inputText")
+            }
+            if (outputText.isNotBlank()) {
+                add("Traduction ${_voiceTargetLanguage.value.label}: $outputText")
+            }
+        }
+        if (lines.isNotEmpty()) {
+            _voiceConversationLines.value = lines
+        }
+    }
+
+    private fun resetRealtimeTranscriptState(clearLines: Boolean) {
+        _voiceTranscript.value = ""
+        _liveTranscript.value = ""
+        pendingUserTranscripts.clear()
+        translationInputTranscriptBuffer.clear()
+        translationOutputTranscriptBuffer.clear()
+        if (clearLines) {
+            _voiceConversationLines.value = emptyList()
+        }
+    }
+
+    private fun buildVoiceUserLabel(): String {
+        return when (effectiveVoiceMode()) {
+            VoiceMode.AI_CONVERSATION -> "Vous"
+            VoiceMode.AUDIO_TO_TEXT_TRANSLATION,
+            VoiceMode.AUDIO_TO_SPEECH_TRANSLATION -> _voiceSourceLanguage.value.label
+        }
+    }
+
+    private fun buildVoiceAssistantLabel(): String {
+        return when (effectiveVoiceMode()) {
+            VoiceMode.AI_CONVERSATION -> "Max"
+            VoiceMode.AUDIO_TO_TEXT_TRANSLATION,
+            VoiceMode.AUDIO_TO_SPEECH_TRANSLATION -> "Traduction ${_voiceTargetLanguage.value.label}"
+        }
+    }
+
     private fun handleRealtimeFunctionCalls(response: com.max.aiassistant.data.realtime.Response) {
         val functionCalls = response.output.filter { outputItem ->
             outputItem.type == "function_call" &&
@@ -2514,11 +3176,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun addConversationPair(userTranscript: String, aiTranscript: String) {
+        val userLabel = if (_onDeviceAiSettings.value.selectedModel.isOpenAi) buildVoiceUserLabel() else "Vous"
+        val assistantLabel = if (_onDeviceAiSettings.value.selectedModel.isOpenAi) buildVoiceAssistantLabel() else "Max"
         Log.d(TAG, "*** addConversationPair appelé - User: '$userTranscript', AI: '$aiTranscript'")
 
         // Message utilisateur
         if (userTranscript.isNotEmpty()) {
-            _voiceConversationLines.value = _voiceConversationLines.value + "Vous: $userTranscript"
+            _voiceConversationLines.value = _voiceConversationLines.value + "$userLabel: $userTranscript"
             val userMessage = MessageData(
                 id = messageIdCounter++,
                 sessionId = sessionId,
@@ -2535,7 +3199,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Message IA
         if (aiTranscript.isNotEmpty()) {
-            _voiceConversationLines.value = _voiceConversationLines.value + "Max: $aiTranscript"
+            _voiceConversationLines.value = _voiceConversationLines.value + "$assistantLabel: $aiTranscript"
             val aiMessage = MessageData(
                 id = messageIdCounter++,
                 sessionId = sessionId,

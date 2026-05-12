@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.SatelliteAlt
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
@@ -93,6 +94,7 @@ private val ShellMenuSurface = Color(0xFF1A2940)
 enum class AppShellRoute(val title: String, val shortLabel: String, val icon: ImageVector, val primary: Boolean = false) {
     HOME("Accueil", "Accueil", Icons.Default.Home, true),
     CHAT("Chat", "Chat", Icons.AutoMirrored.Filled.Message, true),
+    TRANSLATION("Traduction", "Trad", Icons.Default.Translate, false),
     TASKS("Organiser", "Orga", Icons.Default.CheckCircle, true),
     NOTES("Notes", "Notes", Icons.Default.Description, false),
     WEATHER("Meteo", "Meteo", Icons.Default.WbSunny, true),
@@ -177,6 +179,7 @@ fun MaxAppShell(
                         listOf(
                             AppShellRoute.HOME,
                             AppShellRoute.CHAT,
+                            AppShellRoute.TRANSLATION,
                             AppShellRoute.TASKS,
                             AppShellRoute.NOTES,
                             AppShellRoute.WEATHER,

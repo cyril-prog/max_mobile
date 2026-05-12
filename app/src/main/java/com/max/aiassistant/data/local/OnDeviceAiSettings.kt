@@ -2,6 +2,38 @@ package com.max.aiassistant.data.local
 
 import com.max.aiassistant.data.preferences.DEFAULT_SHARED_SYSTEM_PROMPT
 
+enum class AiModelSelection(
+    val storageKey: String,
+    val displayName: String,
+    val localVariant: OnDeviceModelVariant? = null
+) {
+    LOCAL_GEMMA_4_E2B(
+        storageKey = "local_gemma_4_e2b",
+        displayName = "Gemma 4 E2B",
+        localVariant = OnDeviceModelVariant.GEMMA_4_E2B
+    ),
+    LOCAL_GEMMA_4_E4B(
+        storageKey = "local_gemma_4_e4b",
+        displayName = "Gemma 4 E4B",
+        localVariant = OnDeviceModelVariant.GEMMA_4_E4B
+    ),
+    OPENAI_GPT_5_5(
+        storageKey = "openai_gpt_5_5",
+        displayName = "GPT-5.5"
+    );
+
+    val isOpenAi: Boolean
+        get() = this == OPENAI_GPT_5_5
+
+    companion object {
+        fun fromStorageKey(value: String?, fallbackVariant: OnDeviceModelVariant): AiModelSelection {
+            return entries.firstOrNull { it.storageKey == value }
+                ?: entries.firstOrNull { it.localVariant == fallbackVariant }
+                ?: DEFAULT_AI_MODEL_SELECTION
+        }
+    }
+}
+
 enum class OnDeviceModelVariant(
     val storageFileName: String,
     val downloadUrl: String,
@@ -30,6 +62,7 @@ enum class OnDeviceModelVariant(
 }
 
 data class OnDeviceAiSettings(
+    val selectedModel: AiModelSelection = DEFAULT_AI_MODEL_SELECTION,
     val modelVariant: OnDeviceModelVariant = DEFAULT_MODEL_VARIANT,
     val maxContextTokens: Int = DEFAULT_MAX_CONTEXT_TOKENS,
     val systemPrompt: String = DEFAULT_SHARED_SYSTEM_PROMPT
@@ -38,3 +71,4 @@ data class OnDeviceAiSettings(
 val SUPPORTED_MAX_CONTEXT_TOKENS = listOf(2048, 4096, 8192, 16_384, 32_768, 65_536)
 const val DEFAULT_MAX_CONTEXT_TOKENS = 4096
 val DEFAULT_MODEL_VARIANT = OnDeviceModelVariant.GEMMA_4_E2B
+val DEFAULT_AI_MODEL_SELECTION = AiModelSelection.LOCAL_GEMMA_4_E2B

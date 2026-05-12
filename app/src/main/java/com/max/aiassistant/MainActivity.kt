@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.max.aiassistant.data.realtime.VoiceMode
 import com.max.aiassistant.ui.chat.ChatScreen
 import com.max.aiassistant.ui.common.AppShellRoute
 import com.max.aiassistant.ui.common.MaxAppShell
@@ -27,6 +28,7 @@ import com.max.aiassistant.ui.home.HomeScreen
 import com.max.aiassistant.ui.tasks.OrgaMode
 import com.max.aiassistant.ui.tasks.TasksScreen
 import com.max.aiassistant.ui.theme.MaxTheme
+import com.max.aiassistant.ui.translation.TranslationScreen
 import com.max.aiassistant.ui.voice.VoiceScreen
 import com.max.aiassistant.ui.weather.WeatherScreen
 import com.max.aiassistant.ui.weather.RadarScreen
@@ -101,6 +103,9 @@ class MainActivity : ComponentActivity() {
                 val voiceError by viewModel.voiceError.collectAsState()
                 val voiceStatus by viewModel.voiceStatus.collectAsState()
                 val voiceConversationLines by viewModel.voiceConversationLines.collectAsState()
+                val voiceMode by viewModel.voiceMode.collectAsState()
+                val voiceSourceLanguage by viewModel.voiceSourceLanguage.collectAsState()
+                val voiceTargetLanguage by viewModel.voiceTargetLanguage.collectAsState()
                 val weatherData by viewModel.weatherData.collectAsState()
                 val isLoadingWeather by viewModel.isLoadingWeather.collectAsState()
                 val weatherError by viewModel.weatherError.collectAsState()
@@ -166,6 +171,12 @@ class MainActivity : ComponentActivity() {
                         }
                         AppShellRoute.WEATHER -> viewModel.refreshWeather()
                         AppShellRoute.ACTU -> viewModel.refreshActu()
+                        AppShellRoute.VOICE -> viewModel.updateVoiceMode(VoiceMode.AI_CONVERSATION)
+                        AppShellRoute.TRANSLATION -> {
+                            if (voiceMode == VoiceMode.AI_CONVERSATION) {
+                                viewModel.updateVoiceMode(VoiceMode.AUDIO_TO_TEXT_TRANSLATION)
+                            }
+                        }
                         else -> Unit
                     }
                 }
@@ -192,6 +203,7 @@ class MainActivity : ComponentActivity() {
                             when (route) {
                                 AppShellRoute.HOME -> currentRoute = AppShellRoute.HOME
                                 AppShellRoute.CHAT -> openFreshChat()
+                                AppShellRoute.TRANSLATION -> currentRoute = AppShellRoute.TRANSLATION
                                 AppShellRoute.TASKS -> {
                                     orgaMode = OrgaMode.TASK
                                     currentRoute = AppShellRoute.TASKS
@@ -201,7 +213,10 @@ class MainActivity : ComponentActivity() {
                                     currentRoute = AppShellRoute.TASKS
                                 }
                                 AppShellRoute.WEATHER -> currentRoute = AppShellRoute.WEATHER
-                                AppShellRoute.VOICE -> currentRoute = AppShellRoute.VOICE
+                                AppShellRoute.VOICE -> {
+                                    viewModel.updateVoiceMode(VoiceMode.AI_CONVERSATION)
+                                    currentRoute = AppShellRoute.VOICE
+                                }
                                 AppShellRoute.PLANNING -> {
                                     orgaMode = OrgaMode.PLANNING
                                     currentRoute = AppShellRoute.TASKS
@@ -260,9 +275,9 @@ class MainActivity : ComponentActivity() {
                                     onDeleteConversation = { conversationId ->
                                         viewModel.deleteConversation(conversationId)
                                     },
-                                    onUpdateOnDeviceAiSettings = { modelVariant, maxContextTokens, systemPrompt ->
+                                    onUpdateOnDeviceAiSettings = { selectedModel, maxContextTokens, systemPrompt ->
                                         viewModel.updateOnDeviceAiSettings(
-                                            modelVariant = modelVariant,
+                                            selectedModel = selectedModel,
                                             maxContextTokens = maxContextTokens,
                                             systemPrompt = systemPrompt
                                         )
@@ -272,7 +287,12 @@ class MainActivity : ComponentActivity() {
                                         viewModel.retryOnDeviceModelDownload()
                                     },
                                     onVoiceInput = {
+                                        viewModel.updateVoiceMode(VoiceMode.AI_CONVERSATION)
                                         currentRoute = AppShellRoute.VOICE
+                                    },
+                                    onTranslationInput = {
+                                        viewModel.updateVoiceMode(VoiceMode.AUDIO_TO_TEXT_TRANSLATION)
+                                        currentRoute = AppShellRoute.TRANSLATION
                                     },
                                     onNavigateToHome = { currentRoute = AppShellRoute.HOME },
                                     onNavigateToTasks = { orgaMode = OrgaMode.TASK; currentRoute = AppShellRoute.TASKS },
@@ -395,6 +415,44 @@ class MainActivity : ComponentActivity() {
                                     showChrome = false
                                 )
                             }
+                            AppShellRoute.TRANSLATION -> {
+                                TranslationScreen(
+                                    isVoiceRecording = isVoiceRecording,
+                                    isVoiceProcessing = isVoiceProcessing,
+                                    isVoiceSpeaking = isVoiceSpeaking,
+                                    errorMessage = voiceError,
+                                    statusMessage = if (isOnDeviceModelReady) voiceStatus else onDeviceModelStatus,
+                                    isOnDeviceModelReady = isOnDeviceModelReady,
+                                    isUsingOpenAiVoice = onDeviceAiSettings.selectedModel.isOpenAi,
+                                    isOffline = isOffline,
+                                    conversationLines = voiceConversationLines,
+                                    voiceMode = voiceMode,
+                                    voiceLanguages = viewModel.voiceLanguages,
+                                    voiceSourceLanguage = voiceSourceLanguage,
+                                    voiceTargetLanguage = voiceTargetLanguage,
+                                    onVoiceModeChange = { mode ->
+                                        viewModel.updateVoiceMode(mode)
+                                    },
+                                    onVoiceSourceLanguageChange = { language ->
+                                        viewModel.updateVoiceSourceLanguage(language)
+                                    },
+                                    onVoiceTargetLanguageChange = { language ->
+                                        viewModel.updateVoiceTargetLanguage(language)
+                                    },
+                                    onToggleVoiceRecording = {
+                                        if (permissionHelper.hasRecordAudioPermission()) {
+                                            onRecordAudioPermissionGranted = null
+                                            viewModel.toggleVoiceRecording()
+                                        } else {
+                                            onRecordAudioPermissionGranted = {
+                                                viewModel.toggleVoiceRecording()
+                                            }
+                                            permissionHelper.requestRecordAudioPermission()
+                                        }
+                                    },
+                                    modifier = modifier
+                                )
+                            }
                             AppShellRoute.VOICE -> {
                                 VoiceScreen(
                                     isVoiceRecording = isVoiceRecording,
@@ -403,6 +461,7 @@ class MainActivity : ComponentActivity() {
                                     errorMessage = voiceError,
                                     statusMessage = if (isOnDeviceModelReady) voiceStatus else onDeviceModelStatus,
                                     isOnDeviceModelReady = isOnDeviceModelReady,
+                                    isUsingOpenAiVoice = onDeviceAiSettings.selectedModel.isOpenAi,
                                     isOffline = isOffline,
                                     conversationLines = voiceConversationLines,
                                     onToggleVoiceRecording = {

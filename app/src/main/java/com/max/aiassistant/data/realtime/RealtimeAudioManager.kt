@@ -36,6 +36,8 @@ import java.util.concurrent.LinkedBlockingQueue
 class RealtimeAudioManager(
     private val context: Context,
     private val onAudioChunk: (String) -> Unit, // Callback pour envoyer les chunks audio
+    private val onBargeInDetected: (() -> Unit)? = null,
+    private val pauseInputWhileSpeaking: Boolean = true,
     private val onSpeakingFinished: (() -> Unit)? = null // Callback quand le playback est vraiment terminé
 ) {
     private val TAG = "RealtimeAudioManager"
@@ -47,6 +49,10 @@ class RealtimeAudioManager(
         private const val CHANNEL_CONFIG_OUT = AudioFormat.CHANNEL_OUT_MONO
         private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
         private const val BUFFER_SIZE_MULTIPLIER = 2
+        private const val BARGE_IN_RMS_THRESHOLD = 850.0
+        private const val BARGE_IN_PEAK_THRESHOLD = 4200
+        private const val BARGE_IN_CONSECUTIVE_CHUNKS = 1
+        private const val BARGE_IN_START_GRACE_MS = 150L
     }
 
     private var audioRecord: AudioRecord? = null
@@ -67,6 +73,9 @@ class RealtimeAudioManager(
     // Le micro reprend seulement quand ce flag est true ET la queue est vide
     @Volatile
     private var pendingAudioDone = false
+    @Volatile
+    private var speakingStartedAtMs = 0L
+    private var bargeInLoudChunkCount = 0
 
     // Buffer pour l'enregistrement
     private val recordBufferSize = AudioRecord.getMinBufferSize(
@@ -143,6 +152,8 @@ class RealtimeAudioManager(
             isPlaybackActive = true
             isSpeaking = false
             pendingAudioDone = false
+            speakingStartedAtMs = 0L
+            bargeInLoudChunkCount = 0
 
             Log.d(TAG, "Enregistrement audio démarré")
 
@@ -176,6 +187,8 @@ class RealtimeAudioManager(
         isPlaybackActive = false
         isSpeaking = false
         pendingAudioDone = false
+        speakingStartedAtMs = 0L
+        bargeInLoudChunkCount = 0
         recordingJob?.cancel()
         playbackJob?.cancel()
 
@@ -217,9 +230,11 @@ class RealtimeAudioManager(
                 val readResult = audioRecord?.read(buffer, 0, buffer.size) ?: 0
 
                 if (readResult > 0) {
-                    // ── Ne pas envoyer pendant le playback IA ────────────
-                    if (isSpeaking) continue
+                    if (pauseInputWhileSpeaking && isSpeaking && !shouldAllowBargeIn(buffer, readResult)) {
+                        continue
+                    }
 
+                    // ── Ne pas envoyer pendant le playback IA ────────────
                     // Convertit ShortArray en ByteArray (PCM16)
                     val byteBuffer = ByteBuffer.allocate(readResult * 2)
                     byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
@@ -250,6 +265,8 @@ class RealtimeAudioManager(
      */
     fun startSpeaking() {
         isSpeaking = true
+        speakingStartedAtMs = System.currentTimeMillis()
+        bargeInLoudChunkCount = 0
         Log.d(TAG, "IA commence à parler → micro en pause")
     }
 
@@ -257,6 +274,23 @@ class RealtimeAudioManager(
      * Signale que le serveur a fini d'envoyer les chunks audio (ResponseAudioDone).
      * Le micro reprendra seulement quand la queue de playback sera entièrement vidée.
      */
+    fun interruptPlayback() {
+        audioChunkQueue.clear()
+        pendingAudioDone = false
+        isSpeaking = false
+        speakingStartedAtMs = 0L
+        bargeInLoudChunkCount = 0
+
+        try {
+            audioTrack?.pause()
+            audioTrack?.flush()
+            audioTrack?.play()
+            Log.d(TAG, "Playback IA interrompu localement")
+        } catch (e: Exception) {
+            Log.e(TAG, "Erreur lors de l'interruption du playback IA", e)
+        }
+    }
+
     fun markAudioDone() {
         pendingAudioDone = true
         Log.d(TAG, "ResponseAudioDone reçu → en attente vidage de la queue avant de réactiver le micro")
@@ -265,6 +299,50 @@ class RealtimeAudioManager(
     /**
      * Ajoute un chunk audio à la queue de playback (Base64 encoded PCM16)
      */
+    private fun shouldAllowBargeIn(buffer: ShortArray, sampleCount: Int): Boolean {
+        val elapsedSinceSpeakingStarted = System.currentTimeMillis() - speakingStartedAtMs
+        if (elapsedSinceSpeakingStarted < BARGE_IN_START_GRACE_MS) {
+            bargeInLoudChunkCount = 0
+            return false
+        }
+
+        val rms = calculateRms(buffer, sampleCount)
+        val peak = calculatePeak(buffer, sampleCount)
+        if (rms >= BARGE_IN_RMS_THRESHOLD || peak >= BARGE_IN_PEAK_THRESHOLD) {
+            bargeInLoudChunkCount += 1
+        } else {
+            bargeInLoudChunkCount = 0
+        }
+
+        if (bargeInLoudChunkCount >= BARGE_IN_CONSECUTIVE_CHUNKS) {
+            Log.d(TAG, "Barge-in local detecte rms=$rms peak=$peak")
+            onBargeInDetected?.invoke()
+            return true
+        }
+
+        return false
+    }
+
+    private fun calculateRms(buffer: ShortArray, sampleCount: Int): Double {
+        var sumSquares = 0.0
+        for (index in 0 until sampleCount) {
+            val sample = buffer[index].toDouble()
+            sumSquares += sample * sample
+        }
+        return kotlin.math.sqrt(sumSquares / sampleCount.coerceAtLeast(1))
+    }
+
+    private fun calculatePeak(buffer: ShortArray, sampleCount: Int): Int {
+        var peak = 0
+        for (index in 0 until sampleCount) {
+            val absoluteValue = kotlin.math.abs(buffer[index].toInt())
+            if (absoluteValue > peak) {
+                peak = absoluteValue
+            }
+        }
+        return peak
+    }
+
     fun playAudioChunk(base64Audio: String) {
         try {
             // Décode le Base64
