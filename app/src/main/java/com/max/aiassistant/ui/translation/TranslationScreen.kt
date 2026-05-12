@@ -300,10 +300,12 @@ private fun TranscriptPanel(
     contentPadding: PaddingValues
 ) {
     val listState = rememberLazyListState()
+    val bottomAnchorKey = "transcript-bottom-anchor"
+    val lastLine = lines.lastOrNull()
 
-    LaunchedEffect(lines.size) {
+    LaunchedEffect(lines.size, lastLine) {
         if (lines.isNotEmpty()) {
-            listState.animateScrollToItem(lines.lastIndex)
+            listState.animateScrollToItem(lines.size)
         }
     }
 
@@ -340,7 +342,8 @@ private fun TranscriptPanel(
             LazyColumn(
                 state = listState,
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = contentPadding
+                contentPadding = contentPadding,
+                modifier = Modifier.weight(1f)
             ) {
                 items(lines) { line ->
                     Surface(
@@ -355,6 +358,9 @@ private fun TranscriptPanel(
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
                         )
                     }
+                }
+                item(key = bottomAnchorKey) {
+                    Spacer(modifier = Modifier.height(1.dp))
                 }
             }
         }
