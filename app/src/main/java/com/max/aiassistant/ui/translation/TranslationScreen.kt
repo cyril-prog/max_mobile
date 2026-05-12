@@ -2,6 +2,7 @@ package com.max.aiassistant.ui.translation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -34,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,7 +60,7 @@ private val TranslationPanel = Color(0xFF111B29)
 private val TranslationPanelSoft = Color(0xFF172334)
 private val TranslationBorder = Color(0xFF283951)
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun TranslationScreen(
     isVoiceRecording: Boolean,
@@ -81,6 +85,9 @@ fun TranslationScreen(
     val isActive = isVoiceRecording || isVoiceProcessing || isVoiceSpeaking
     val isTranslationReady = isUsingOpenAiVoice
     val scrollState = rememberScrollState()
+    val transcriptBottomRequester = remember { BringIntoViewRequester() }
+    val transcriptScrollKey = conversationLines.joinToString(separator = "\u0001")
+    val screenMaxScroll = scrollState.maxValue
     val selectedMode = when (voiceMode) {
         VoiceMode.AUDIO_TO_SPEECH_TRANSLATION -> VoiceMode.AUDIO_TO_SPEECH_TRANSLATION
         else -> VoiceMode.AUDIO_TO_TEXT_TRANSLATION
@@ -89,6 +96,15 @@ fun TranslationScreen(
     LaunchedEffect(Unit) {
         if (voiceMode == VoiceMode.AI_CONVERSATION) {
             onVoiceModeChange(VoiceMode.AUDIO_TO_TEXT_TRANSLATION)
+        }
+    }
+
+    LaunchedEffect(transcriptScrollKey, screenMaxScroll) {
+        if (conversationLines.isNotEmpty()) {
+            withFrameNanos { }
+            scrollState.scrollTo(scrollState.maxValue)
+            withFrameNanos { }
+            transcriptBottomRequester.bringIntoView()
         }
     }
 
@@ -178,6 +194,7 @@ fun TranslationScreen(
             TranscriptPanel(
                 lines = conversationLines,
                 isActive = isActive,
+                bottomRequester = transcriptBottomRequester,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 220.dp, max = 360.dp)
@@ -289,10 +306,12 @@ private fun ModeChip(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TranscriptPanel(
     lines: List<String>,
     isActive: Boolean,
+    bottomRequester: BringIntoViewRequester,
     modifier: Modifier
 ) {
     val transcriptScrollState = rememberScrollState()
@@ -303,6 +322,8 @@ private fun TranscriptPanel(
         if (lines.isNotEmpty()) {
             withFrameNanos { }
             transcriptScrollState.scrollTo(transcriptScrollState.maxValue)
+            withFrameNanos { }
+            bottomRequester.bringIntoView()
         }
     }
 
@@ -357,7 +378,11 @@ private fun TranscriptPanel(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(1.dp))
+                Spacer(
+                    modifier = Modifier
+                        .height(1.dp)
+                        .bringIntoViewRequester(bottomRequester)
+                )
             }
         }
     }
