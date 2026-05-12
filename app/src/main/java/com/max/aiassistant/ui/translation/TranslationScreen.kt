@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -20,9 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -184,8 +180,7 @@ fun TranslationScreen(
                 isActive = isActive,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 220.dp, max = 360.dp),
-                contentPadding = PaddingValues(bottom = 12.dp)
+                    .heightIn(min = 220.dp, max = 360.dp)
             )
 
             MicButton(
@@ -298,17 +293,16 @@ private fun ModeChip(
 private fun TranscriptPanel(
     lines: List<String>,
     isActive: Boolean,
-    modifier: Modifier,
-    contentPadding: PaddingValues
+    modifier: Modifier
 ) {
-    val listState = rememberLazyListState()
-    val bottomAnchorKey = "transcript-bottom-anchor"
+    val transcriptScrollState = rememberScrollState()
     val transcriptScrollKey = lines.joinToString(separator = "\u0001")
+    val transcriptMaxScroll = transcriptScrollState.maxValue
 
-    LaunchedEffect(transcriptScrollKey) {
+    LaunchedEffect(transcriptScrollKey, transcriptMaxScroll) {
         if (lines.isNotEmpty()) {
             withFrameNanos { }
-            listState.scrollToItem(lines.size)
+            transcriptScrollState.scrollTo(transcriptScrollState.maxValue)
         }
     }
 
@@ -342,13 +336,14 @@ private fun TranscriptPanel(
         if (lines.isEmpty()) {
             EmptyTranscript(isActive = isActive)
         } else {
-            LazyColumn(
-                state = listState,
+            Column(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = contentPadding,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(transcriptScrollState)
+                    .padding(bottom = 12.dp)
             ) {
-                items(lines) { line ->
+                lines.forEach { line ->
                     Surface(
                         color = TranslationPanelSoft,
                         shape = RoundedCornerShape(18.dp),
@@ -362,9 +357,7 @@ private fun TranscriptPanel(
                         )
                     }
                 }
-                item(key = bottomAnchorKey) {
-                    Spacer(modifier = Modifier.height(1.dp))
-                }
+                Spacer(modifier = Modifier.height(1.dp))
             }
         }
     }
