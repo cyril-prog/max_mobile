@@ -82,6 +82,7 @@ fun TranslationScreen(
     modifier: Modifier = Modifier
 ) {
     val isActive = isVoiceRecording || isVoiceProcessing || isVoiceSpeaking
+    val isTranslationReady = isUsingOpenAiVoice
     val scrollState = rememberScrollState()
     val selectedMode = when (voiceMode) {
         VoiceMode.AUDIO_TO_SPEECH_TRANSLATION -> VoiceMode.AUDIO_TO_SPEECH_TRANSLATION
@@ -124,7 +125,7 @@ fun TranslationScreen(
                     tone = BannerTone.Warning,
                     modifier = Modifier.fillMaxWidth()
                 )
-            } else if (!isOnDeviceModelReady) {
+            } else if (!isTranslationReady && !isOnDeviceModelReady) {
                 InlineStatusBanner(
                     title = if (isOffline) "Modele local indisponible hors ligne" else "Modele local en preparation",
                     subtitle = statusMessage,
@@ -149,13 +150,13 @@ fun TranslationScreen(
                         ModeChip(
                             label = "Ecrite",
                             selected = selectedMode == VoiceMode.AUDIO_TO_TEXT_TRANSLATION,
-                            enabled = isUsingOpenAiVoice && !isActive,
+                            enabled = isTranslationReady && !isActive,
                             onClick = { onVoiceModeChange(VoiceMode.AUDIO_TO_TEXT_TRANSLATION) }
                         )
                         ModeChip(
                             label = "Orale",
                             selected = selectedMode == VoiceMode.AUDIO_TO_SPEECH_TRANSLATION,
-                            enabled = isUsingOpenAiVoice && !isActive,
+                            enabled = isTranslationReady && !isActive,
                             onClick = { onVoiceModeChange(VoiceMode.AUDIO_TO_SPEECH_TRANSLATION) }
                         )
                     }
@@ -164,14 +165,14 @@ fun TranslationScreen(
                         title = "Source",
                         languages = voiceLanguages,
                         selectedLanguage = voiceSourceLanguage,
-                        enabled = isUsingOpenAiVoice && !isActive,
+                        enabled = isTranslationReady && !isActive,
                         onLanguageChange = onVoiceSourceLanguageChange
                     )
                     LanguageBlock(
                         title = "Cible",
                         languages = voiceLanguages,
                         selectedLanguage = voiceTargetLanguage,
-                        enabled = isUsingOpenAiVoice && !isActive,
+                        enabled = isTranslationReady && !isActive,
                         onLanguageChange = onVoiceTargetLanguageChange
                     )
                 }
@@ -192,7 +193,7 @@ fun TranslationScreen(
                 isVoiceRecording = isVoiceRecording,
                 isVoiceProcessing = isVoiceProcessing,
                 isVoiceSpeaking = isVoiceSpeaking,
-                enabled = isUsingOpenAiVoice && isOnDeviceModelReady,
+                enabled = isTranslationReady,
                 onToggleVoiceRecording = onToggleVoiceRecording,
                 modifier = Modifier.fillMaxWidth()
             )
