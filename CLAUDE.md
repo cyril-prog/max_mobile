@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Agent workflow
+
+`AGENTS.md` is the source of truth for agent routing, Product/BA cadrage, UI/UX intervention, QA gates, Git workflow, hooks and external skills security.
+
+Before any evolution, correction, hook, skill, documentation or delivery work, follow `AGENTS.md`.
+
 ## Project Overview
 
 **Max - AI Assistant** is a modern Android mobile application built with Kotlin and Jetpack Compose. It's an AI assistant with multiple interaction modes: voice-to-voice (OpenAI Realtime API), text chat with vision, task/calendar management, weather forecasts, and note-taking.
