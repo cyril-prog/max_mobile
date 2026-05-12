@@ -13,6 +13,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,7 +30,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -47,6 +48,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DrawerState
@@ -88,14 +90,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
+import com.max.aiassistant.data.local.AiModelSelection
 import com.max.aiassistant.data.chat.ChatMarkdownFormatter
 import com.max.aiassistant.data.local.OnDeviceAiSettings
-import com.max.aiassistant.data.local.OnDeviceModelVariant
 import com.max.aiassistant.data.local.OnDeviceModelProvisioningState
 import com.max.aiassistant.data.local.SUPPORTED_MAX_CONTEXT_TOKENS
 import com.max.aiassistant.data.local.db.ChatConversationEntity
@@ -165,10 +168,11 @@ fun ChatScreen(
     onSelectConversation: (String) -> Unit,
     onRenameConversation: (String, String) -> Unit,
     onDeleteConversation: (String) -> Unit,
-    onUpdateOnDeviceAiSettings: (OnDeviceModelVariant, Int, String) -> Unit,
+    onUpdateOnDeviceAiSettings: (AiModelSelection, Int, String) -> Unit,
     onOpenMainSidebar: () -> Unit,
     onRetryModelDownload: () -> Unit,
     onVoiceInput: () -> Unit,
+    onTranslationInput: () -> Unit = {},
     onNavigateToHome: () -> Unit,
     onNavigateToTasks: () -> Unit = {},
     onNavigateToPlanning: () -> Unit = {},
@@ -218,6 +222,7 @@ fun ChatScreen(
                 onOpenMainSidebar = onOpenMainSidebar,
                 onRetryModelDownload = onRetryModelDownload,
                 onVoiceInput = onVoiceInput,
+                onTranslationInput = onTranslationInput,
                 showChrome = true,
                 initialText = initialText,
                 onInitialTextConsumed = onInitialTextConsumed,
@@ -245,6 +250,7 @@ fun ChatScreen(
             onOpenMainSidebar = onOpenMainSidebar,
             onRetryModelDownload = onRetryModelDownload,
             onVoiceInput = onVoiceInput,
+            onTranslationInput = onTranslationInput,
             showChrome = false,
             initialText = initialText,
             onInitialTextConsumed = onInitialTextConsumed,
@@ -271,10 +277,11 @@ private fun ChatScreenContent(
     onSelectConversation: (String) -> Unit,
     onRenameConversation: (String, String) -> Unit,
     onDeleteConversation: (String) -> Unit,
-    onUpdateOnDeviceAiSettings: (OnDeviceModelVariant, Int, String) -> Unit,
+    onUpdateOnDeviceAiSettings: (AiModelSelection, Int, String) -> Unit,
     onOpenMainSidebar: () -> Unit,
     onRetryModelDownload: () -> Unit,
     onVoiceInput: () -> Unit,
+    onTranslationInput: () -> Unit,
     showChrome: Boolean,
     initialText: String,
     onInitialTextConsumed: () -> Unit,
@@ -301,10 +308,12 @@ private fun ChatScreenContent(
     var conversationRenameTarget by remember { mutableStateOf<ChatConversationEntity?>(null) }
     var renameDraft by remember { mutableStateOf("") }
     var currentPane by remember { mutableStateOf(ChatContentPane.CONVERSATION) }
-    var settingsModelVariant by remember { mutableStateOf(onDeviceAiSettings.modelVariant) }
+    var settingsModelSelection by remember { mutableStateOf(onDeviceAiSettings.selectedModel) }
     var settingsMaxTokens by remember { mutableStateOf(onDeviceAiSettings.maxContextTokens) }
     var settingsSystemPrompt by remember { mutableStateOf(onDeviceAiSettings.systemPrompt) }
     var pendingScrollToBottom by remember { mutableStateOf(false) }
+    val isOpenAiSelected = onDeviceAiSettings.selectedModel.isOpenAi
+    val isSelectedModelReady = isOpenAiSelected || isOnDeviceModelReady
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -340,7 +349,7 @@ private fun ChatScreenContent(
     }
 
     LaunchedEffect(onDeviceAiSettings) {
-        settingsModelVariant = onDeviceAiSettings.modelVariant
+        settingsModelSelection = onDeviceAiSettings.selectedModel
         settingsMaxTokens = onDeviceAiSettings.maxContextTokens
         settingsSystemPrompt = onDeviceAiSettings.systemPrompt
     }
@@ -414,8 +423,15 @@ private fun ChatScreenContent(
                 if (currentPane == ChatContentPane.SETTINGS) {
                     ChatSettingsScreen(
                         currentSettings = onDeviceAiSettings,
-                        selectedModelVariant = settingsModelVariant,
-                        onModelVariantSelected = { settingsModelVariant = it },
+                        selectedModelSelection = settingsModelSelection,
+                        onModelSelectionSelected = { selection ->
+                            settingsModelSelection = selection
+                            onUpdateOnDeviceAiSettings(
+                                selection,
+                                settingsMaxTokens,
+                                settingsSystemPrompt
+                            )
+                        },
                         selectedMaxTokens = settingsMaxTokens,
                         onMaxTokensSelected = { settingsMaxTokens = it },
                         systemPrompt = settingsSystemPrompt,
@@ -426,14 +442,14 @@ private fun ChatScreenContent(
                         onRetryModelDownload = onRetryModelDownload,
                         onSave = {
                             onUpdateOnDeviceAiSettings(
-                                settingsModelVariant,
+                                settingsModelSelection,
                                 settingsMaxTokens,
                                 settingsSystemPrompt
                             )
                         },
                         modifier = Modifier.weight(1f)
                     )
-                } else if (!isOnDeviceModelReady && messages.isEmpty() && !isWaitingForAiResponse) {
+                } else if (!isSelectedModelReady && messages.isEmpty() && !isWaitingForAiResponse) {
                     ModelProvisioningView(
                         state = onDeviceModelProvisioningState,
                         onRetry = onRetryModelDownload,
@@ -441,7 +457,7 @@ private fun ChatScreenContent(
                     )
                 } else if (messages.isEmpty() && !isWaitingForAiResponse) {
                     ChatEmptyState(
-                        isOnDeviceModelReady = isOnDeviceModelReady,
+                        isOnDeviceModelReady = isSelectedModelReady,
                         onDeviceModelStatus = onDeviceModelStatus,
                         onVoiceInput = onVoiceInput,
                         onPromptSelected = { suggestion -> messageText = suggestion },
@@ -457,7 +473,7 @@ private fun ChatScreenContent(
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                         contentPadding = PaddingValues(top = 20.dp, bottom = 16.dp)
                     ) {
-                        if (!isOnDeviceModelReady) {
+                        if (!isSelectedModelReady) {
                             item("model-banner") {
                                 InlineStatusBanner(
                                     title = modelBannerTitle(onDeviceModelProvisioningState),
@@ -499,7 +515,7 @@ private fun ChatScreenContent(
                     }
                 }
 
-                if (!isOnDeviceModelReady && currentPane == ChatContentPane.CONVERSATION) {
+                if (!isSelectedModelReady && currentPane == ChatContentPane.CONVERSATION) {
                     CompactModelStatus(
                         status = onDeviceModelStatus,
                         modifier = Modifier
@@ -516,7 +532,8 @@ private fun ChatScreenContent(
                         onRemoveImage = { selectedImageUri = null },
                         onAddImageClick = { showImagePickerDialog = true },
                         onVoiceInput = onVoiceInput,
-                        enabled = isOnDeviceModelReady && !isConversationLimitReached,
+                        onTranslationInput = onTranslationInput,
+                        enabled = isSelectedModelReady && !isConversationLimitReached,
                         onSend = {
                             if (messageText.isNotBlank() || selectedImageUri != null) {
                                 keyboardController?.hide()
@@ -969,8 +986,8 @@ private fun RenameConversationDialog(
 @Composable
 private fun ChatSettingsScreen(
     currentSettings: OnDeviceAiSettings,
-    selectedModelVariant: OnDeviceModelVariant,
-    onModelVariantSelected: (OnDeviceModelVariant) -> Unit,
+    selectedModelSelection: AiModelSelection,
+    onModelSelectionSelected: (AiModelSelection) -> Unit,
     selectedMaxTokens: Int,
     onMaxTokensSelected: (Int) -> Unit,
     systemPrompt: String,
@@ -982,7 +999,7 @@ private fun ChatSettingsScreen(
     onSave: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val hasChanges = selectedModelVariant != currentSettings.modelVariant ||
+    val hasChanges = selectedModelSelection != currentSettings.selectedModel ||
         selectedMaxTokens != currentSettings.maxContextTokens ||
         systemPrompt.trim() != currentSettings.systemPrompt.trim()
 
@@ -1006,13 +1023,13 @@ private fun ChatSettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Pilotez le modele local, la taille du contexte et l'unique prompt systeme partage par Max.",
+                        text = "Pilotez le modele IA, la taille du contexte et l'unique prompt systeme partage par Max.",
                         color = TextPrimary,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Un changement de modele telecharge le nouveau fichier, nettoie l'ancien modele applicatif et reinitialise le moteur local.",
+                        text = "Gemma reste execute localement. GPT-5.5 utilise OpenAI pour le chat ecrit et les nouveaux modes vocaux Realtime.",
                         color = TextSecondary,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -1023,19 +1040,22 @@ private fun ChatSettingsScreen(
         item("model-selection") {
             SettingsSection(
                 title = "Modele IA",
-                subtitle = "Choisissez la variante locale a utiliser."
+                subtitle = "Choisissez Gemma local ou GPT-5.5 dans le cloud."
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OnDeviceModelVariant.entries.forEach { variant ->
+                    AiModelSelection.entries.forEach { selection ->
                         SelectableSettingCard(
-                            title = variant.displayName,
-                            subtitle = if (variant == OnDeviceModelVariant.GEMMA_4_E2B) {
+                            title = selection.displayName,
+                            subtitle = when (selection) {
+                                AiModelSelection.LOCAL_GEMMA_4_E2B ->
                                 "Plus leger et plus rapide a telecharger."
-                            } else {
+                                AiModelSelection.LOCAL_GEMMA_4_E4B ->
                                 "Plus lourd, mais plus confortable pour les reponses riches."
+                                AiModelSelection.OPENAI_GPT_5_5 ->
+                                    "Modele OpenAI cloud pour le chat ecrit et le vocal Realtime."
                             },
-                            selected = selectedModelVariant == variant,
-                            onClick = { onModelVariantSelected(variant) }
+                            selected = selectedModelSelection == selection,
+                            onClick = { onModelSelectionSelected(selection) }
                         )
                     }
                 }
@@ -1096,7 +1116,32 @@ private fun ChatSettingsScreen(
         }
 
         item("provisioning-status") {
-            if (!isOnDeviceModelReady) {
+            if (selectedModelSelection.isOpenAi) {
+                Surface(
+                    color = EditorialPanel,
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, EditorialPanelBorder, RoundedCornerShape(24.dp))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Etat du modele",
+                            color = TextPrimary,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "GPT-5.5 utilise la cle OpenAI configuree dans local.properties. Aucun telechargement local n'est necessaire.",
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            } else if (!isOnDeviceModelReady) {
                 ModelProvisioningView(
                     state = onDeviceModelProvisioningState,
                     onRetry = onRetryModelDownload
@@ -1658,6 +1703,7 @@ private fun parseInlineMarkdown(text: String): AnnotatedString {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SmartComposer(
     value: String,
@@ -1666,6 +1712,7 @@ private fun SmartComposer(
     onRemoveImage: () -> Unit,
     onAddImageClick: () -> Unit,
     onVoiceInput: () -> Unit,
+    onTranslationInput: () -> Unit,
     enabled: Boolean,
     onSend: () -> Unit,
     modifier: Modifier = Modifier
@@ -1690,19 +1737,28 @@ private fun SmartComposer(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 ComposerActionPill(
                     label = "Joindre",
-                    icon = Icons.Default.AddPhotoAlternate,
+                    icon = null,
                     enabled = enabled,
-                    onClick = onAddImageClick
+                    onClick = onAddImageClick,
+                    modifier = Modifier.weight(1f)
                 )
                 ComposerActionPill(
                     label = "Vocal",
-                    icon = Icons.Default.Mic,
-                    enabled = enabled,
-                    onClick = onVoiceInput
+                    icon = null,
+                    enabled = true,
+                    onClick = onVoiceInput,
+                    modifier = Modifier.weight(1f)
+                )
+                ComposerActionPill(
+                    label = "Traduction",
+                    icon = null,
+                    enabled = true,
+                    onClick = onTranslationInput,
+                    modifier = Modifier.weight(1f)
                 )
             }
 
@@ -1813,30 +1869,39 @@ private fun SelectedImagePreview(
 @Composable
 private fun ComposerActionPill(
     label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: androidx.compose.ui.graphics.vector.ImageVector?,
     enabled: Boolean = true,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         color = if (enabled) ComposerAction else ComposerAction.copy(alpha = 0.45f),
         shape = RoundedCornerShape(999.dp),
-        modifier = Modifier.clickable(enabled = enabled, onClick = onClick)
+        modifier = modifier.clickable(enabled = enabled, onClick = onClick)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 11.dp),
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (enabled) AccentBlue else TextSecondary,
-                modifier = Modifier.size(18.dp)
-            )
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (enabled) AccentBlue else TextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
             Text(
                 text = label,
                 color = if (enabled) TextPrimary else TextSecondary,
-                style = MaterialTheme.typography.labelLarge
+                style = MaterialTheme.typography.labelMedium,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
