@@ -2925,7 +2925,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (effectiveVoiceMode().playsAudioResponse) {
                     _isVoiceSpeaking.value = true
                     _isVoiceProcessing.value = false
-                    _isVoiceRecording.value = _isRealtimeConnected.value
+                    _isVoiceRecording.value = false
                     audioManager?.startSpeaking()
                     audioManager?.playAudioChunk(event.delta)
                     updateVoiceIdleStatus()
@@ -2935,8 +2935,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             is RealtimeServerEvent.TranslationOutputAudioDone -> {
                 if (effectiveVoiceMode().playsAudioResponse) {
                     audioManager?.markAudioDone()
+                } else {
+                    _isVoiceRecording.value = _isRealtimeConnected.value
                 }
-                _isVoiceRecording.value = _isRealtimeConnected.value
             }
 
             else -> {

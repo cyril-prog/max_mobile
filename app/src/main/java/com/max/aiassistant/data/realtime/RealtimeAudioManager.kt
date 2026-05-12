@@ -15,6 +15,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.ArrayDeque
 import java.util.concurrent.LinkedBlockingQueue
 
 /**
@@ -49,6 +50,8 @@ class RealtimeAudioManager(
         private const val CHANNEL_CONFIG_OUT = AudioFormat.CHANNEL_OUT_MONO
         private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
         private const val BUFFER_SIZE_MULTIPLIER = 2
+        private const val PLAY_BUFFER_SIZE_MULTIPLIER = 4
+        private const val PLAY_PREBUFFER_MS = 120L
         private const val BARGE_IN_RMS_THRESHOLD = 850.0
         private const val BARGE_IN_PEAK_THRESHOLD = 4200
         private const val BARGE_IN_CONSECUTIVE_CHUNKS = 1
@@ -58,9 +61,15 @@ class RealtimeAudioManager(
     private var audioRecord: AudioRecord? = null
     private var audioTrack: AudioTrack? = null
     private var echoCanceler: AcousticEchoCanceler? = null
+    private val playbackLock = Any()
     private var recordingJob: Job? = null
     private var playbackJob: Job? = null
     private var audioChunkQueue = LinkedBlockingQueue<ShortArray>()
+    private val prebufferedAudioChunks = ArrayDeque<ShortArray>()
+    private var prebufferedSampleCount = 0
+    private var playbackStarted = false
+    private var playbackHeadStartSample = 0L
+    private var writtenPlaybackSamples = 0L
     private var isRecording = false
     private var isPlaybackActive = false
 
@@ -89,7 +98,9 @@ class RealtimeAudioManager(
         SAMPLE_RATE,
         CHANNEL_CONFIG_OUT,
         AUDIO_FORMAT
-    ) * BUFFER_SIZE_MULTIPLIER
+    ) * PLAY_BUFFER_SIZE_MULTIPLIER
+
+    private val playPrebufferSampleCount = (SAMPLE_RATE * PLAY_PREBUFFER_MS / 1000L).toInt()
 
     /**
      * Démarre l'enregistrement audio.
@@ -144,16 +155,17 @@ class RealtimeAudioManager(
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build()
 
-            audioTrack?.play()
-
             // Démarre l'enregistrement
             audioRecord?.startRecording()
             isRecording = true
             isPlaybackActive = true
-            isSpeaking = false
-            pendingAudioDone = false
-            speakingStartedAtMs = 0L
-            bargeInLoudChunkCount = 0
+            synchronized(playbackLock) {
+                isSpeaking = false
+                pendingAudioDone = false
+                speakingStartedAtMs = 0L
+                resetPlaybackBuffering()
+                bargeInLoudChunkCount = 0
+            }
 
             Log.d(TAG, "Enregistrement audio démarré")
 
@@ -185,10 +197,13 @@ class RealtimeAudioManager(
 
         isRecording = false
         isPlaybackActive = false
-        isSpeaking = false
-        pendingAudioDone = false
-        speakingStartedAtMs = 0L
-        bargeInLoudChunkCount = 0
+        synchronized(playbackLock) {
+            isSpeaking = false
+            pendingAudioDone = false
+            speakingStartedAtMs = 0L
+            resetPlaybackBuffering()
+            bargeInLoudChunkCount = 0
+        }
         recordingJob?.cancel()
         playbackJob?.cancel()
 
@@ -264,9 +279,16 @@ class RealtimeAudioManager(
      * Signale le début du playback IA — suspend l'envoi micro.
      */
     fun startSpeaking() {
-        isSpeaking = true
-        speakingStartedAtMs = System.currentTimeMillis()
-        bargeInLoudChunkCount = 0
+        synchronized(playbackLock) {
+            if (isSpeaking) {
+                return
+            }
+
+            isSpeaking = true
+            speakingStartedAtMs = System.currentTimeMillis()
+            resetPlaybackBuffering()
+            bargeInLoudChunkCount = 0
+        }
         Log.d(TAG, "IA commence à parler → micro en pause")
     }
 
@@ -275,24 +297,28 @@ class RealtimeAudioManager(
      * Le micro reprendra seulement quand la queue de playback sera entièrement vidée.
      */
     fun interruptPlayback() {
-        audioChunkQueue.clear()
-        pendingAudioDone = false
-        isSpeaking = false
-        speakingStartedAtMs = 0L
-        bargeInLoudChunkCount = 0
+        synchronized(playbackLock) {
+            audioChunkQueue.clear()
+            pendingAudioDone = false
+            isSpeaking = false
+            speakingStartedAtMs = 0L
+            resetPlaybackBuffering()
+            bargeInLoudChunkCount = 0
 
-        try {
-            audioTrack?.pause()
-            audioTrack?.flush()
-            audioTrack?.play()
-            Log.d(TAG, "Playback IA interrompu localement")
-        } catch (e: Exception) {
-            Log.e(TAG, "Erreur lors de l'interruption du playback IA", e)
+            try {
+                audioTrack?.pause()
+                audioTrack?.flush()
+                Log.d(TAG, "Playback IA interrompu localement")
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors de l'interruption du playback IA", e)
+            }
         }
     }
 
     fun markAudioDone() {
-        pendingAudioDone = true
+        synchronized(playbackLock) {
+            pendingAudioDone = true
+        }
         Log.d(TAG, "ResponseAudioDone reçu → en attente vidage de la queue avant de réactiver le micro")
     }
 
@@ -377,17 +403,25 @@ class RealtimeAudioManager(
                 val chunk = audioChunkQueue.poll(100, java.util.concurrent.TimeUnit.MILLISECONDS)
 
                 if (chunk != null) {
-                    // Joue le chunk (mode bloquant pour garantir la séquentialité)
-                    val written = audioTrack?.write(chunk, 0, chunk.size) ?: 0
-
-                    if (written < 0) {
-                        Log.e(TAG, "Erreur d'écriture AudioTrack: $written")
-                    }
+                    enqueueOrPlayChunk(chunk)
                 } else {
-                    // Queue vide : si le serveur a signalé la fin, on reprend le micro
-                    if (pendingAudioDone && isSpeaking) {
-                        isSpeaking = false
-                        pendingAudioDone = false
+                    var speakingFinished = false
+
+                    synchronized(playbackLock) {
+                        if (!playbackStarted && pendingAudioDone && prebufferedAudioChunks.isNotEmpty()) {
+                            startBufferedPlayback()
+                        }
+
+                        // Queue vide : si le serveur a signalé la fin, on reprend le micro
+                        if (pendingAudioDone && isSpeaking && prebufferedAudioChunks.isEmpty() && isPlaybackDrained()) {
+                            isSpeaking = false
+                            pendingAudioDone = false
+                            pausePlaybackUntilNextResponse()
+                            speakingFinished = true
+                        }
+                    }
+
+                    if (speakingFinished) {
                         Log.d(TAG, "Queue vidée après ResponseAudioDone → micro actif")
                         onSpeakingFinished?.invoke()
                     }
@@ -399,6 +433,85 @@ class RealtimeAudioManager(
                 Log.e(TAG, "Erreur lors du playback audio", e)
             }
         }
+    }
+
+    private fun enqueueOrPlayChunk(chunk: ShortArray) {
+        synchronized(playbackLock) {
+            if (!playbackStarted) {
+                prebufferedAudioChunks.add(chunk)
+                prebufferedSampleCount += chunk.size
+
+                if (prebufferedSampleCount >= playPrebufferSampleCount || pendingAudioDone) {
+                    startBufferedPlayback()
+                }
+                return
+            }
+
+            writeAudioChunk(chunk)
+        }
+    }
+
+    private fun startBufferedPlayback() {
+        if (playbackStarted) {
+            return
+        }
+
+        playbackStarted = true
+        playbackHeadStartSample = currentPlaybackHeadSample()
+        writtenPlaybackSamples = 0L
+        audioTrack?.play()
+
+        while (prebufferedAudioChunks.isNotEmpty()) {
+            writeAudioChunk(prebufferedAudioChunks.removeFirst())
+        }
+        prebufferedSampleCount = 0
+    }
+
+    private fun writeAudioChunk(chunk: ShortArray) {
+        val written = audioTrack?.write(chunk, 0, chunk.size) ?: 0
+
+        if (written > 0) {
+            writtenPlaybackSamples += written.toLong()
+        } else if (written < 0) {
+            Log.e(TAG, "Erreur d'écriture AudioTrack: $written")
+        }
+    }
+
+    private fun isPlaybackDrained(): Boolean {
+        if (!playbackStarted) {
+            return true
+        }
+
+        val currentPlaybackSample = currentPlaybackHeadSample()
+        val playedSamples = if (currentPlaybackSample >= playbackHeadStartSample) {
+            currentPlaybackSample - playbackHeadStartSample
+        } else {
+            (1L shl 32) - playbackHeadStartSample + currentPlaybackSample
+        }
+        return playedSamples >= writtenPlaybackSamples
+    }
+
+    private fun currentPlaybackHeadSample(): Long {
+        return Integer.toUnsignedLong(audioTrack?.playbackHeadPosition ?: 0)
+    }
+
+    private fun pausePlaybackUntilNextResponse() {
+        resetPlaybackBuffering()
+
+        try {
+            audioTrack?.pause()
+            audioTrack?.flush()
+        } catch (e: Exception) {
+            Log.e(TAG, "Erreur lors de la mise en pause du playback IA", e)
+        }
+    }
+
+    private fun resetPlaybackBuffering() {
+        prebufferedAudioChunks.clear()
+        prebufferedSampleCount = 0
+        playbackStarted = false
+        playbackHeadStartSample = 0L
+        writtenPlaybackSamples = 0L
     }
 
     /**
