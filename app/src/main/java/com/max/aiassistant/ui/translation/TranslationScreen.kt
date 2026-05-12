@@ -38,6 +38,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -302,11 +303,12 @@ private fun TranscriptPanel(
 ) {
     val listState = rememberLazyListState()
     val bottomAnchorKey = "transcript-bottom-anchor"
-    val lastLine = lines.lastOrNull()
+    val transcriptScrollKey = lines.joinToString(separator = "\u0001")
 
-    LaunchedEffect(lines.size, lastLine) {
+    LaunchedEffect(transcriptScrollKey) {
         if (lines.isNotEmpty()) {
-            listState.animateScrollToItem(lines.size)
+            withFrameNanos { }
+            listState.scrollToItem(lines.size)
         }
     }
 
