@@ -195,6 +195,26 @@ Tant qu'un bug bloquant ou majeur reste ouvert, le verdict reste `KO`.
 
 Pour toute demande qui implique du developpement, une correction, un refactor, une documentation versionnee, un deploiement ou une modification de fichiers :
 
+### Principe non negociable
+
+Toute modification versionnee doit etre faite sur une branche dediee creee depuis `main` a jour.
+
+Il est interdit de developper directement sur `main`, sur une branche ambigue, ou dans un worktree dont l'etat n'est pas clairement maitrise.
+
+Avant toute modification :
+
+1. Verifier que `main` est disponible et a jour avec `origin/main`.
+2. Creer une branche dediee depuis `main` a jour.
+3. Verifier `git status --short --branch`.
+4. Si le worktree est sale, s'arreter avant toute modification et securiser sans action destructive :
+   - ne pas reset ;
+   - ne pas checkout de fichiers modifies ;
+   - ne pas supprimer de fichiers non suivis ;
+   - creer un worktree separe depuis `main` si le travail doit continuer ;
+   - demander arbitrage si l'origine des changements est incertaine.
+
+Workflow complet obligatoire :
+
 1. Partir de `main` a jour.
 2. Si le worktree courant est sale, creer un `git worktree` separe depuis `main` avant toute modification.
 3. Creer une branche Git dediee avant la premiere modification, avec un nom explicite : `feature/...`, `fix/...`, `chore/...`, `docs/...` ou `codex/...`.
